@@ -1,0 +1,38 @@
+# Shared preparation profiles consumed by exports and dedicated training recipes.
+# Width and height are named explicitly to avoid W/H tuple ambiguity.
+# The SDK dataset is shared by the two V5 profiles.
+profiles:
+  tracknet_v3:
+    version: 3
+    input_width: 512
+    input_height: 288
+    sequence_length: 8
+    sequence_stride: 1
+    target_radius: 2.5
+    background_mode: ""
+
+  tracknet_v4:
+    version: 4
+    input_width: 512
+    input_height: 288
+    sequence_length: 3
+    sequence_stride: 1
+    target_radius: 2.5
+
+  tracknet_v5:
+    version: 5
+    input_width: 512
+    input_height: 288
+    sequence_length: 3
+    sequence_stride: 1
+    occlusion_augmentation: false
+    ball_present_weight: 1.0
+
+  tracknet_v5_totnet:
+    version: 5
+    input_width: 864
+    input_height: 480
+    sequence_length: 3
+    sequence_stride: 1
+    occlusion_augmentation: true
+    ball_present_weight: 2.0

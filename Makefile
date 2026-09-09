@@ -15,7 +15,11 @@ help:
 	@echo 'make export-ball  # Export all ball formats'
 	@echo 'make export-ball-yolo | export-ball-coco | export-ball-tracknet-totnet'
 	@echo 'make export-ball-tracknet-totnet TRACKNET_LAYOUTS=sdk,v3  # Optional reference layouts'
-	@echo 'make test-ball  # Annotation and export tests'
+	@echo 'make test-ball  # Annotation, export and training contract tests'
+	@echo 'make setup-ball-models  # Install pinned reference model sources'
+	@echo 'make train-ball-yolo | train-ball-tracknet-v3 | train-ball-tracknet-v4'
+	@echo 'make train-ball-tracknet-v5 | train-ball-tracknet-v5-totnet'
+	@echo 'Training options: PYTHON=/path/to/python CONFIG=recipe.yaml RESUME=checkpoint'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -36,3 +40,22 @@ export-ball-tracknet-totnet:
 
 test-ball:
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m unittest discover -s training/ball/tests -v
+
+# CONFIG selects an alternative recipe for any individual training command.
+CONFIG ?=
+RESUME ?=
+BALL_TRAIN = cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.train_
+BALL_TRAIN_ARGS = $(if $(CONFIG),--config "$(CONFIG)",) $(if $(RESUME),--resume "$(RESUME)",)
+.PHONY: train-ball-yolo train-ball-tracknet-v3 train-ball-tracknet-v4 train-ball-tracknet-v5 train-ball-tracknet-v5-totnet setup-ball-models
+train-ball-yolo:
+	$(BALL_TRAIN)yolo $(BALL_TRAIN_ARGS)
+train-ball-tracknet-v3:
+	$(BALL_TRAIN)tracknet_v3 $(BALL_TRAIN_ARGS)
+train-ball-tracknet-v4:
+	$(BALL_TRAIN)tracknet_v4 $(BALL_TRAIN_ARGS)
+train-ball-tracknet-v5:
+	$(BALL_TRAIN)tracknet_v5 $(BALL_TRAIN_ARGS)
+train-ball-tracknet-v5-totnet:
+	$(BALL_TRAIN)tracknet_v5_totnet $(BALL_TRAIN_ARGS)
+setup-ball-models:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.learning.references

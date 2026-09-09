@@ -1,0 +1,53 @@
+model: yolo
+dataset: exports/ball/yolo
+output: runs/ball
+epochs: 30
+batch_size: 2
+optimizer: AdamW
+learning_rate: 0.001
+weight_decay: 0.0005
+seed: 53
+device: cuda:0
+precision: amp
+workers: 4
+prefetch_factor: 2
+pin_memory: true
+cpu_threads: 4
+deterministic: true
+resume: null
+mlflow_uri: sqlite:///mlflow.db
+experiment: ball-training
+max_train_batches: null
+max_val_batches: null
+weights: yolo26m.pt
+input_width: 960
+input_height: 960
+sequence_length: 1
+sequence_stride: 1
+yolo:
+  # Disable optional implicit Albumentations defaults, even when the package is installed.
+  augmentations: []
+  pretrained: true
+  patience: 50
+  momentum: 0.937
+  lrf: 0.01
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.0
+  box: 7.5
+  cls: 0.5
+  dfl: 1.5
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+  copy_paste: 0.0
+  close_mosaic: 10

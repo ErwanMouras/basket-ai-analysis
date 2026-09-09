@@ -1,6 +1,19 @@
-numpy==2.4.4
-opencv-python-headless==4.11.0.86
+# Single project dependency manifest (annotation, export, training, and tests).
+# For PyTorch with CUDA, install the torch/torchvision build appropriate for
+# the machine first, then install this file. The installed CUDA build is kept
+# when it matches the versions below.
+numpy==2.2.6
+opencv-python==4.11.0.86
 Pillow==12.2.0
 PyYAML==6.0.3
-
+pandas==2.3.3
+matplotlib==3.10.8
+pytest==9.1.1
 dvc[s3]==3.67.1
+
+# Training and experiment tracking.
+torch==2.11.0
+torchvision==0.26.0
+ultralytics==8.4.39
+tensorflow-cpu==2.20.0
+mlflow==3.11.1
