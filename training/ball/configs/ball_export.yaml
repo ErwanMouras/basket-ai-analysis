@@ -1,0 +1,24 @@
+# Physical dataset settings. Network input dimensions belong in ball_training.yaml.
+image_format: jpg
+jpeg_quality: 95
+resize_width: null
+resize_height: null
+resize_mode: letterbox
+
+# An unknown position is not proof that the image contains no ball.
+# Use "empty" explicitly to reproduce NBA's empty-label/empty-heatmap convention.
+unknown_position: exclude
+# "exclude" omits the known occluded position, keeping the frame with an empty target.
+occluded_position: include
+
+# The first directory below datas/ is authoritative. Test is opt-in.
+splits: [train, val]
+
+# sdk: common V4/V5 SDK and V5 + TOTNet ideas.
+# v3: PNG frames and per-segment CSVs for the reference V3 loader.
+# v4: prepared NumPy arrays for the reference TensorFlow V4 loader (large).
+tracknet_layouts: [sdk]
+
+# SDK binary targets: NBA's quantized Gaussian support, in exported-image pixels.
+heatmap_radius: 40
+heatmap_variance: 10.0

@@ -21,3 +21,4 @@ htmlcov/
 *.onnx
 *.engine
 /datas
+/exports/
