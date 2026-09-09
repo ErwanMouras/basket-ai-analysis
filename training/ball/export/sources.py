@@ -12,7 +12,8 @@ import numpy as np
 from training.ball.annotator.model import Annotation, Store, VideoMeta
 from training.ball.annotator.video import VideoReader
 
-from .config import SPLITS, ExportConfig, read_yaml
+from .config import ExportConfig
+from .metadata import audit_sources
 
 
 def file_hash(path: Path) -> str:
@@ -99,35 +100,28 @@ def include_annotation(ann: Annotation, config: ExportConfig) -> bool:
     return True
 
 
-def discover(root: Path, config: ExportConfig) -> tuple[list[Clip], list[dict]]:
+def discover(root: Path, config: ExportConfig) -> tuple[list[Clip], list[dict], dict]:
     clips, excluded = [], []
-    seen_videos, seen_groups = {}, {}
-    for sidecar in sorted(root.rglob("*.ballann.json")):
+    sources, checks = audit_sources(root, file_hash)
+    for video, source in sources.items():
+        sidecar = video.with_name(video.name + ".ballann.json")
         relative = sidecar.relative_to(root)
-        split = relative.parts[0]
-        if split not in SPLITS or len(relative.parts) < 2:
-            raise ValueError(
-                f"Place annotations under train/, val/ or test/: {relative}"
-            )
-        if split not in config.splits:
+        split = source["split"]
+        if not sidecar.resolve().is_relative_to(root):
+            raise ValueError(f"Source symlink leaves the dataset root: {sidecar}")
+        checks[sidecar] = file_hash(sidecar) if sidecar.exists() else None
+        if split not in config.splits or not sidecar.exists():
             excluded.append(
-                {"sidecar": relative.as_posix(), "reason": "split_not_selected"}
+                {
+                    **source,
+                    "sidecar": relative.as_posix(),
+                    "reason": "split_not_selected"
+                    if split not in config.splits
+                    else "no_annotations",
+                }
             )
             continue
-        video = sidecar.with_name(sidecar.name.removesuffix(".ballann.json"))
-        for path in (sidecar, video):
-            if not path.resolve().is_relative_to(root):
-                raise ValueError(f"Source symlink leaves the dataset root: {path}")
-        metadata_path = video.with_name(video.name + ".meta.yaml")
-        metadata_hash = None
-        if metadata_path.exists():
-            metadata_hash = file_hash(metadata_path)
-            metadata = read_yaml(metadata_path)
-            if metadata.get("split") not in (None, split):
-                raise ValueError(
-                    f"Split conflict in {metadata_path}: directory says {split}"
-                )
-        sidecar_hash = file_hash(sidecar)
+        sidecar_hash = checks[sidecar]
         reader = VideoReader(video)
         try:
             store = Store(reader.meta)
@@ -140,15 +134,6 @@ def discover(root: Path, config: ExportConfig) -> tuple[list[Clip], list[dict]]:
                 )
         finally:
             reader.close()
-        video_hash = file_hash(video)
-        group = Path(*relative.parts[1:-1]).as_posix()
-        # Identical content or the same match directory cannot cross split boundaries.
-        for seen, key in ((seen_videos, video_hash), (seen_groups, group)):
-            if key != "." and key in seen and seen[key] != split:
-                raise ValueError(
-                    f"Source or match occurs in multiple splits: {relative}"
-                )
-            seen[key] = split
         if sidecar_hash != file_hash(sidecar):
             raise ValueError(f"Annotations changed while being read: {sidecar}")
         clip_id = "clip_" + object_hash(Path(*relative.parts[1:]).as_posix())[:16]
@@ -170,14 +155,10 @@ def discover(root: Path, config: ExportConfig) -> tuple[list[Clip], list[dict]]:
                 selected,
                 geometry,
                 {
+                    **source,
                     "clip_id": clip_id,
-                    "video": video.relative_to(root).as_posix(),
                     "sidecar": relative.as_posix(),
-                    "split": split,
-                    "group": group,
-                    "video_sha256": video_hash,
                     "sidecar_sha256": sidecar_hash,
-                    "metadata_sha256": metadata_hash,
                     "video_metadata": {
                         key: value
                         for key, value in asdict(store.meta).items()
@@ -192,7 +173,7 @@ def discover(root: Path, config: ExportConfig) -> tuple[list[Clip], list[dict]]:
         )
     if not clips or not any(clip.annotations for clip in clips):
         raise ValueError("No frames match the selected splits and annotation policies")
-    return clips, excluded
+    return clips, excluded, checks
 
 
 def frame_record(clip: Clip, index: int, config: ExportConfig) -> dict:
@@ -216,6 +197,8 @@ def frame_record(clip: Clip, index: int, config: ExportConfig) -> dict:
         box = [x1, y1, x2 - x1, y2 - y1]
     return {
         "clip_id": clip.clip_id,
+        "match_id": clip.provenance["match_id"],
+        "venue_id": clip.provenance["venue_id"],
         "split": clip.split,
         "frame_index": index,
         "timestamp_seconds": index / clip.meta.fps,

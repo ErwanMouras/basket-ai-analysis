@@ -5,6 +5,8 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from dataclasses import asdict, replace
@@ -46,6 +48,14 @@ def create_clip(root, relative="train/game/video.avi", seed=0, annotations=None)
                 "annotations": {
                     str(index): asdict(ann) for index, ann in annotations.items()
                 },
+            }
+        )
+    )
+    video.with_name(video.name + ".meta.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "match_id": "/".join(Path(relative).parts[1:-1]) or video.stem,
+                "split": Path(relative).parts[0],
             }
         )
     )
@@ -326,6 +336,138 @@ class ExportTests(unittest.TestCase):
         shutil.copyfile(self.video, other)
         with self.assertRaisesRegex(ValueError, "multiple splits"):
             self.export()
+
+    def test_match_identity_is_inherited_and_preserved_in_manifest_and_frames(self):
+        self.video.with_name(self.video.name + ".meta.yaml").unlink()
+        match_path = self.video.parent / "match.yaml"
+        match_path.write_text("match_id: match-001\nvenue_id: arena-a\n")
+        self.export(formats=("yolo",))
+        source = self.manifest("yolo")["sources"][0]
+        self.assertEqual(
+            (source["match_id"], source["venue_id"]), ("match-001", "arena-a")
+        )
+        self.assertEqual(
+            source["identity_metadata"][0]["path"], "train/game/match.yaml"
+        )
+        self.assertEqual(len(source["identity_metadata"][0]["sha256"]), 64)
+        self.assertIsNone(self.manifest("yolo")["sources"][1]["venue_id"])
+        frame = json.loads(
+            (self.output / "yolo/frames.jsonl").read_text().splitlines()[0]
+        )
+        self.assertEqual(
+            (frame["match_id"], frame["venue_id"]), ("match-001", "arena-a")
+        )
+
+    def test_different_clips_of_one_match_cannot_cross_any_split(self):
+        for split, annotated in (("val", True), ("test", True), ("test", False)):
+            with self.subTest(split=split, annotated=annotated):
+                video, sidecar = create_clip(
+                    self.source, f"{split}/renamed/later.avi", seed=9
+                )
+                video.with_name(video.name + ".meta.yaml").write_text(
+                    "match_id: game\n"
+                )
+                if not annotated:
+                    sidecar.unlink()
+                try:
+                    with self.assertRaisesRegex(
+                        ValueError, "Match occurs in multiple splits"
+                    ):
+                        self.export()
+                    self.assertFalse((self.output / "yolo").exists())
+                finally:
+                    shutil.rmtree(video.parent)
+
+    def test_duplicate_content_in_unselected_test_without_annotations_is_rejected(self):
+        video, sidecar = create_clip(self.source, "test/held_out/video.avi", seed=8)
+        sidecar.unlink()
+        shutil.copyfile(self.video, video)
+        with self.assertRaisesRegex(
+            ValueError, "Video content occurs in multiple splits"
+        ):
+            self.export()
+
+    def test_multiple_clips_of_one_match_within_train_are_allowed(self):
+        video, _ = create_clip(self.source, "train/renamed/second.avi", seed=9)
+        video.with_name(video.name + ".meta.yaml").write_text("match_id: game\n")
+        self.export(formats=("yolo",))
+        sources = self.manifest("yolo")["sources"]
+        self.assertEqual(sum(source["match_id"] == "game" for source in sources), 2)
+        self.assertEqual(self.manifest("yolo")["frame_counts"]["train"], 18)
+
+    def test_missing_or_conflicting_identity_is_rejected(self):
+        metadata = self.video.with_name(self.video.name + ".meta.yaml")
+        metadata.write_text("split: train\n")
+        with self.assertRaisesRegex(ValueError, "Missing match_id"):
+            self.export()
+        match_path = self.video.parent / "match.yaml"
+        match_path.write_text("match_id: game\nvenue_id: arena-a\n")
+        for text, error in (
+            ("match_id: different\n", "Conflicting match_id"),
+            ("match_id: game\nvenue_id: arena-b\n", "Conflicting venue_id"),
+            ("match_id: 42\n", "match_id must be"),
+        ):
+            with self.subTest(text=text):
+                metadata.write_text(text)
+                with self.assertRaisesRegex(ValueError, error):
+                    self.export()
+
+    def test_holdout_identity_edits_during_export_abort_publication(self):
+        from training.ball.export.dataset import write_yolo
+
+        video, _ = create_clip(self.source, "test/held_out/video.avi", seed=8)
+        metadata = video.with_name(video.name + ".meta.yaml")
+
+        def edit_metadata(*args):
+            metadata.write_text("match_id: game\n")
+            return write_yolo(*args)
+
+        with patch(
+            "training.ball.export.dataset.write_yolo", side_effect=edit_metadata
+        ):
+            with self.assertRaisesRegex(ValueError, "Source changed"):
+                self.export()
+        self.assertFalse((self.output / "yolo").exists())
+
+    def test_resolved_yaml_captures_defaults_and_cli_overrides_and_is_verified(self):
+        config_path = self.root / "minimal.yaml"
+        config_path.write_text("jpeg_quality: 90\n")
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "training.ball.export",
+                "--source",
+                str(self.source),
+                "--output",
+                str(self.output),
+                "--config",
+                str(config_path),
+                "--tracknet-layouts",
+                "v3",
+                "--format",
+                "coco",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        root = self.output / "coco"
+        resolved_path = root / "export_config.resolved.yaml"
+        resolved = ExportConfig.from_file(resolved_path)
+        self.assertEqual(resolved.jpeg_quality, 90)
+        self.assertEqual(resolved.tracknet_layouts, ["v3"])
+        self.assertEqual(resolved.unknown_position, "exclude")
+        self.assertEqual(
+            len(yaml.safe_load(resolved_path.read_text())), len(self.config.to_dict())
+        )
+        audit = json.loads((root / "split_audit.json").read_text())
+        self.assertEqual(audit["splits_checked"], ["train", "val", "test"])
+        self.assertEqual(len(audit["sources"]), 2)
+        verify_dataset(root)
+        resolved_path.write_text(resolved_path.read_text().replace("90", "91"))
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+            verify_dataset(root)
 
     def test_missing_split_and_bad_metadata_fail_before_writing(self):
         create_clip(self.source, "unsplit/video.avi", seed=20)

@@ -12,12 +12,14 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import yaml
 
 from training.ball.annotator.video import VideoReader
 
 from .config import FORMATS, ExportConfig, training_profile
 from .detection import write_coco, write_yolo
 from .files import link_or_copy, write_image, write_json, write_jsonl
+from .metadata import source_videos
 from .sources import continuous_segments, discover, file_hash, frame_record, object_hash
 from .temporal import triplets, write_sdk, write_v3, write_v4
 
@@ -134,7 +136,10 @@ def export_dataset(
         progress(
             "Validating source annotations, folder splits and video fingerprints..."
         )
-        clips, excluded = discover(source_root, config)
+        clips, excluded, source_checks = discover(source_root, config)
+        audited_videos = {clip.video for clip in clips} | {
+            source_root / source["video"] for source in excluded
+        }
         clip_records = [
             [frame_record(clip, index, config) for index in clip.annotations]
             for clip in clips
@@ -227,22 +232,25 @@ def export_dataset(
                     if "v4" in config.tracknet_layouts:
                         report["v4_samples"] = write_v4(root, clip_records, profile)
                 write_jsonl(root / "frames.jsonl", records)
+                (root / "export_config.resolved.yaml").write_text(
+                    yaml.safe_dump(config.to_dict(), sort_keys=False), encoding="utf-8"
+                )
+                write_json(
+                    root / "split_audit.json",
+                    {
+                        "splits_checked": ["train", "val", "test"],
+                        "sources": provenance + excluded,
+                    },
+                )
                 reports[name] = report
 
             # Catch source edits during extraction; never publish a mixed version.
-            for clip in clips:
-                checks = {
-                    clip.video: clip.provenance["video_sha256"],
-                    clip.sidecar: clip.provenance["sidecar_sha256"],
-                }
-                metadata = clip.video.with_name(clip.video.name + ".meta.yaml")
-                if clip.provenance["metadata_sha256"] is not None:
-                    checks[metadata] = clip.provenance["metadata_sha256"]
-                elif metadata.exists():
-                    raise ValueError(f"Metadata appeared during export: {metadata}")
-                for path, digest in checks.items():
-                    if file_hash(path) != digest:
-                        raise ValueError(f"Source changed during export: {path}")
+            if set(source_videos(source_root)) != audited_videos:
+                raise ValueError("Source videos changed during export")
+            for path, digest in source_checks.items():
+                current = file_hash(path) if path.exists() else None
+                if current != digest:
+                    raise ValueError(f"Source changed during export: {path}")
 
             # Reuse hashes of hard-linked images across formats.
             hash_cache = {}
@@ -288,6 +296,8 @@ def export_dataset(
                     "sources": provenance,
                     "excluded_sources": excluded,
                     "frames": "frames.jsonl",
+                    "resolved_config": "export_config.resolved.yaml",
+                    "split_audit": "split_audit.json",
                     "artifacts": "artifacts.jsonl",
                     "artifacts_sha256": file_hash(root / "artifacts.jsonl"),
                     "frame_counts": dict(Counter(r["split"] for r in records)),

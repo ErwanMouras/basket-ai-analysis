@@ -12,7 +12,7 @@ BALL_EXPORT = cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.export --source "
 
 help:
 	@echo 'make annotate-ball VIDEO="/path/to/clip.mp4"'
-	@echo 'make export-ball  # Export all ball formats; alias: make export'
+	@echo 'make export-ball  # Export all ball formats'
 	@echo 'make export-ball-yolo | export-ball-coco | export-ball-tracknet-totnet'
 	@echo 'make export-ball-tracknet-totnet TRACKNET_LAYOUTS=sdk,v3  # Optional reference layouts'
 	@echo 'make test-ball  # Annotation and export tests'
