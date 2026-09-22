@@ -21,6 +21,8 @@ help:
 	@echo 'make train-ball-tracknet-v5 | train-ball-tracknet-v5-totnet'
 	@echo 'Training options: PYTHON=/path/to/python CONFIG=recipe.yaml RESUME=checkpoint'
 	@echo 'make evaluate-ball CHECKPOINT=runs/ball/<run>/best.pt [CONFIG=evaluation.yaml]'
+	@echo 'make test-players  # Player contracts and shared infrastructure (CPU)'
+	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -65,3 +67,10 @@ CHECKPOINT ?=
 .PHONY: evaluate-ball
 evaluate-ball:
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.evaluation $(if $(CONFIG),--config "$(CONFIG)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
+
+.PHONY: test-players test-players-mlflow
+test-players:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m unittest discover -s training/players/tests -v
+
+test-players-mlflow:
+	cd "$(ROOT_DIR)" && PLAYERS_MLFLOW_TESTS=1 "$(PYTHON)" -m unittest training.players.tests.test_tracking -v

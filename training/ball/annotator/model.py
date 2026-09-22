@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import math
-import os
-import tempfile
+import os as os  # Retained for callers instrumenting atomic replacement.
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+
+from training.common.files import write_bytes
 
 
 @dataclass(frozen=True)
@@ -166,22 +167,7 @@ class Store:
         content = (
             json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
         ).encode("utf-8")
-        temporary = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                dir=self.path.parent,
-                prefix=self.path.name + ".",
-                suffix=".tmp",
-                delete=False,
-            ) as handle:
-                temporary = Path(handle.name)
-                handle.write(content)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(temporary, self.path)
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
+        write_bytes(self.path, content)
         # Commit in-memory state only after a successful write.
         self.annotations = annotations
         self.default_radius = radius

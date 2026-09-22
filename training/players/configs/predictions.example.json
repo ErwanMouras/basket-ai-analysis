@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "artifact_type": "players_predictions",
+  "source": {
+    "source_id": "demo-clip",
+    "kind": "video",
+    "path": "train/demo/clip.mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "width": 1280,
+    "height": 720,
+    "frame_count": 100,
+    "fps": 25.0,
+    "match_id": "demo-match",
+    "venue_id": null,
+    "split": "train"
+  },
+  "model": {
+    "family": "yolo",
+    "checkpoint_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "training_run_id": null,
+    "inference_config": {
+      "input_width": 640,
+      "confidence_threshold": 0.25
+    }
+  },
+  "frames": [
+    {
+      "frame_index": 0,
+      "detections": [
+        {
+          "class_id": 0,
+          "bbox": [
+            10.0,
+            20.0,
+            110.0,
+            220.0
+          ],
+          "confidence": 0.9
+        }
+      ]
+    },
+    {
+      "frame_index": 1,
+      "detections": []
+    }
+  ]
+}

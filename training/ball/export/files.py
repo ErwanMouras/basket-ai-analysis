@@ -1,27 +1,14 @@
 """File helpers shared by the dataset writers."""
 
 import csv
-import json
 import os
 import shutil
 from pathlib import Path
 
 import cv2
 
-
-def write_json(path: Path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-
-
-def write_jsonl(path: Path, rows):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            handle.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+from training.common.files import write_json as write_json
+from training.common.files import write_jsonl as write_jsonl
 
 
 def write_csv(path: Path, columns: list[str], rows):

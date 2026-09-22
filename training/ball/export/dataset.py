@@ -177,9 +177,11 @@ def export_dataset(
             Path(__file__).parents[1] / "annotator" / name
             for name in ("model.py", "video.py")
         ]
+        # Shared code is part of the exporter identity after extraction.
+        code_paths += sorted((Path(__file__).parents[2] / "common").glob("*.py"))
         code_hash = object_hash(
             {
-                path.relative_to(Path(__file__).parents[1]).as_posix(): file_hash(path)
+                os.path.relpath(path, Path(__file__).parents[1]): file_hash(path)
                 for path in code_paths
             }
         )

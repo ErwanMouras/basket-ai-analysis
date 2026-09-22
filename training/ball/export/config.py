@@ -4,18 +4,10 @@ import math
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
-import yaml
+from training.common.config import SPLITS, read_yaml
 
 FORMATS = ("yolo", "coco", "tracknet-totnet")
 LAYOUTS = ("sdk", "v3", "v4")
-SPLITS = ("train", "val", "test")
-
-
-def read_yaml(path: Path) -> dict:
-    value = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"Expected a YAML mapping in {path}")
-    return value
 
 
 @dataclass(frozen=True)

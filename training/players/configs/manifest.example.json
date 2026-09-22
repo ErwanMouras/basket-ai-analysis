@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "artifact_type": "players_dataset_export",
+  "dataset_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "export_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "format": "yolo",
+  "classes": {
+    "0": "player"
+  },
+  "splits": [
+    "train"
+  ],
+  "sources": [
+    {
+      "source": {
+        "source_id": "demo-clip",
+        "kind": "video",
+        "path": "train/demo/clip.mp4",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "width": 1280,
+        "height": 720,
+        "frame_count": 100,
+        "fps": 25.0,
+        "match_id": "demo-match",
+        "venue_id": null,
+        "split": "train"
+      },
+      "annotations_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ],
+  "parameters": {
+    "resize_mode": "letterbox"
+  },
+  "artifacts": {
+    "images/train/demo/000000.jpg": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "labels/train/demo/000000.txt": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "provenance": [
+    {
+      "kind": "manual",
+      "reference": "synthetic-example"
+    }
+  ]
+}

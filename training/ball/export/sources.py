@@ -1,7 +1,5 @@
 """Validate source clips and keep frame geometry explicit through resizing."""
 
-import hashlib
-import json
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -11,19 +9,10 @@ import numpy as np
 
 from training.ball.annotator.model import Annotation, Store, VideoMeta
 from training.ball.annotator.video import VideoReader
+from training.common.provenance import file_hash, object_hash
 
 from .config import ExportConfig
 from .metadata import audit_sources
-
-
-def file_hash(path: Path) -> str:
-    with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha256").hexdigest()
-
-
-def object_hash(value) -> str:
-    data = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
-    return hashlib.sha256(data.encode()).hexdigest()
 
 
 @dataclass(frozen=True)

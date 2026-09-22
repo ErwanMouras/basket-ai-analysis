@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "artifact_type": "players_annotations",
+  "source": {
+    "source_id": "demo-clip",
+    "kind": "video",
+    "path": "train/demo/clip.mp4",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "width": 1280,
+    "height": 720,
+    "frame_count": 100,
+    "fps": 25.0,
+    "match_id": "demo-match",
+    "venue_id": null,
+    "split": "train"
+  },
+  "provenance": [
+    {
+      "kind": "manual",
+      "reference": "synthetic-example"
+    }
+  ],
+  "frames": [
+    {
+      "frame_index": 0,
+      "review_status": "verified",
+      "boxes": [
+        {
+          "object_id": "box-1",
+          "class_id": 0,
+          "bbox": [
+            10.0,
+            20.0,
+            110.0,
+            220.0
+          ],
+          "occluded": false,
+          "truncated": null
+        }
+      ]
+    },
+    {
+      "frame_index": 1,
+      "review_status": "verified",
+      "boxes": []
+    },
+    {
+      "frame_index": 2,
+      "review_status": "unannotated",
+      "boxes": []
+    }
+  ]
+}
