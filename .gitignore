@@ -22,3 +22,11 @@ htmlcov/
 *.engine
 /datas
 /exports/
+
+# Training environments, pinned checkouts, checkpoints and local MLflow
+.venv-ball-*/
+/.external/
+/runs/
+/mlruns/
+/mlartifacts/
+/mlflow.db*

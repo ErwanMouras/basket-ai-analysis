@@ -106,6 +106,11 @@ class TorchTrainingTests(unittest.TestCase):
         actual = SDKDataset(config, "train")[0]
         self.torch.testing.assert_close(reference["image"], actual["image"])
         self.torch.testing.assert_close(reference["target"], actual["target"])
+        from training.ball.evaluation.inference import SDKFrames
+
+        inference = SDKFrames(Path(config["dataset"]), config["geometry"])
+        validation = SDKDataset(config, "val")
+        self.torch.testing.assert_close(inference[0], validation[0]["image"])
 
     def test_occlusion_keeps_target_and_flip_crop_keep_coordinate_geometry(self):
         from training.ball.learning.totnet import (

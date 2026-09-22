@@ -160,9 +160,6 @@ class TripletPhotometricAugment:
         jpeg: dict | None = None,
         seed: int | None = None,
     ) -> None:
-        import cv2  # local import to keep module import light
-
-        self._cv2 = cv2
         self.brightness = brightness
         self.contrast = contrast
         self.hue_saturation = hue_saturation
@@ -175,7 +172,8 @@ class TripletPhotometricAugment:
         return sub is not None and self._rng.random() < float(sub.get("prob", 0.0))
 
     def __call__(self, results: dict) -> dict:
-        cv2 = self._cv2
+        import cv2
+
         frames = {key: results[key] for key in _FRAME_KEYS if key in results}
         if not frames:
             return results
@@ -318,14 +316,11 @@ class TripletRandomZoomCrop:
         target_key: str = "target",
         seed: int | None = None,
     ) -> None:
-        import cv2
-
         if not 0.0 <= prob <= 1.0:
             raise ValueError("prob must be in [0, 1]")
         low, high = float(scale_range[0]), float(scale_range[1])
         if not 0.2 <= low <= high <= 1.0:
             raise ValueError("scale_range must satisfy 0.2 <= low <= high <= 1.0")
-        self._cv2 = cv2
         self.prob = prob
         self.scale_range = (low, high)
         self.coord_width = coord_width
@@ -378,7 +373,8 @@ class TripletRandomZoomCrop:
         ox = _offset(anchor[0] if anchor else None)
         oy = _offset(anchor[1] if anchor else None)
 
-        cv2 = self._cv2
+        import cv2
+
         height, width = image.shape[:2]
         x0, y0 = round(ox * width), round(oy * height)
         x1, y1 = round((ox + scale) * width), round((oy + scale) * height)

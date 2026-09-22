@@ -71,6 +71,9 @@ def loader(dataset, config, epoch, training):
     }
     if config["workers"]:
         options["prefetch_factor"] = config["prefetch_factor"]
+        # Fresh processes avoid inheriting thread locks from CUDA/OpenCV after
+        # validation when workers are recreated for the next training epoch.
+        options["multiprocessing_context"] = "spawn"
     # Recreate workers per epoch so augmentation RNGs also resume at epoch boundaries.
     return DataLoader(dataset, **options)
 

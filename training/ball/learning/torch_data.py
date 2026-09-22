@@ -13,6 +13,17 @@ from .data import checked_path, sdk_samples, v3_samples
 FRAME_KEYS = ("path_prev", "path", "path_next")
 
 
+def sdk_resize_triplet(images, width, height):
+    """RGB triplet resize shared by training and inference."""
+    return np.concatenate(
+        [cv2.resize(image, (width, height)) for image in images], axis=2
+    )
+
+
+def image_tensor(image):
+    return torch.from_numpy(image.transpose(2, 0, 1).copy()).float() / 255
+
+
 class SDKDataset(Dataset):
     def __init__(self, config, split, augmentation=None):
         self.root = Path(config["dataset"])
@@ -63,15 +74,12 @@ class SDKDataset(Dataset):
             targets.append(target)
         if self.augmentation:
             result = self.augmentation.before_resize(result)
-        result["image"] = np.concatenate(
-            [cv2.resize(result[key], (w, h)) for key in FRAME_KEYS], axis=2
-        )
+        result["image"] = sdk_resize_triplet([result[key] for key in FRAME_KEYS], w, h)
         result["target"] = torch.from_numpy(np.stack(targets).astype(np.float32))
         if self.augmentation:
             result = self.augmentation.after_resize(result)
         return {
-            "image": torch.from_numpy(result["image"].transpose(2, 0, 1).copy()).float()
-            / 255,
+            "image": image_tensor(result["image"]),
             "target": result["target"],
         }
 

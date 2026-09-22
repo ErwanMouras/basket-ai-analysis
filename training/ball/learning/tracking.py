@@ -71,9 +71,12 @@ def tracked_run(config, manifest):
             "export_id": config["export_id"],
             "git.revision": git["revision"],
             "git.dirty": str(git["dirty"]),
-            "purpose": "smoke"
-            if config["max_train_batches"] or config["max_val_batches"]
-            else "training",
+            "purpose": config.get("purpose")
+            or (
+                "smoke"
+                if config.get("max_train_batches") or config.get("max_val_batches")
+                else "training"
+            ),
         },
     )
     run_id = run.info.run_id
@@ -141,6 +144,7 @@ def log_metrics(client, run_id, values, epoch):
 def source_fingerprints():
     files = list((ROOT / "training/ball/learning").glob("*.py"))
     files += list((ROOT / "training/ball").glob("train_*.py"))
+    files += list((ROOT / "training/ball/evaluation").glob("*.py"))
     return {
         path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(files)

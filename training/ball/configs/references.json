@@ -1,0 +1,5 @@
+{
+  "tracknet_v3": {"url": "https://github.com/qaz812345/TrackNetV3.git", "revision": "6eda442ada1740573f200f836d93edc9a541ee86"},
+  "tracknet_v4": {"url": "https://github.com/TrackNetV4/TrackNetV4.git", "revision": "cb7eea7988474771ceac7e880bbffc35bfa87bca"},
+  "tracknet_v5": {"url": "https://github.com/codelancera-offical/TrackNetV5-SDK.git", "revision": "779d78f487b63cd76076f8deab27f42dcd4d8930"}
+}

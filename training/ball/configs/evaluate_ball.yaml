@@ -1,0 +1,24 @@
+checkpoint: null
+dataset: exports/ball/tracknet-totnet
+output: runs/ball/evaluation
+split: val
+device: cuda:0
+precision: fp32
+batch_size: 2
+workers: 4
+prefetch_factor: 2
+pin_memory: true
+cpu_threads: 4
+seed: 53
+deterministic: true
+reference_root: .external/tracknet_v5
+threshold: 0.5
+tolerance_px: 15.0
+tolerance_space: source
+# Unknown position is not evidence that the ball is absent.
+# 'negative' explicitly evaluates these frames as empty targets.
+unknown_position: ignore
+videos: true
+video_max_width: 1280
+mlflow_uri: sqlite:///mlflow.db
+experiment: ball-evaluation

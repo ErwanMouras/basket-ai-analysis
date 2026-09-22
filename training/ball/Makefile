@@ -8,3 +8,7 @@ help annotate-ball export-ball export-ball-yolo export-ball-coco export-ball-tra
 .PHONY: train-ball-yolo train-ball-tracknet-v3 train-ball-tracknet-v4 train-ball-tracknet-v5 train-ball-tracknet-v5-totnet setup-ball-models
 train-ball-yolo train-ball-tracknet-v3 train-ball-tracknet-v4 train-ball-tracknet-v5 train-ball-tracknet-v5-totnet setup-ball-models:
 	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: evaluate-ball
+evaluate-ball:
+	$(MAKE) -C "$(ROOT_DIR)" $@
