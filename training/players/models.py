@@ -147,7 +147,7 @@ class Detector:
             "source_class": source_class,
         }
 
-    def predict(self, image, *, confidence=0.25):
+    def predict(self, image, *, confidence=0.25, max_detections=None, square=False):
         if (
             not isinstance(image, np.ndarray)
             or image.ndim != 3
@@ -157,6 +157,10 @@ class Detector:
             raise ValueError("Expected a uint8 BGR image")
         if type(confidence) not in (int, float) or not 0 <= confidence <= 1:
             raise ValueError("confidence must be in [0, 1]")
+        if max_detections is not None and (
+            type(max_detections) is not int or max_detections < 1
+        ):
+            raise ValueError("max_detections must be a positive integer")
         if self.family == "yolo":
             import torch
 
@@ -167,6 +171,8 @@ class Detector:
                 device=torch.device(self.device),
                 classes=[self.source_class],
                 verbose=False,
+                **({"max_det": max_detections, "half": False, "rect": not square}
+                   if max_detections is not None else {}),
             )[0]
             boxes, scores = (
                 result.boxes.xyxy.cpu().numpy(),
@@ -188,6 +194,8 @@ class Detector:
                 detections.append(
                     {"class_id": 0, "bbox": box, "confidence": float(score)}
                 )
+        if max_detections is not None:
+            detections = sorted(detections, key=lambda d: -d["confidence"])[:max_detections]
         return detections
 
 

@@ -27,6 +27,7 @@ help:
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
+	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -121,3 +122,14 @@ train-players-rfdetr:
 
 test-players-training:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_training_integration -v
+
+.PHONY: evaluate-players compare-players test-players-evaluation
+evaluate-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.evaluation evaluate --config "$(if $(CONFIG),$(CONFIG),training/players/configs/evaluate_yolo.yaml)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
+
+# RUNS is a space-separated list of local evaluation run directories.
+compare-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.evaluation compare $(RUNS) --output "$(if $(REPORT_OUTPUT),$(REPORT_OUTPUT),runs/players/comparison)" $(if $(INCLUDE_SMOKE),--include-smoke,)
+
+test-players-evaluation:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_evaluation -v

@@ -1,0 +1,23 @@
+model: yolo
+variant: yolo26n
+weights: models/players/yolo26n.pt
+reference: "Local COCO pretrained weights; replace with actual source/version"
+source_class: 0
+dataset: exports/players/coco
+split: val
+output: runs/players/evaluation
+device: cpu
+precision: fp32
+resolution: 640
+cpu_threads: 4
+score_floor: 0.001
+score_threshold: 0.25
+iou_threshold: 0.5
+max_detections: 100
+warmup: 5
+repeats: 3
+max_images: null
+max_examples: 20
+purpose: evaluation
+frozen_recipe: null
+mlflow_uri: sqlite:///mlflow.db

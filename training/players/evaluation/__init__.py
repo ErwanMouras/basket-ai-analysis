@@ -1,1 +1,1 @@
-"""Player prediction contracts; evaluation is planned for phase 5."""
+"""Common COCO player evaluation, source-coordinate review and strict comparison."""

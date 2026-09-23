@@ -26,6 +26,7 @@ htmlcov/
 
 # Training environments, pinned checkouts, checkpoints and local MLflow
 .venv-ball-*/
+.venv-players*/
 /.external/
 /runs/
 /mlruns/
