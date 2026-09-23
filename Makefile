@@ -25,6 +25,7 @@ help:
 	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
 	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
+	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -98,3 +99,12 @@ annotate-players:
 preannotate-players:
 	@test -n "$(MEDIA)" || { echo 'MEDIA (or VIDEO) is required' >&2; exit 2; }
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator.preannotate $(PLAYERS_ANNOTATION_ARGS) --player-class "$(PLAYER_CLASS)" --device "$(PLAYER_DEVICE)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(CACHE),--cache "$(CACHE)",) $(if $(CACHE_VIDEO_SHA256),--cache-video-sha256 "$(CACHE_VIDEO_SHA256)",)
+
+PLAYERS_OUTPUT ?= exports/players
+PLAYERS_EXPORT_CONFIG ?= training/players/configs/players_export.yaml
+.PHONY: export-players verify-players-export
+export-players:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.export --source "$(PLAYERS_ROOT)" --output "$(PLAYERS_OUTPUT)" --config "$(PLAYERS_EXPORT_CONFIG)"
+
+verify-players-export:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.export --output "$(PLAYERS_OUTPUT)" --verify

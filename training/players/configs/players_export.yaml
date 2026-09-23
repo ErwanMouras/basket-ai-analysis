@@ -1,0 +1,10 @@
+# Only reviewed local player annotations; both formats are always published.
+splits: [train, val]
+image_format: png
+jpeg_quality: 95
+# Leave null to preserve native dimensions; physical resize is optional.
+resize_width: null
+resize_height: null
+resize_mode: letterbox
+# Require venue_id everywhere and disallow cross-split venues when enabled.
+split_by_venue: false
