@@ -26,6 +26,7 @@ help:
 	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
+	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -108,3 +109,15 @@ export-players:
 
 verify-players-export:
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.export --output "$(PLAYERS_OUTPUT)" --verify
+
+# Player model dependencies live in a separate environment from ball and annotation.
+PLAYERS_PYTHON ?= $(ROOT_DIR)/.venv-players/bin/python
+.PHONY: train-players-yolo train-players-rfdetr test-players-training
+train-players-yolo:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.train_yolo --config "$(if $(CONFIG),$(CONFIG),training/players/configs/train_yolo_quick.yaml)" $(if $(RESUME),--resume "$(RESUME)",)
+
+train-players-rfdetr:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.train_rfdetr --config "$(if $(CONFIG),$(CONFIG),training/players/configs/train_rfdetr_quick.yaml)" $(if $(RESUME),--resume "$(RESUME)",)
+
+test-players-training:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_training_integration -v

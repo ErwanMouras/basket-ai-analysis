@@ -1,0 +1,24 @@
+# Local trusted weights required. Relative paths resolve from the repository root.
+model: rfdetr
+variant: rfdetr_nano
+mode: finetune
+weights: models/players/rf-detr-nano.pth
+dataset: exports/players/coco
+output: runs/players
+epochs: 5
+batch_size: 2
+resolution: 384
+device: cuda:0
+precision: fp32
+seed: 53
+workers: 0
+deterministic: true
+purpose: quick
+max_train_images: 64
+max_val_images: 16
+learning_rate: 0.0001
+weight_decay: 0.0001
+warmup_epochs: 0.0
+mlflow_uri: sqlite:///mlflow.db
+experiment: players-training
+rfdetr: {}

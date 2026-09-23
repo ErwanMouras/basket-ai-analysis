@@ -10,6 +10,8 @@ help:
 	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export'
+	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
+	@echo 'make test-players-training  # Opt-in short real training integrations'
 
 test-players test-players-mlflow:
 	$(MAKE) -C "$(ROOT_DIR)" $@
@@ -20,4 +22,8 @@ annotate-players preannotate-players:
 
 .PHONY: export-players verify-players-export
 export-players verify-players-export:
+	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: train-players-yolo train-players-rfdetr test-players-training
+train-players-yolo train-players-rfdetr test-players-training:
 	$(MAKE) -C "$(ROOT_DIR)" $@

@@ -1,0 +1,33 @@
+# Local trusted weights required. Relative paths resolve from the repository root.
+model: yolo
+variant: yolo26n
+mode: finetune
+weights: models/players/yolo26n.pt
+dataset: exports/players/yolo
+output: runs/players
+epochs: 2
+batch_size: 2
+resolution: 128
+device: cuda:0
+precision: fp32
+seed: 53
+workers: 0
+deterministic: true
+purpose: smoke
+max_train_images: 4
+max_val_images: 2
+learning_rate: 0.0001
+weight_decay: 0.0001
+warmup_epochs: 0.0
+mlflow_uri: sqlite:///mlflow.db
+experiment: players-training
+yolo:
+  mosaic: 0.0
+  mixup: 0.0
+  close_mosaic: 0
+  scale: 0.0
+  translate: 0.0
+  fliplr: 0.0
+  hsv_h: 0.0
+  hsv_s: 0.0
+  hsv_v: 0.0
