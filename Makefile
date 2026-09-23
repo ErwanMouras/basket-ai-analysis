@@ -23,6 +23,8 @@ help:
 	@echo 'make evaluate-ball CHECKPOINT=runs/ball/<run>/best.pt [CONFIG=evaluation.yaml]'
 	@echo 'make test-players  # Player contracts and shared infrastructure (CPU)'
 	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
+	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
+	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -74,3 +76,25 @@ test-players:
 
 test-players-mlflow:
 	cd "$(ROOT_DIR)" && PLAYERS_MLFLOW_TESTS=1 "$(PYTHON)" -m unittest training.players.tests.test_tracking -v
+
+MEDIA ?= $(VIDEO)
+PLAYERS_ROOT ?= datas
+PLAYER_STEP ?= 30
+PLAYER_START ?= 0
+PLAYER_STOP ?=
+PLAYER_CLASS ?= 0
+PLAYER_DEVICE ?= cpu
+MATCH_ID ?=
+VENUE_ID ?=
+PLAYER_SPLIT ?=
+CACHE ?=
+CACHE_VIDEO_SHA256 ?=
+PLAYERS_ANNOTATION_ARGS = "$(MEDIA)" --root "$(PLAYERS_ROOT)" --step "$(PLAYER_STEP)" --start "$(PLAYER_START)" $(if $(PLAYER_STOP),--stop "$(PLAYER_STOP)",) $(if $(MATCH_ID),--match-id "$(MATCH_ID)",) $(if $(VENUE_ID),--venue-id "$(VENUE_ID)",) $(if $(PLAYER_SPLIT),--split "$(PLAYER_SPLIT)",)
+.PHONY: annotate-players preannotate-players
+annotate-players:
+	@test -n "$(MEDIA)" || { echo 'MEDIA (or VIDEO) is required' >&2; exit 2; }
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator $(PLAYERS_ANNOTATION_ARGS)
+
+preannotate-players:
+	@test -n "$(MEDIA)" || { echo 'MEDIA (or VIDEO) is required' >&2; exit 2; }
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator.preannotate $(PLAYERS_ANNOTATION_ARGS) --player-class "$(PLAYER_CLASS)" --device "$(PLAYER_DEVICE)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(CACHE),--cache "$(CACHE)",) $(if $(CACHE_VIDEO_SHA256),--cache-video-sha256 "$(CACHE_VIDEO_SHA256)",)
