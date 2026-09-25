@@ -39,3 +39,7 @@ evaluate-players compare-players test-players-evaluation:
 .PHONY: pipeline-players predict-players register-players test-players-pipeline
 pipeline-players predict-players register-players test-players-pipeline:
 	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: validate-players smoke-players-gpu
+validate-players smoke-players-gpu:
+	$(MAKE) -C "$(ROOT_DIR)" $@

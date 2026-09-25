@@ -277,9 +277,29 @@ class RealPipelineTests(unittest.TestCase):
                 interrupted = json.loads((root / "pipeline/progress.json").read_text())
                 self.assertEqual(interrupted["status"], "KILLED")
                 parent = interrupted["run_id"]
+                # A corrupt interrupted checkpoint must never silently restart/fine-tune.
+                attempt = Path(interrupted["steps"]["train-" + family]["directory"])
+                live = json.loads((attempt / "live.json").read_text())
+                last = next(Path(p) for p in live["checkpoints"] if Path(p).stem == "last")
+                saved = last.read_bytes()
+                last.write_bytes(b"corrupt checkpoint fixture")
+                with self.assertRaisesRegex(ValueError, "no verified resumable checkpoint"):
+                    Pipeline(load_config(pipeline_path)).run()
+                last.write_bytes(saved)
+                # Exercise native strict preflight on a real checkpoint, before MLflow creates a run.
+                from training.players.learning.run import train
+                incompatible = json.loads((attempt / "job.json").read_text())["config"]
+                incompatible.update(mode="resume", resume=str(last), seed=incompatible["seed"] + 1)
+                client = MlflowClient(tracking_uri=uri)
+                experiment = client.get_experiment_by_name("players-training")
+                run_ids = {r.info.run_id for r in client.search_runs([experiment.experiment_id])}
+                with self.assertRaisesRegex(ValueError, "Strict resume contract mismatch"):
+                    train(incompatible)
+                self.assertEqual({r.info.run_id for r in client.search_runs([experiment.experiment_id])}, run_ids)
                 progress = Pipeline(load_config(pipeline_path)).run()
                 self.assertEqual(progress["status"], "FINISHED")
                 trained = progress["steps"]["train-" + family]["result"]
+                self.assertEqual(trained["epochs_completed"], 2)
                 client = MlflowClient(tracking_uri=uri)
                 self.assertEqual(client.get_run(parent).info.status, "KILLED")
                 self.assertEqual(client.get_run(trained["run_id"]).data.tags["resumed_from_run"], parent)
@@ -301,7 +321,14 @@ class RealPipelineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     promote("champion", registered["version"], expected_previous=None, reason="smoke cannot promote", mlflow_uri=uri)
                 detector, metadata = load_candidate(registered["model_uri"], uri)
-                self.assertEqual(metadata["training_run_id"], trained["run_id"])
+                # The best epoch can belong to the interrupted parent (no later improvement).
+                import torch
+                best_payload = torch.load(trained["best"], map_location="cpu", weights_only=False)
+                self.assertEqual(metadata["training_run_id"], best_payload["players_training"]["run_id"])
+                self.assertIn(metadata["training_run_id"], (parent, trained["run_id"]))
+                backend = "cpu" if torch.version.cuda is None else "cu130"
+                self.assertEqual(metadata["requirements_file"], f"requirements-{backend}.lock")
+                del best_payload
                 mlflow.set_tracking_uri(uri)
                 mlflow.set_registry_uri(uri)
                 reloaded = mlflow.pyfunc.load_model(registered["model_uri"])
@@ -309,6 +336,7 @@ class RealPipelineTests(unittest.TestCase):
                 self.assertEqual(reloaded.predict(image), [predict_image(detector, image, evaluation)])
                 video_fixture(root / "input.mp4")
                 video = {**VIDEO_DEFAULTS, "registry_uri": registered["model_uri"], "mlflow_uri": uri,
+                         "device": training["device"],
                          "video": str(root / "input.mp4"), "output": str(root / "video")}
                 predicted = predict_video(video)
                 self.assertEqual(predicted["frames"], 4)

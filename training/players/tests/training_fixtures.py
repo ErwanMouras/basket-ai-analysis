@@ -9,6 +9,28 @@ from training.players.annotator.model import sidecar_path
 from training.players.export.dataset import export_dataset
 
 
+def make_weights(family, output):
+    """Random initialization, never pretrained weights or a network download."""
+    import torch
+    from training.players.learning.runtime import seed_all
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise FileExistsError(output)
+    torch.set_num_threads(2)
+    seed_all(42)
+    if family == "yolo":
+        from ultralytics import YOLO
+        YOLO("yolo26n.yaml", task="detect").save(output)
+    else:
+        from rfdetr import RFDETRNano
+        model = RFDETRNano(pretrain_weights=None, device="cpu", resolution=128, num_classes=1)
+        config = model.model_config.model_dump(mode="json")
+        torch.save({"model": model.model.model.state_dict(), "args": config,
+                    "model_config": config, "model_name": config["model_name"],
+                    "class_names": ["player"]}, output)
+
+
 def make_dataset(base):
     source = base / "source"
     for split, count in (("train", 4), ("val", 2), ("test", 1)):
@@ -62,3 +84,13 @@ def make_dataset(base):
             )
     export_dataset(source, base / "exports")
     return base / "exports"
+
+
+if __name__ == "__main__":
+    import argparse
+    from pathlib import Path
+    parser = argparse.ArgumentParser(description="Generate random fixture weights offline")
+    parser.add_argument("family", choices=("yolo", "rfdetr"))
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    make_weights(args.family, args.output)

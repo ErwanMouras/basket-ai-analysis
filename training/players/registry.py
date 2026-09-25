@@ -18,6 +18,19 @@ from training.players.orchestration.state import inventory, lock
 NAME = "players-detector"
 
 
+def requirements_for_runtime():
+    """Package the supported wheel backend, including its install index."""
+    import torch
+    backend = "cpu" if torch.version.cuda is None else "cu130"
+    if torch.version.cuda not in (None, "13.0"):
+        raise ValueError("Registry packaging requires the validated CPU or CUDA 13.0 environment")
+    path = ROOT / f"training/players/requirements-{backend}.lock"
+    requirements = [f"--extra-index-url https://download.pytorch.org/whl/{backend}"]
+    requirements += [line for line in path.read_text().splitlines()
+                     if line.strip() and not line.lstrip().startswith("#")]
+    return path, requirements
+
+
 def client_for(uri):
     from mlflow import MlflowClient
     uri = os.environ.get("MLFLOW_TRACKING_URI", uri)
@@ -67,13 +80,15 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
     sources += list((ROOT / "training/common").glob("*.py"))
     code = source_fingerprints(ROOT, sources)
     smoke = result["purpose"] == "smoke" or result["reference"].get("smoke", False)
+    requirements_path, requirements = requirements_for_runtime()
     metadata = {"schema_version": 1, "model": result["model"], "protocol": result["comparison"]["protocol"],
                 "evaluation_run_id": result["run_id"], "training_run_id": result["reference"]["training_run_id"],
                 "reference": result["reference"], "dataset_id": manifest["dataset_id"],
                 "export_id": manifest["export_id"], "selection_id": result["comparison"]["selection_id"],
                 "comparison_id": result["comparison_id"], "metrics": result["metrics"], "smoke": smoke,
                 "weights_file": "weights" + weights.suffix, "code": code,
-                "requirements_sha256": file_hash(ROOT / "training/players/requirements-cu130.lock")}
+                "requirements_file": requirements_path.name,
+                "requirements_sha256": file_hash(requirements_path)}
     candidate_id = object_hash(metadata)
     metadata["candidate_id"] = candidate_id
     with registry_lock(uri):
@@ -123,7 +138,7 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
                     model_path = temp / "model"
                     mlflow.pyfunc.save_model(path=str(model_path), loader_module="training.players.registry_loader",
                         data_path=str(bundle), code_paths=[str(code_root)],
-                        pip_requirements=str(ROOT / "training/players/requirements-cu130.lock"),
+                        pip_requirements=requirements,
                         metadata={"players.candidate_id": candidate_id, "players.smoke": smoke})
                     client.log_artifacts(run_id, str(model_path), "model")
                     write_json(temp / "package.json", inventory([model_path]))

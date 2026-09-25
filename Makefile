@@ -29,6 +29,7 @@ help:
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
+	@echo 'make validate-players | smoke-players-gpu VALIDATION_OUTPUT=...  # Synthetic offline validation'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -147,3 +148,11 @@ register-players:
 
 test-players-pipeline:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_pipeline -v
+
+VALIDATION_OUTPUT ?= runs/players/validation
+.PHONY: validate-players smoke-players-gpu
+validate-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.tests.validate --output "$(VALIDATION_OUTPUT)"
+
+smoke-players-gpu:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.tests.validate --output "$(VALIDATION_OUTPUT)" --device cuda:0 --gpu-smoke
