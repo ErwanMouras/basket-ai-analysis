@@ -147,6 +147,11 @@ class PlayersCheckpoint(ModelCheckpoint):
 
     def on_train_epoch_start(self, trainer, pl_module):
         self.started = time.monotonic()
+        self.report.progress(epoch=trainer.current_epoch + 1, batch=0,
+                             batches_total=int(trainer.num_training_batches))
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.report.progress(batch=batch_idx + 1)
 
     def on_train_epoch_end(self, trainer, pl_module):
         self.report.metrics(

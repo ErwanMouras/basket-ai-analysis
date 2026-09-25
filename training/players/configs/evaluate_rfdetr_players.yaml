@@ -1,0 +1,7 @@
+model: rfdetr
+variant: rfdetr_nano
+weights: placeholder-replaced-by-pipeline.ckpt
+source_class: 0
+dataset: exports/players/coco
+resolution: 640
+device: cpu

@@ -81,12 +81,17 @@ class PlayersTrainer(DetectionTrainer):
             if self.batch_size != self.player_config["batch_size"]:
                 raise ValueError("Automatic batch-size changes are not supported")
         elif event == "on_train_epoch_start":
+            self.progress_batch = 0
+            self.report.progress(epoch=self.epoch + 1, batch=0, batches_total=len(self.train_loader))
             self.epoch_started = time.monotonic()
             self.train_loader.generator.manual_seed(
                 self.player_config["seed"] + self.epoch
             )
             self.train_loader.reset()
             seed_all(self.player_config["seed"] + self.epoch)
+        elif event == "on_train_batch_end":
+            self.progress_batch += 1
+            self.report.progress(batch=self.progress_batch)
         elif event == "on_fit_epoch_end":
             values = {
                 **self.label_loss_items(self.tloss, prefix="train"),

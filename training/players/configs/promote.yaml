@@ -1,0 +1,7 @@
+action: promote
+alias: champion
+version: "REPLACE_VERSION"
+# null creates an alias; otherwise specify its exact current version.
+expected_previous: null
+reason: "Replace with the reviewed validation decision"
+mlflow_uri: sqlite:///mlflow.db

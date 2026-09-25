@@ -22,6 +22,10 @@ class Report:
         self.client, self.run_id, self.output = tracking
         self.rows, self.logged = [], {}
 
+    def progress(self, **values):
+        from training.players.progress import emit
+        emit(**values)
+
     def artifact(self, path, folder=None):
         self.client.log_artifact(self.run_id, str(path), folder)
 
@@ -36,6 +40,7 @@ class Report:
         self.rows.append({"epoch": int(epoch), "metrics": metrics})
         write_jsonl(self.output / "metrics.jsonl", self.rows)
         self.artifact(self.output / "metrics.jsonl")
+        self.progress(epochs_completed=int(epoch) + 1)
 
     def checkpoints(self, *paths):
         for value in paths:
@@ -51,6 +56,8 @@ class Report:
             self.logged[path.name] = digest
         write_json(self.output / "checkpoints.json", self.logged)
         self.artifact(self.output / "checkpoints.json")
+        self.progress(checkpoints={str(Path(p)): file_hash(Path(p))
+                                   for p in paths if p and Path(p).is_file()})
 
 
 def validate_resume_payload(config, checkpoint):

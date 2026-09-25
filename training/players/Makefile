@@ -14,6 +14,8 @@ help:
 	@echo 'make test-players-training  # Opt-in short real training integrations'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 	@echo 'make test-players-evaluation  # Analytical COCO fixtures'
+	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
+	@echo 'See PIPELINE.md for resume, video and explicit registry aliases.'
 
 test-players test-players-mlflow:
 	$(MAKE) -C "$(ROOT_DIR)" $@
@@ -32,4 +34,8 @@ train-players-yolo train-players-rfdetr test-players-training:
 
 .PHONY: evaluate-players compare-players test-players-evaluation
 evaluate-players compare-players test-players-evaluation:
+	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: pipeline-players predict-players register-players test-players-pipeline
+pipeline-players predict-players register-players test-players-pipeline:
 	$(MAKE) -C "$(ROOT_DIR)" $@

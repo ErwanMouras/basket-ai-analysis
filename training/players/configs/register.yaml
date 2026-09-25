@@ -1,0 +1,4 @@
+action: register
+evaluation: runs/players/evaluation/REPLACE_RUN_ID
+weights: /path/to/evaluated/checkpoint.pt
+mlflow_uri: sqlite:///mlflow.db

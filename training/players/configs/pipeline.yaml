@@ -1,0 +1,12 @@
+schema_version: 1
+source: datas
+output: runs/players/pipeline-local
+export_config: training/players/configs/players_export.yaml
+include_smoke: false
+trials:
+  - name: yolo-quick
+    train: training/players/configs/train_yolo_quick.yaml
+    evaluate: training/players/configs/evaluate_yolo.yaml
+  - name: rfdetr-quick
+    train: training/players/configs/train_rfdetr_quick.yaml
+    evaluate: training/players/configs/evaluate_rfdetr_players.yaml

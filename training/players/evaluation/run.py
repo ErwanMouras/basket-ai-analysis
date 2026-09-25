@@ -12,7 +12,9 @@ from training.players.learning.tracking import tracked_run
 from training.players.models import Detector
 from .benchmark import benchmark, runtime
 from .config import frozen_payload, require_frozen
-from .metrics import evaluate, normalize_predictions
+from .metrics import evaluate
+from training.players.inference import predict_image
+from training.players.progress import emit
 from .reports import artifacts, write_html
 
 
@@ -28,7 +30,8 @@ def prepare(config):
     if not records:
         raise ValueError("Evaluation selection is empty")
     code = source_fingerprints(ROOT, list((ROOT / "training/players/evaluation").glob("*.py"))
-                               + [ROOT / "training/players/models.py", ROOT / "training/players/export/geometry.py"])
+                               + [ROOT / "training/players/models.py", ROOT / "training/players/inference.py",
+                                  ROOT / "training/players/export/geometry.py"])
     identity = {"dataset_id": manifest["dataset_id"], "selection_id": object_hash(records),
                 "checkpoint_sha256": file_hash(Path(config["weights"])), "evaluator_id": object_hash(code)}
     return root, manifest, records, identity, code
@@ -90,13 +93,12 @@ def run(config):
             if detector.provenance["checkpoint_sha256"] != identity["checkpoint_sha256"]:
                 raise ValueError("Checkpoint changed while constructing detector")
             predictions = {}
-            for record in records:
+            for index, record in enumerate(records):
                 image = cv2.imread(str(root / record["image"]))
                 if image is None or image.shape[:2] != (record["height"], record["width"]):
                     raise ValueError("Invalid evaluation image")
-                predictions[record["frame_id"]] = normalize_predictions(record, detector.predict(
-                    image, confidence=config["score_floor"], max_detections=config["max_detections"], square=True),
-                    score_floor=config["score_floor"], max_detections=config["max_detections"])
+                predictions[record["frame_id"]] = predict_image(detector, image, config, record)
+                emit(batch=index + 1, batches_total=len(records))
             write_jsonl(output / "predictions.jsonl", [
                 {"artifact_type": "players_evaluation_predictions", "schema_version": 1,
                  "coordinate_space": "source", "frame_id": r["frame_id"], "source_id": r["source_id"],

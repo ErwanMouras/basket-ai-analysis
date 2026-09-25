@@ -1,0 +1,15 @@
+video: /path/to/video.mp4
+output: runs/players/video-example
+model: yolo
+variant: yolo26n
+weights: models/players/yolo26n.pt
+source_class: 0
+device: cpu
+precision: fp32
+resolution: 640
+score_floor: 0.001
+score_threshold: 0.25
+max_detections: 100
+cpu_threads: 4
+max_frames: null
+codec: mp4v

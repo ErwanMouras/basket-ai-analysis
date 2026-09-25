@@ -28,6 +28,7 @@ help:
 	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
+	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 
 annotate-ball:
 	@test -n "$(VIDEO)" || { echo 'Error: the VIDEO variable is required.' >&2; echo 'Usage: make annotate-ball VIDEO="/path/to/clip.mp4"' >&2; exit 2; }
@@ -133,3 +134,16 @@ compare-players:
 
 test-players-evaluation:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_evaluation -v
+
+.PHONY: pipeline-players predict-players register-players test-players-pipeline
+pipeline-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.orchestration.pipeline --config "$(CONFIG)" $(if $(RESTART_INCOMPLETE),--restart-incomplete,)
+
+predict-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.predict $(if $(CONFIG),--config "$(CONFIG)",) $(if $(VIDEO),--video "$(VIDEO)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
+
+register-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.registry --config "$(CONFIG)"
+
+test-players-pipeline:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_pipeline -v
