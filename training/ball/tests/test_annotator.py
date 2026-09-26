@@ -184,7 +184,10 @@ class VideoTests(unittest.TestCase):
 
 class GuiTests(unittest.TestCase):
     def setUp(self):
-        import tkinter as tk
+        try:
+            import tkinter as tk
+        except ImportError as exc:
+            self.skipTest(f"Tk is not installed: {exc}")
 
         from training.ball.annotator.app import App
 

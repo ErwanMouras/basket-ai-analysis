@@ -29,6 +29,7 @@ help:
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
+	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
 	@echo 'make validate-players | smoke-players-gpu VALIDATION_OUTPUT=...  # Synthetic offline validation'
 
 annotate-ball:
@@ -141,7 +142,14 @@ pipeline-players:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.orchestration.pipeline --config "$(CONFIG)" $(if $(RESTART_INCOMPLETE),--restart-incomplete,)
 
 predict-players:
-	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.predict $(if $(CONFIG),--config "$(CONFIG)",) $(if $(VIDEO),--video "$(VIDEO)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.predict $(if $(CONFIG),--config "$(CONFIG)",) $(if $(VIDEO),--video "$(VIDEO)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(TRACKER),--tracker "$(TRACKER)",) $(if $(OUTPUT),--output "$(OUTPUT)",) $(if $(MAX_FRAMES),--max-frames "$(MAX_FRAMES)",)
+
+.PHONY: track-players test-players-tracking
+track-players:
+	$(MAKE) predict-players CONFIG="$(if $(CONFIG),$(CONFIG),training/players/configs/predict_video.yaml)" TRACKER="$(if $(TRACKER),$(TRACKER),botsort)"
+
+test-players-tracking:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_player_tracking -v
 
 register-players:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.registry --config "$(CONFIG)"

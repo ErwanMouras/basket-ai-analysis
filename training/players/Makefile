@@ -16,6 +16,8 @@ help:
 	@echo 'make test-players-evaluation  # Analytical COCO fixtures'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 	@echo 'See PIPELINE.md for resume, video and explicit registry aliases.'
+	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
+	@echo 'make test-players-tracking  # Real tracker fixtures; no model weights'
 
 test-players test-players-mlflow:
 	$(MAKE) -C "$(ROOT_DIR)" $@
@@ -42,4 +44,8 @@ pipeline-players predict-players register-players test-players-pipeline:
 
 .PHONY: validate-players smoke-players-gpu
 validate-players smoke-players-gpu:
+	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: track-players test-players-tracking
+track-players test-players-tracking:
 	$(MAKE) -C "$(ROOT_DIR)" $@

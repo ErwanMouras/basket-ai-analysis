@@ -5,31 +5,45 @@ import json
 import math
 import os
 import time
+from contextlib import ExitStack
 from pathlib import Path
+from uuid import uuid4
 
 import cv2
 
 from training.common.config import merge_settings, read_yaml
 from training.common.files import write_json
 from training.common.provenance import ROOT, file_hash
-from training.players.evaluation.config import DEFAULTS as EVAL_DEFAULTS, validate_config
 from training.players.evaluation.benchmark import runtime
+from training.players.evaluation.config import DEFAULTS as EVAL_DEFAULTS
+from training.players.evaluation.config import validate_config
 from training.players.inference import predict_image
 from training.players.models import Detector
+from training.players.tracking import DEFAULTS as TRACKING_DEFAULTS
+from training.players.tracking import PlayerTracker
+from training.players.tracking import settings as tracking_settings
 
 DEFAULTS = {k: EVAL_DEFAULTS[k] for k in (
     "model", "variant", "weights", "source_class", "device", "resolution", "precision",
     "cpu_threads", "score_floor", "score_threshold", "max_detections")}
 DEFAULTS.update(video=None, output="runs/players/video", max_frames=None, codec="mp4v",
-                registry_uri=None, mlflow_uri="sqlite:///mlflow.db")
+                registry_uri=None, mlflow_uri="sqlite:///mlflow.db", tracking=TRACKING_DEFAULTS)
 
 
-def load_config(path, *, video=None, checkpoint=None):
+def load_config(path, *, video=None, checkpoint=None, tracker=None, output=None, max_frames=None):
     config = merge_settings(DEFAULTS, read_yaml(Path(path)) if path else {})
     if video:
         config["video"] = str(video)
     if checkpoint:
         config["weights"] = str(checkpoint)
+    if output is not None:
+        config["output"] = str(output)
+    if max_frames is not None:
+        config["max_frames"] = max_frames
+    if tracker is not None:
+        config["tracking"] = {**config["tracking"], "enabled": tracker != "none"}
+        if tracker != "none":
+            config["tracking"]["tracker"] = tracker
     if bool(config["weights"]) == bool(config["registry_uri"]):
         raise ValueError("Choose exactly one local checkpoint or models:/players-detector reference")
     if not isinstance(config["video"], str) or not config["video"]:
@@ -43,6 +57,7 @@ def load_config(path, *, video=None, checkpoint=None):
     validation = {**EVAL_DEFAULTS, **{k: v for k, v in config.items() if k in EVAL_DEFAULTS}}
     validation["weights"] = config["weights"] or "registry"
     validate_config(validation)
+    config["tracking"] = tracking_settings(config["tracking"], score_floor=config["score_floor"])
     for key in ("video", "output", "weights"):
         if config[key] is not None:
             config[key] = str((ROOT / Path(config[key]).expanduser()).resolve())
@@ -51,6 +66,7 @@ def load_config(path, *, video=None, checkpoint=None):
 
 def predict_video(config, *, detector=None, stop_after_frame=None):
     config = dict(config)
+    config["tracking"] = tracking_settings(config.get("tracking"), score_floor=config["score_floor"])
     video, output = Path(config["video"]), Path(config["output"])
     digest = file_hash(video)
     output.mkdir(parents=True, exist_ok=False)
@@ -79,12 +95,24 @@ def predict_video(config, *, detector=None, stop_after_frame=None):
         fps = capture.get(cv2.CAP_PROP_FPS)
         if not math.isfinite(fps) or fps <= 0:
             raise ValueError("Video has no valid frame rate")
+        tracker = PlayerTracker(config["tracking"], fps=fps) if config["tracking"]["enabled"] else None
+        tracking_run_id = uuid4().hex if tracker is not None else None
+        tracked_observations = 0
+        if tracker is not None:
+            write_json(output / "tracking.json", {
+                **tracker.provenance, "tracking_run_id": tracking_run_id,
+                "source_sha256": digest, "detector": detector.provenance,
+                "adapter_sha256": file_hash(Path(__file__).with_name("tracking.py")),
+            })
         total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         limit = config["max_frames"]
         expected = min(total, limit) if total > 0 and limit else total
         progress.update(frames_total=expected if expected > 0 else None)
         write_json(output / "progress.json", progress)
-        with (output / "predictions.partial.jsonl").open("w", encoding="utf-8") as handle:
+        with ExitStack() as stack:
+            handle = stack.enter_context((output / "predictions.partial.jsonl").open("w", encoding="utf-8"))
+            tracks_handle = (stack.enter_context((output / "tracks.partial.jsonl").open("w", encoding="utf-8"))
+                             if tracker is not None else None)
             while limit is None or progress["frames"] < limit:
                 ok, image = capture.read()
                 if not ok:
@@ -106,13 +134,27 @@ def predict_video(config, *, detector=None, stop_after_frame=None):
                     "coordinate_space": "source", "source_sha256": digest, "frame_index": index,
                     "timestamp_seconds": index / fps, "detections": detections}, allow_nan=False) + "\n")
                 handle.flush()
-                for detection in detections:
+                displayed = detections
+                if tracker is not None:
+                    displayed = tracker.update(detections, image, frame_index=index)
+                    tracks_handle.write(json.dumps({"schema_version": 1,
+                        "artifact_type": "players_video_tracks", "coordinate_space": "source",
+                        "source_sha256": digest, "tracking_run_id": tracking_run_id,
+                        "segment_id": tracker.segment_id, "frame_index": index,
+                        "timestamp_seconds": index / fps, "detections": displayed}, allow_nan=False) + "\n")
+                    tracks_handle.flush()
+                    tracked_observations += sum(d["track_id"] is not None for d in displayed)
+                for detection in displayed:
                     if detection["confidence"] < config["score_threshold"]:
                         continue
                     x1, y1, x2, y2 = [round(v) for v in detection["bbox"]]
-                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 220, 0), 2)
-                    cv2.putText(image, f"player {detection['confidence']:.2f}", (x1, max(15, y1)),
-                                cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 220, 0), 1)
+                    track_id = detection.get("track_id")
+                    color = ((60 + track_id * 67 % 196, 60 + track_id * 131 % 196,
+                              60 + track_id * 43 % 196) if track_id is not None else (0, 220, 0))
+                    label = f"#{track_id}" if track_id is not None else ("player ?" if tracker else "player")
+                    cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(image, f"{label} {detection['confidence']:.2f}", (x1, max(15, y1)),
+                                cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
                 writer.write(image)
                 progress["frames"] += 1
                 elapsed = time.monotonic() - started
@@ -131,12 +173,18 @@ def predict_video(config, *, detector=None, stop_after_frame=None):
             raise ValueError("Source video changed during inference")
         os.replace(output / "predictions.partial.jsonl", output / "predictions.jsonl")
         os.replace(output / "annotated.partial.mp4", output / "annotated.mp4")
+        artifacts = ["predictions.jsonl", "annotated.mp4"]
+        if tracker is not None:
+            os.replace(output / "tracks.partial.jsonl", output / "tracks.jsonl")
+            artifacts.extend(["tracks.jsonl", "tracking.json"])
         elapsed = time.monotonic() - started
         result = {"source": str(video), "source_sha256": digest, "frames": progress["frames"],
                   "fps": fps, "width": width, "height": height, "audio": False,
                   "elapsed_seconds": elapsed, "end_to_end_fps": progress["frames"] / elapsed,
-                  "timing_scope": "model load, decode, inference, draw, encode, JSON and progress writes; warmup absent",
-                  "artifacts": {name: file_hash(output / name) for name in ("predictions.jsonl", "annotated.mp4")}}
+                  "timing_scope": "model load, decode, inference, optional tracking, draw, encode, JSON and progress writes; warmup absent",
+                  "tracking": {"enabled": tracker is not None, "tracking_run_id": tracking_run_id,
+                               "tracked_observations": tracked_observations},
+                  "artifacts": {name: file_hash(output / name) for name in artifacts}}
         write_json(output / "result.json", result)
         progress.update(status="FINISHED", eta_seconds=0, elapsed_seconds=elapsed,
                         outputs={name: str(output / name) for name in result["artifacts"]})
@@ -160,8 +208,12 @@ def main():
     parser.add_argument("--config", type=Path)
     parser.add_argument("--video", type=Path)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--tracker", choices=("botsort", "bytetrack", "none"))
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--max-frames", type=int)
     args = parser.parse_args()
-    print(json.dumps(predict_video(load_config(args.config, video=args.video, checkpoint=args.checkpoint)), indent=2))
+    print(json.dumps(predict_video(load_config(args.config, video=args.video, checkpoint=args.checkpoint,
+        tracker=args.tracker, output=args.output, max_frames=args.max_frames)), indent=2))
 
 
 if __name__ == "__main__":
