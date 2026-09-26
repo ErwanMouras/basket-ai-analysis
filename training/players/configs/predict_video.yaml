@@ -24,3 +24,13 @@ tracking:
   fuse_score: false  # Preserve low-confidence recovery in the pinned backend
   gmc_method: sparseOptFlow  # botsort only; 'none' disables camera compensation
   reset_frames: []  # Known cuts: reset before these zero-based frames; IDs are not reused
+pose:
+  enabled: false  # Enable with make pose-players or --pose after setup-players-pose
+  weights: models/players/rtmpose-m.onnx
+  device: cpu  # Independent of detector device; cuda:0 requires the CUDA lock
+  cpu_threads: 4
+  batch_size: 16
+  min_detection_confidence: 0.25
+  keypoint_min_confidence: 0.3
+  min_bbox_area: 256.0
+  max_players: 32

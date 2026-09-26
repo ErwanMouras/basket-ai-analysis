@@ -18,6 +18,9 @@ help:
 	@echo 'See PIPELINE.md for resume, video and explicit registry aliases.'
 	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
 	@echo 'make test-players-tracking  # Real tracker fixtures; no model weights'
+	@echo 'make setup-players-pose  # Install the pinned RTMPose-M model'
+	@echo 'make pose-players VIDEO=... CHECKPOINT=... OUTPUT=... [POSE_DEVICE=cpu|cuda:0]'
+	@echo 'make test-players-pose  # See POSE.md for skeletons and JSONL outputs'
 
 test-players test-players-mlflow:
 	$(MAKE) -C "$(ROOT_DIR)" $@
@@ -48,4 +51,8 @@ validate-players smoke-players-gpu:
 
 .PHONY: track-players test-players-tracking
 track-players test-players-tracking:
+	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: setup-players-pose pose-players test-players-pose
+setup-players-pose pose-players test-players-pose:
 	$(MAKE) -C "$(ROOT_DIR)" $@
