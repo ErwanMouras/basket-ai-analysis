@@ -1,0 +1,29 @@
+# Ready-to-run local POC. Change output for each run; omit max_frames for full clips.
+video: datas/train/HOU_LAL/G1/video.mp4
+output: runs/court/nba-demo
+model: yolo
+variant: yolo26n
+weights: models/players/yolo26n.pt
+source_class: 0
+device: cuda:0
+resolution: 640
+precision: fp32
+cpu_threads: 4
+score_floor: 0.001
+score_threshold: 0.25
+max_detections: 100
+max_frames: 300
+tracking:
+  enabled: true
+  tracker: botsort
+  fuse_score: false
+  reset_frames: []
+court:
+  enabled: true
+  weights: models/court/court_keypoints.pt
+  device: cuda:0
+  detect_every: 5
+  auto_cuts: true
+  footpoint: bbox
+  overlay: true
+  minimap: true

@@ -21,6 +21,7 @@ help:
 	@echo 'make setup-players-pose  # Install the pinned RTMPose-M model'
 	@echo 'make pose-players VIDEO=... CHECKPOINT=... OUTPUT=... [POSE_DEVICE=cpu|cuda:0]'
 	@echo 'make test-players-pose  # See POSE.md for skeletons and JSONL outputs'
+	@echo 'make setup-court | calibrate-court VIDEO=... CHECKPOINT=... OUTPUT=...'
 
 test-players test-players-mlflow:
 	$(MAKE) -C "$(ROOT_DIR)" $@
@@ -55,4 +56,8 @@ track-players test-players-tracking:
 
 .PHONY: setup-players-pose pose-players test-players-pose
 setup-players-pose pose-players test-players-pose:
+	$(MAKE) -C "$(ROOT_DIR)" $@
+
+.PHONY: setup-court calibrate-court test-court
+setup-court calibrate-court test-court:
 	$(MAKE) -C "$(ROOT_DIR)" $@

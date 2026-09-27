@@ -13,6 +13,17 @@ max_detections: 100
 cpu_threads: 4
 max_frames: null
 codec: mp4v
+court:
+  enabled: false  # make calibrate-court after make setup-court
+  weights: models/court/court_keypoints.pt
+  device: cpu
+  resolution: 640
+  detect_every: 5
+  footpoint: bbox  # ankles uses optional pose; both are ground-contact approximations
+  auto_cuts: true  # Reset tracking and jersey evidence on detected cuts
+  max_propagation_seconds: 0.5
+  overlay: true
+  minimap: true
 tracking:
   enabled: true
   tracker: botsort  # botsort (camera motion compensation) or bytetrack

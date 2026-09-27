@@ -196,7 +196,7 @@ class PlayerTracker:
         self._counter += 1
         return self._counter
 
-    def update(self, detections, image, *, frame_index):
+    def update(self, detections, image, *, frame_index, scene_cut=False):
         if type(frame_index) is not int or frame_index != self._next_frame:
             raise ValueError(
                 "Tracking requires consecutive frame indices starting at zero, including empty frames"
@@ -224,10 +224,11 @@ class PlayerTracker:
                 raise ValueError("Invalid source-space player detection")
             rows.append([*box, score, 0])
         batch = _Detections(np.asarray(rows, dtype=np.float32).reshape(-1, 6))
-        if frame_index == self._next_reset:
+        if scene_cut or frame_index == self._next_reset:
             self._backend.reset()
             self.segment_id += 1
-            self._next_reset = next(self._resets, None)
+            if frame_index == self._next_reset:
+                self._next_reset = next(self._resets, None)
         # Upstream ages lost tracks after matching. Expire them first to prevent
         # an already expired ID from being revived on the very next detection.
         next_backend_frame = self._backend.frame_id + 1
