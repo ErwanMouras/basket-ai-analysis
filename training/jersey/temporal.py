@@ -10,8 +10,9 @@ from training.jersey.reader import ParseqReader, ResourceDeferred
 
 
 class JerseyRecognizer:
-    def __init__(self, config, *, reader=None, clock=time.monotonic):
+    def __init__(self, config, *, roster, reader=None, clock=time.monotonic):
         self.config = settings(config)
+        self.roster = roster
         self.reader = reader if reader is not None else ParseqReader(self.config)
         self.clock = clock
         self.states = {}
@@ -21,6 +22,7 @@ class JerseyRecognizer:
         self.tokens = float(self.config["batch_size"])
         self.next_wall = 0.0
         self.stats = {
+            "roster_rejections": 0,
             "ocr_batches": 0,
             "ocr_crops": 0,
             "ocr_seconds": 0.0,
@@ -33,6 +35,7 @@ class JerseyRecognizer:
         }
         self.provenance = {
             "reader": self.reader.provenance,
+            "roster": self.roster.provenance,
             "config": self.config,
             "fusion": "causal weighted agreement with consecutive confirmation",
             "budget": "source-time token bucket and wall-time duty cooldown",
@@ -52,7 +55,13 @@ class JerseyRecognizer:
             totals[n] = totals.get(n, 0) + v["weight"]
             counts[n] = counts.get(n, 0) + 1
         if not totals:
-            return {"number": None, "status": "unknown", "votes": 0, "agreement": 0.0}
+            return {
+                "number": None,
+                "status": "unknown",
+                "votes": 0,
+                "agreement": 0.0,
+                **self.roster.identity(None),
+            }
         best = max(totals, key=lambda n: (totals[n], n))
         agreement = totals[best] / sum(totals.values())
         # A fresh contradiction immediately revokes a displayed number.
@@ -64,6 +73,7 @@ class JerseyRecognizer:
             and agreement >= self.config["min_agreement"]
         )
         return {
+            **self.roster.identity(best if confirmed else None),
             "number": best if confirmed else None,
             "status": "confirmed" if confirmed else "uncertain",
             "votes": counts[best],
@@ -249,7 +259,19 @@ class JerseyRecognizer:
                     ):
                         raise RuntimeError("Invalid OCR confidence")
                     n = number(result.get("text")) if result.get("eos") else None
-                    accepted = n is not None and confidence >= cfg["min_ocr_confidence"]
+                    permitted = n is not None and self.roster.allows(n)
+                    accepted = permitted and confidence >= cfg["min_ocr_confidence"]
+                    reason = (
+                        "invalid_text"
+                        if n is None
+                        else "not_in_roster"
+                        if not permitted
+                        else "low_ocr_confidence"
+                        if not accepted
+                        else None
+                    )
+                    if n is not None and not permitted:
+                        self.stats["roster_rejections"] += 1
                     reading = {
                         "track_id": tid,
                         "segment_id": segment_id,
@@ -260,7 +282,9 @@ class JerseyRecognizer:
                         "region": crop["region"],
                         "quality": crop["quality"],
                         "text": result["text"],
-                        "number": n,
+                        "number": n if permitted else None,
+                        "raw_number": n,
+                        "rejection_reason": reason,
                         "confidence": confidence,
                         "status": "vote" if accepted else "rejected",
                     }
@@ -293,5 +317,6 @@ class JerseyRecognizer:
                     "agreement": 0.0,
                 }
             )
+            jersey = {**jersey, **self.roster.identity(jersey["number"])}
             enriched.append({**d, "jersey": jersey})
         return enriched, readings, ended

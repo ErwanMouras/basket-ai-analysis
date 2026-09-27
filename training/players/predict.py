@@ -16,6 +16,7 @@ from training.common.files import write_json
 from training.common.provenance import ROOT, file_hash
 from training.jersey.config import DEFAULTS as JERSEY_DEFAULTS
 from training.jersey.config import settings as jersey_settings
+from training.jersey.roster import Roster
 from training.jersey.temporal import JerseyRecognizer
 from training.players.evaluation.benchmark import runtime
 from training.players.evaluation.config import DEFAULTS as EVAL_DEFAULTS
@@ -95,6 +96,9 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
     if config["jersey"]["enabled"] and not config["tracking"]["enabled"]:
         raise ValueError("Jersey temporal recognition requires tracking")
     video, output = Path(config["video"]), Path(config["output"])
+    roster = Roster.load(video.parent / "jersey.json") if config["jersey"]["enabled"] else None
+    if roster is not None and jersey_recognizer is not None and jersey_recognizer.roster.sha256 != roster.sha256:
+        raise ValueError("Injected jersey recognizer must use the video roster")
     digest = file_hash(video)
     output.mkdir(parents=True, exist_ok=False)
     started = time.monotonic()
@@ -141,11 +145,13 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                 "source_sha256": digest, "detector": detector.provenance,
                 "adapter_sha256": file_hash(Path(__file__).with_name("tracking.py")),
             })
-        jersey_model = (jersey_recognizer if jersey_recognizer is not None else JerseyRecognizer(config["jersey"])) if config["jersey"]["enabled"] else None
+        jersey_model = (jersey_recognizer if jersey_recognizer is not None else JerseyRecognizer(config["jersey"], roster=roster)) if config["jersey"]["enabled"] else None
         jersey_run_id = uuid4().hex if jersey_model is not None else None
         jersey_common = {"schema_version": 1, "source_sha256": digest,
-                         "jersey_run_id": jersey_run_id, "tracking_run_id": tracking_run_id}
+                         "jersey_run_id": jersey_run_id, "tracking_run_id": tracking_run_id,
+                         "roster_sha256": roster.sha256 if roster is not None else None}
         if jersey_model is not None:
+            write_json(output / "jersey_roster.json", roster.payload)
             write_json(output / "jersey.json", {**jersey_common, **jersey_model.provenance,
                 "pose_run_id": pose_run_id, "detector": detector.provenance,
                 "code_sha256": {str(p.relative_to(ROOT / "training/jersey")): file_hash(p) for p in sorted((ROOT / "training/jersey").rglob("*.py"))}})
@@ -265,7 +271,7 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
             for name in jersey_handles:
                 os.replace(output / f"{name}.partial.jsonl", output / f"{name}.jsonl")
                 artifacts.append(f"{name}.jsonl")
-            artifacts.append("jersey.json")
+            artifacts.extend(["jersey.json", "jersey_roster.json"])
         elapsed = time.monotonic() - started
         result = {"source": str(video), "source_sha256": digest, "frames": progress["frames"],
                   "fps": fps, "width": width, "height": height, "audio": False,

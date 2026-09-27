@@ -7,7 +7,35 @@ import numpy as np
 from training.jersey.config import number, settings
 from training.jersey.crops import candidate
 from training.jersey.reader import ResourceDeferred, decode
+from training.jersey.roster import Roster
 from training.jersey.temporal import JerseyRecognizer
+
+
+def fixture_roster():
+    return Roster(
+        {
+            "schema_version": 1,
+            "teams": [
+                {
+                    "team_id": "a",
+                    "name": "Team A",
+                    "players": [
+                        {"number": "23", "name": "Player A"},
+                        {"number": "7", "name": "Player B"},
+                        {"number": "0", "name": "Player C"},
+                    ],
+                },
+                {
+                    "team_id": "b",
+                    "name": "Team B",
+                    "players": [
+                        {"number": "00", "name": "Player D"},
+                        {"number": "01", "name": "Player E"},
+                    ],
+                },
+            ],
+        }
+    )
 
 
 def observation(tid=1):
@@ -53,7 +81,9 @@ class TemporalTests(unittest.TestCase):
         )
         self.clock = Clock()
         self.reader = Reader(self.clock)
-        self.engine = JerseyRecognizer(settings(), reader=self.reader, clock=self.clock)
+        self.engine = JerseyRecognizer(
+            settings(), roster=fixture_roster(), reader=self.reader, clock=self.clock
+        )
 
     def step(self, frame, detections=None, segment=0, wall=True):
         if wall:

@@ -13,15 +13,20 @@ import numpy as np
 
 from training.jersey.config import settings
 from training.jersey.reader import ParseqReader, ResourceDeferred
+from training.jersey.roster import Roster
 from training.jersey.setup import install
 from training.jersey.temporal import JerseyRecognizer
-from training.jersey.tests.test_temporal import Clock, Reader
+from training.jersey.tests.test_temporal import Clock, Reader, fixture_roster
 from training.players.predict import DEFAULTS, predict_video
 
 
 class IntegrationTests(unittest.TestCase):
     def run_video(self, root, enabled=True, stop=None):
         source = root / "video.mp4"
+        roster = fixture_roster()
+        if enabled:
+            (root / "jersey.json").write_text(json.dumps(roster.payload))
+            roster = Roster.load(root / "jersey.json")
         writer = cv2.VideoWriter(
             str(source), cv2.VideoWriter_fourcc(*"mp4v"), 10, (100, 160)
         )
@@ -53,7 +58,7 @@ class IntegrationTests(unittest.TestCase):
         reader = Reader(clock, duration=0)
         # No wall-clock throttling in this deterministic artifact fixture.
         recognizer = JerseyRecognizer(
-            settings(), reader=reader, clock=lambda: clock.value
+            settings(), roster=roster, reader=reader, clock=lambda: clock.value
         )
         recognizer.config["min_batch_interval_seconds"] = 0
         cfg = {
@@ -107,6 +112,15 @@ class IntegrationTests(unittest.TestCase):
                     for x in (root / "out/jersey_tracks.jsonl").read_text().splitlines()
                 ]
                 self.assertEqual(summaries[0]["jersey"]["number"], "23")
+                self.assertEqual(summaries[0]["jersey"]["player_name"], "Player A")
+                self.assertEqual(
+                    json.loads((root / "out/jersey_roster.json").read_text()),
+                    fixture_roster().payload,
+                )
+                self.assertEqual(
+                    rows[0]["roster_sha256"],
+                    hashlib.sha256((root / "jersey.json").read_bytes()).hexdigest(),
+                )
                 for name, digest in result["artifacts"].items():
                     self.assertEqual(
                         hashlib.sha256((root / "out" / name).read_bytes()).hexdigest(),
