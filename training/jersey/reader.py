@@ -21,8 +21,9 @@ class ResourceDeferred(RuntimeError):
 
 
 class ParseqReader:
-    def __init__(self, config):
+    def __init__(self, config, *, manage_threads=True):
         self.config = config
+        self.manage_threads = manage_threads
         if file_hash(Path(config["weights"])) != MODEL_SHA256:
             raise ValueError("Expected the pinned PARSeq checkpoint (SHA-256 mismatch)")
         if importlib.metadata.version("timm") != "0.9.16":
@@ -72,7 +73,7 @@ class ParseqReader:
         previous_threads = torch.get_num_threads()
         cuda = self.config["device"].startswith("cuda:")
         try:
-            if not cuda:
+            if not cuda and self.manage_threads:
                 torch.set_num_threads(self.config["cpu_threads"])
             if self.model is None:
                 from training.jersey.vendor.parseq.model import PARSeq
@@ -114,7 +115,7 @@ class ParseqReader:
             torch.cuda.empty_cache()
             raise ResourceDeferred("cuda_oom_disabled") from exc
         finally:
-            if not cuda:
+            if not cuda and self.manage_threads:
                 torch.set_num_threads(previous_threads)
 
 

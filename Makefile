@@ -11,6 +11,7 @@ BALL_EXPORT = cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.export --source "
 .PHONY: help annotate-ball export-ball export-ball-yolo export-ball-coco export-ball-tracknet-totnet test-ball
 
 help:
+	@echo 'make analyze-video VIDEO=... OUTPUT=runs/analysis/example [ROSTER=jersey.json]'
 	@echo 'make annotate-ball VIDEO="/path/to/clip.mp4"'
 	@echo 'make export-ball  # Export all ball formats'
 	@echo 'make export-ball-yolo | export-ball-coco | export-ball-tracknet-totnet'
@@ -201,3 +202,14 @@ calibrate-court:
 
 test-court:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest discover -s training/court/tests -v
+
+ANALYSIS_CONFIG ?= configs/analysis.yaml
+.PHONY: setup-analysis analyze-video test-analysis
+setup-analysis:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m pipeline.setup
+
+analyze-video:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m pipeline analyze --video "$(VIDEO)" --output "$(OUTPUT)" --config "$(ANALYSIS_CONFIG)" $(if $(ROSTER),--roster "$(ROSTER)",) $(if $(MAX_FRAMES),--max-frames "$(MAX_FRAMES)",) $(if $(ANALYSIS_MODE),--mode "$(ANALYSIS_MODE)",)
+
+test-analysis:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest discover -s pipeline/tests -v

@@ -34,6 +34,20 @@ def _text(value, field):
     return value
 
 
+class UnrestrictedRoster:
+    """Explicit anonymous mode: numeric OCR evidence without an identity list."""
+
+    provenance = {"mode": "unrestricted", "sha256": None}
+    sha256 = None
+
+    def allows(self, value):
+        return number(value) is not None
+
+    def identity(self, value):
+        return {"player_name": None, "team_id": None, "team_name": None,
+                "candidates": [], "identity_status": "anonymous"}
+
+
 class Roster:
     def __init__(self, payload, *, source=None, sha256=None):
         if (

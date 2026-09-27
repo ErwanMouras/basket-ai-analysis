@@ -180,7 +180,8 @@ class CourtCalibrator:
             mask[int(y1 * height):int(y2 * height), int(x1 * width):int(x2 * width)] = 0
         return cv2.resize(mask, scaled_shape, interpolation=cv2.INTER_NEAREST)
 
-    def update(self, image, detections, *, frame_index, force_cut=False):
+    def update(self, image, detections, *, frame_index, force_cut=False,
+               timestamp_seconds=None, keypoints_prediction=None):
         if frame_index != self.next_frame:
             raise ValueError("Court calibration requires consecutive frames starting at zero")
         if image.dtype != np.uint8 or image.ndim != 3 or image.shape[2] != 3:
@@ -189,6 +190,10 @@ class CourtCalibrator:
             raise ValueError("Court video dimensions changed")
         self.shape = image.shape
         cfg = self.config
+        now = frame_index / self.fps if timestamp_seconds is None else timestamp_seconds
+        if not math.isfinite(now) or now < 0 or (hasattr(self, "timestamp") and now <= self.timestamp):
+            raise ValueError("Court timestamps must increase")
+        self.timestamp = now
         height, width = image.shape[:2]
         scaled_width = min(width, cfg["motion_width"])
         scaled_height = max(1, round(height * scaled_width / width))
@@ -226,7 +231,7 @@ class CourtCalibrator:
             motion = None
         propagated = None
         if (self.state is not None and motion is not None and self.last_fit is not None
-                and (frame_index - self.last_fit) / self.fps <= cfg["max_propagation_seconds"]):
+                and now - self.last_fit_time <= cfg["max_propagation_seconds"]):
             scale = np.diag([scaled_width / width, scaled_height / height, 1.])
             full_motion = np.linalg.inv(scale) @ motion @ scale
             matrix = normalize(self.state["image_to_court"] @ np.linalg.inv(full_motion))
@@ -235,8 +240,8 @@ class CourtCalibrator:
         keypoints = None
         fit_report = None
         candidate = None
-        if frame_index % cfg["detect_every"] == 0 or propagated is None:
-            keypoints = self.model.predict(image)
+        if keypoints_prediction is not None or frame_index % cfg["detect_every"] == 0 or propagated is None:
+            keypoints = keypoints_prediction if keypoints_prediction is not None else self.model.predict(image)
             self.stats["model_calls"] += 1
             candidate, fit_report = fit_keypoints(keypoints, image.shape, cfg)
             if candidate is not None and propagated is not None:
@@ -250,6 +255,7 @@ class CourtCalibrator:
         if candidate is not None:
             self.state = candidate
             self.last_fit = frame_index
+            self.last_fit_time = now
             status = "fit"
         elif propagated is not None:
             self.state = propagated
@@ -258,7 +264,7 @@ class CourtCalibrator:
         self.previous_gray, self.previous_thumbnail, self.previous_histogram = gray, thumbnail, hist
         self.previous_mask = self._mask(image, detections, (scaled_width, scaled_height))
         self.next_frame += 1
-        return {"frame_index": frame_index, "timestamp_seconds": frame_index / self.fps,
+        return {"frame_index": frame_index, "timestamp_seconds": now,
                 "segment_id": self.segment_id, "status": status, "scene_cut": cut,
                 "cut_reason": "explicit" if cut and force_cut else "automatic" if cut else None,
                 "cut_pixel_difference": difference, "cut_histogram_distance": histogram_distance,
@@ -266,7 +272,7 @@ class CourtCalibrator:
                 "image_to_court": self.state["image_to_court"].tolist() if self.state else None,
                 "support_polygon_m": self.state["support"].tolist() if self.state else None,
                 "last_fit_frame": self.last_fit,
-                "fit_age_seconds": (frame_index - self.last_fit) / self.fps if self.last_fit is not None else None,
+                "fit_age_seconds": now - self.last_fit_time if self.last_fit is not None else None,
                 "keypoints": np.asarray(keypoints).tolist() if keypoints is not None else None,
                 "fit_attempt": fit_report, "accepted_fit": self.state["fit"] if self.state else None,
                 "motion": motion_report}

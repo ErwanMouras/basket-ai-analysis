@@ -10,9 +10,10 @@ from training.jersey.reader import ParseqReader, ResourceDeferred
 
 
 class JerseyRecognizer:
-    def __init__(self, config, *, roster, reader=None, clock=time.monotonic):
+    def __init__(self, config, *, roster=None, reader=None, clock=time.monotonic):
+        from training.jersey.roster import UnrestrictedRoster
         self.config = settings(config)
-        self.roster = roster
+        self.roster = roster if roster is not None else UnrestrictedRoster()
         self.reader = reader if reader is not None else ParseqReader(self.config)
         self.clock = clock
         self.states = {}

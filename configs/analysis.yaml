@@ -1,0 +1,32 @@
+# Local POC baseline. Paths are relative to the repository working directory.
+# Install the provisional multiclass baseline with python -m pipeline.setup.
+mode: parallel
+workers: 4
+prefetch: 2
+cpu_threads: 4
+gpu_concurrency: 2  # Measured on RTX 5080; use 1 for a smaller GPU.
+timestamp_policy: source
+required: [players, referees, court, ball, pose, jersey]
+people:
+  adapter: yolo
+  weights: models/players/ebard_yolov8n.pt
+  device: cuda:0
+  resolution: 704
+  class_roles: {"2": player, "3": referee}
+ball:
+  enabled: true
+  weights: runs/ball/1edd81e040564da2bfa36a757fb855f7/best.pt
+  device: cuda:0
+court:
+  enabled: true
+  device: cuda:0
+  detect_every: 5
+  footpoint: ankles
+pose:
+  enabled: true
+  device: cuda:0
+jersey:
+  enabled: true
+  device: cpu
+include_intervals: []
+exclude_intervals: []
