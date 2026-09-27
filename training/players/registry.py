@@ -78,6 +78,9 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
                 raise ValueError(f"Local evaluation differs from MLflow: {name}")
     sources = [p for p in (ROOT / "training/players").rglob("*.py") if "tests" not in p.parts]
     sources += list((ROOT / "training/common").glob("*.py"))
+    sources += [p for p in (ROOT / "training/jersey").rglob("*")
+                if p.is_file() and "tests" not in p.parts
+                and (p.suffix == ".py" or p.name in ("LICENSE", "NOTICE", "UPSTREAM.md"))]
     code = source_fingerprints(ROOT, sources)
     smoke = result["purpose"] == "smoke" or result["reference"].get("smoke", False)
     requirements_path, requirements = requirements_for_runtime()

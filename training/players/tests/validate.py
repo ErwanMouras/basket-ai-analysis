@@ -56,6 +56,7 @@ def main():
 
     try:
         command("players", "training.players.tests.runner", ["--discover", "training/players/tests"], report=True)
+        command("jersey", "training.players.tests.runner", ["--discover", "training/jersey/tests"], report=True)
         command("ball", "training.players.tests.runner", ["--discover", "training/ball/tests"], report=True)
         for family in (("yolo", "rfdetr") if args.family == "both" else (args.family,)):
             weights = root / "weights" / (family + (".pt" if family == "yolo" else ".pth"))

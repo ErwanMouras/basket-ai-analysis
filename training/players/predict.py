@@ -14,6 +14,9 @@ import cv2
 from training.common.config import merge_settings, read_yaml
 from training.common.files import write_json
 from training.common.provenance import ROOT, file_hash
+from training.jersey.config import DEFAULTS as JERSEY_DEFAULTS
+from training.jersey.config import settings as jersey_settings
+from training.jersey.temporal import JerseyRecognizer
 from training.players.evaluation.benchmark import runtime
 from training.players.evaluation.config import DEFAULTS as EVAL_DEFAULTS
 from training.players.evaluation.config import validate_config
@@ -30,11 +33,12 @@ DEFAULTS = {k: EVAL_DEFAULTS[k] for k in (
     "model", "variant", "weights", "source_class", "device", "resolution", "precision",
     "cpu_threads", "score_floor", "score_threshold", "max_detections")}
 DEFAULTS.update(video=None, output="runs/players/video", max_frames=None, codec="mp4v",
-                registry_uri=None, mlflow_uri="sqlite:///mlflow.db", tracking=TRACKING_DEFAULTS, pose=POSE_DEFAULTS)
+                registry_uri=None, mlflow_uri="sqlite:///mlflow.db", tracking=TRACKING_DEFAULTS, pose=POSE_DEFAULTS, jersey=JERSEY_DEFAULTS)
 
 
 def load_config(path, *, video=None, checkpoint=None, tracker=None, output=None, max_frames=None,
-                pose=None, pose_weights=None, pose_device=None):
+                pose=None, pose_weights=None, pose_device=None,
+                jersey=None, jersey_weights=None, jersey_device=None):
     config = merge_settings(DEFAULTS, read_yaml(Path(path)) if path else {})
     if video:
         config["video"] = str(video)
@@ -55,6 +59,13 @@ def load_config(path, *, video=None, checkpoint=None, tracker=None, output=None,
         config["pose"]["weights"] = str(pose_weights)
     if pose_device is not None:
         config["pose"]["device"] = pose_device
+    config["jersey"] = dict(config["jersey"])
+    for key, value in (("enabled", jersey), ("weights", jersey_weights), ("device", jersey_device)):
+        if value is not None:
+            config["jersey"][key] = str(value) if key == "weights" else value
+    config["jersey"] = jersey_settings(config["jersey"])
+    if config["jersey"]["enabled"] and not config["tracking"]["enabled"]:
+        raise ValueError("Jersey temporal recognition requires tracking")
     if bool(config["weights"]) == bool(config["registry_uri"]):
         raise ValueError("Choose exactly one local checkpoint or models:/players-detector reference")
     if not isinstance(config["video"], str) or not config["video"]:
@@ -76,10 +87,13 @@ def load_config(path, *, video=None, checkpoint=None, tracker=None, output=None,
     return config
 
 
-def predict_video(config, *, detector=None, pose_estimator=None, stop_after_frame=None):
+def predict_video(config, *, detector=None, pose_estimator=None, jersey_recognizer=None, stop_after_frame=None):
     config = dict(config)
     config["tracking"] = tracking_settings(config.get("tracking"), score_floor=config["score_floor"])
     config["pose"] = pose_settings(config.get("pose"), score_floor=config["score_floor"])
+    config["jersey"] = jersey_settings(config.get("jersey"))
+    if config["jersey"]["enabled"] and not config["tracking"]["enabled"]:
+        raise ValueError("Jersey temporal recognition requires tracking")
     video, output = Path(config["video"]), Path(config["output"])
     digest = file_hash(video)
     output.mkdir(parents=True, exist_ok=False)
@@ -127,6 +141,14 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
                 "source_sha256": digest, "detector": detector.provenance,
                 "adapter_sha256": file_hash(Path(__file__).with_name("tracking.py")),
             })
+        jersey_model = (jersey_recognizer if jersey_recognizer is not None else JerseyRecognizer(config["jersey"])) if config["jersey"]["enabled"] else None
+        jersey_run_id = uuid4().hex if jersey_model is not None else None
+        jersey_common = {"schema_version": 1, "source_sha256": digest,
+                         "jersey_run_id": jersey_run_id, "tracking_run_id": tracking_run_id}
+        if jersey_model is not None:
+            write_json(output / "jersey.json", {**jersey_common, **jersey_model.provenance,
+                "pose_run_id": pose_run_id, "detector": detector.provenance,
+                "code_sha256": {str(p.relative_to(ROOT / "training/jersey")): file_hash(p) for p in sorted((ROOT / "training/jersey").rglob("*.py"))}})
         total = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         limit = config["max_frames"]
         expected = min(total, limit) if total > 0 and limit else total
@@ -138,6 +160,11 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
                              if tracker is not None else None)
             poses_handle = (stack.enter_context((output / "poses.partial.jsonl").open("w", encoding="utf-8"))
                             if pose_model is not None else None)
+            jersey_handles = ({name: stack.enter_context((output / f"{name}.partial.jsonl").open("w", encoding="utf-8"))
+                               for name in ("jerseys", "jersey_reads", "jersey_tracks")} if jersey_model is not None else {})
+            def write_jersey(name, row):
+                jersey_handles[name].write(json.dumps({**jersey_common, "artifact_type": f"players_video_{name}", **row}, allow_nan=False) + "\n")
+                jersey_handles[name].flush()
             while limit is None or progress["frames"] < limit:
                 ok, image = capture.read()
                 if not ok:
@@ -181,6 +208,16 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
                     poses_handle.flush()
                     posed_observations += sum(d["pose"] is not None for d in displayed)
                     valid_keypoints += sum(d["pose"]["valid_keypoints"] for d in displayed if d["pose"] is not None)
+                if jersey_model is not None:
+                    displayed, readings, ended = jersey_model.update(image, displayed,
+                        frame_index=index, timestamp_seconds=index/fps, segment_id=tracker.segment_id)
+                    write_jersey("jerseys", {"coordinate_space": "source", "frame_index": index,
+                        "timestamp_seconds": index/fps, "segment_id": tracker.segment_id,
+                        "detections": [{k: v for k, v in d.items() if k not in ("pose", "pose_status")} for d in displayed]})
+                    for row in readings:
+                        write_jersey("jersey_reads", row)
+                    for row in ended:
+                        write_jersey("jersey_tracks", row)
                 for detection in displayed:
                     if detection["confidence"] < config["score_threshold"]:
                         continue
@@ -189,6 +226,8 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
                     color = ((60 + track_id * 67 % 196, 60 + track_id * 131 % 196,
                               60 + track_id * 43 % 196) if track_id is not None else (0, 220, 0))
                     label = f"#{track_id}" if track_id is not None else ("player ?" if tracker else "player")
+                    if detection.get("jersey", {}).get("number") is not None:
+                        label += f" jersey {detection['jersey']['number']}"
                     cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(image, f"{label} {detection['confidence']:.2f}", (x1, max(15, y1)),
                                 cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
@@ -202,6 +241,9 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
                 write_json(output / "progress.json", progress)
                 if stop_after_frame is not None and progress["frames"] >= stop_after_frame:
                     raise KeyboardInterrupt("Requested video interruption")
+            if jersey_model is not None:
+                for row in jersey_model.finish():
+                    write_jersey("jersey_tracks", row)
         if not progress["frames"]:
             raise ValueError("Video contains no decoded frame")
         if expected > 0 and progress["frames"] != expected:
@@ -219,15 +261,22 @@ def predict_video(config, *, detector=None, pose_estimator=None, stop_after_fram
         if pose_model is not None:
             os.replace(output / "poses.partial.jsonl", output / "poses.jsonl")
             artifacts.extend(["poses.jsonl", "pose.json"])
+        if jersey_model is not None:
+            for name in jersey_handles:
+                os.replace(output / f"{name}.partial.jsonl", output / f"{name}.jsonl")
+                artifacts.append(f"{name}.jsonl")
+            artifacts.append("jersey.json")
         elapsed = time.monotonic() - started
         result = {"source": str(video), "source_sha256": digest, "frames": progress["frames"],
                   "fps": fps, "width": width, "height": height, "audio": False,
                   "elapsed_seconds": elapsed, "end_to_end_fps": progress["frames"] / elapsed,
-                  "timing_scope": "model load, decode, detection, optional tracking and pose, draw, encode, JSON and progress writes; warmup absent",
+                  "timing_scope": "model load, decode, detection, optional tracking, pose and jersey OCR, draw, encode, JSON and progress writes; warmup absent",
                   "tracking": {"enabled": tracker is not None, "tracking_run_id": tracking_run_id,
                                "tracked_observations": tracked_observations},
                   "pose": {"enabled": pose_model is not None, "pose_run_id": pose_run_id,
                            "posed_observations": posed_observations, "valid_keypoints": valid_keypoints},
+                  "jersey": {"enabled": jersey_model is not None, "jersey_run_id": jersey_run_id,
+                             "stats": jersey_model.stats if jersey_model is not None else {}},
                   "artifacts": {name: file_hash(output / name) for name in artifacts}}
         write_json(output / "result.json", result)
         progress.update(status="FINISHED", eta_seconds=0, elapsed_seconds=elapsed,
@@ -258,10 +307,14 @@ def main():
     parser.add_argument("--pose", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--pose-weights", type=Path)
     parser.add_argument("--pose-device")
+    parser.add_argument("--jersey", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--jersey-weights", type=Path)
+    parser.add_argument("--jersey-device")
     args = parser.parse_args()
     print(json.dumps(predict_video(load_config(args.config, video=args.video, checkpoint=args.checkpoint,
         tracker=args.tracker, output=args.output, max_frames=args.max_frames,
-        pose=args.pose, pose_weights=args.pose_weights, pose_device=args.pose_device)), indent=2))
+        pose=args.pose, pose_weights=args.pose_weights, pose_device=args.pose_device, jersey=args.jersey,
+        jersey_weights=args.jersey_weights, jersey_device=args.jersey_device)), indent=2))
 
 
 if __name__ == "__main__":

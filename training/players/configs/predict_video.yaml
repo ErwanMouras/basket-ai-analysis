@@ -34,3 +34,31 @@ pose:
   keypoint_min_confidence: 0.3
   min_bbox_area: 256.0
   max_players: 32
+
+jersey:
+  enabled: false  # make predict-jersey enables tracking, pose and jersey OCR
+  weights: models/jersey/parseq.pt  # explicit make setup-jersey first
+  device: cpu  # keep GPU available for detection/pose; CUDA is opt-in
+  cpu_threads: 2
+  batch_size: 4  # enforced maximum, no asynchronous GPU queue
+  crops_per_video_second: 8.0
+  max_duty_cycle: 0.15  # OCR wall-time cooldown (including cold start)
+  min_batch_interval_seconds: 0.1
+  gpu_reserve_mb: 1024
+  sample_interval_seconds: 0.1
+  selection_window_seconds: 0.3
+  read_interval_seconds: 0.75
+  confirmed_interval_seconds: 3.0
+  evidence_ttl_seconds: 12.0
+  state_ttl_seconds: 10.0
+  max_tracks: 64
+  max_evidence: 8
+  min_votes: 2
+  min_agreement: 0.75
+  min_ocr_confidence: 0.9
+  min_detection_confidence: 0.4
+  min_crop_width: 20
+  min_crop_height: 24
+  min_sharpness: 25.0
+  min_contrast: 12.0
+  max_overlap: 0.4

@@ -30,6 +30,8 @@ help:
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
+	@echo 'make setup-jersey | predict-jersey VIDEO=... CHECKPOINT=... OUTPUT=...  # Budgeted jersey OCR'
+	@echo 'make test-jersey  # Temporal recognition, CPU crop selection and resource budgets'
 	@echo 'make setup-players-pose  # Install the pinned RTMPose-M model'
 	@echo 'make pose-players VIDEO=... CHECKPOINT=... OUTPUT=... [POSE_DEVICE=cpu|cuda:0]'
 	@echo 'make test-players-pose  # Skeleton geometry, IDs and video outputs'
@@ -145,7 +147,7 @@ pipeline-players:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.orchestration.pipeline --config "$(CONFIG)" $(if $(RESTART_INCOMPLETE),--restart-incomplete,)
 
 predict-players:
-	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.predict $(if $(CONFIG),--config "$(CONFIG)",) $(if $(VIDEO),--video "$(VIDEO)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(TRACKER),--tracker "$(TRACKER)",) $(if $(OUTPUT),--output "$(OUTPUT)",) $(if $(MAX_FRAMES),--max-frames "$(MAX_FRAMES)",) $(if $(filter 1,$(POSE)),--pose,) $(if $(filter 0,$(POSE)),--no-pose,) $(if $(POSE_WEIGHTS),--pose-weights "$(POSE_WEIGHTS)",) $(if $(POSE_DEVICE),--pose-device "$(POSE_DEVICE)",)
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.predict $(if $(CONFIG),--config "$(CONFIG)",) $(if $(VIDEO),--video "$(VIDEO)",) $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(TRACKER),--tracker "$(TRACKER)",) $(if $(OUTPUT),--output "$(OUTPUT)",) $(if $(MAX_FRAMES),--max-frames "$(MAX_FRAMES)",) $(if $(filter 1,$(POSE)),--pose,) $(if $(filter 0,$(POSE)),--no-pose,) $(if $(POSE_WEIGHTS),--pose-weights "$(POSE_WEIGHTS)",) $(if $(POSE_DEVICE),--pose-device "$(POSE_DEVICE)",) $(if $(filter 1,$(JERSEY)),--jersey,) $(if $(filter 0,$(JERSEY)),--no-jersey,) $(if $(JERSEY_WEIGHTS),--jersey-weights "$(JERSEY_WEIGHTS)",) $(if $(JERSEY_DEVICE),--jersey-device "$(JERSEY_DEVICE)",)
 
 .PHONY: setup-players-pose pose-players test-players-pose
 setup-players-pose:
@@ -177,3 +179,13 @@ validate-players:
 
 smoke-players-gpu:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.tests.validate --output "$(VALIDATION_OUTPUT)" --device cuda:0 --gpu-smoke
+
+.PHONY: setup-jersey predict-jersey test-jersey
+setup-jersey:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.jersey.setup $(if $(JERSEY_SOURCE),--source "$(JERSEY_SOURCE)",) $(if $(JERSEY_WEIGHTS),--output "$(JERSEY_WEIGHTS)",)
+
+predict-jersey:
+	$(MAKE) pose-players JERSEY=1
+
+test-jersey:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m unittest discover -s training/jersey/tests -v
