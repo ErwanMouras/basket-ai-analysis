@@ -112,6 +112,31 @@ class DistanceTests(unittest.TestCase):
         self.assertEqual(result["jersey_number"], "00")
         self.assertIsNone(result["player_id"])
 
+    def test_anonymous_color_group_is_retained_without_roster_identity(self):
+        m = self.metric()
+        for i in range(3):
+            p = person(i * .1)
+            p["jersey"] = {"number": "28" if i else None,
+                           "status": "confirmed" if i else "unknown",
+                           "identity_status": "ambiguous" if i else "unresolved",
+                           "team_group": "team_1" if i else None}
+            m.update(row(i, [p]))
+        result = m.result()["players"][0]
+        self.assertEqual(result["team_group"], "team_1")
+        self.assertEqual(result["jersey_number"], "28")
+        self.assertIsNone(result["team_id"])
+
+    def test_color_conflict_clears_statistic_group(self):
+        m = self.metric()
+        for i in range(3):
+            p = person(i * .1)
+            p["jersey"] = {"team_group": "team_1" if i < 2 else None,
+                           "team_group_conflict": i == 2}
+            m.update(row(i, [p]))
+        result = m.result()["players"][0]
+        self.assertIsNone(result["team_group"])
+        self.assertIn("team_group_conflict", result["warnings"])
+
     def test_large_jump_method_and_time_gaps(self):
         for change in ("jump", "method", "time"):
             with self.subTest(change=change):

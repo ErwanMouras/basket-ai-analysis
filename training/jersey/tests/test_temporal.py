@@ -5,6 +5,7 @@ from unittest.mock import patch
 import numpy as np
 
 from training.jersey.config import number, settings
+from training.jersey.colors import TeamColors, dominant_color
 from training.jersey.crops import candidate
 from training.jersey.reader import ResourceDeferred, decode
 from training.jersey.roster import Roster
@@ -240,6 +241,35 @@ class TemporalTests(unittest.TestCase):
         self.assertEqual(
             candidate(self.image, d, [d], settings())["region"], "pose_torso"
         )
+
+    def test_color_groups_require_clean_repeated_torso_crops(self):
+        teams = TeamColors()
+        warm = np.full((32, 128, 3), (230, 185, 35), dtype=np.uint8)
+        dark = np.full((32, 128, 3), (24, 24, 28), dtype=np.uint8)
+        mixed = warm.copy()
+        mixed[:, 64:] = (25, 25, 30)
+        self.assertIsNone(dominant_color(mixed))
+        mixed = warm.copy()
+        mixed[:, 77:] = (25, 25, 30)
+        self.assertIsNone(dominant_color(mixed))
+        states = [dict(last_color_sample=-1e9, color_votes=TeamColors.new_votes(),
+                       team_group=None) for _ in range(3)]
+        for index, image in enumerate((warm, dark, warm)):
+            state = states[index]
+            teams.observe(state, {"image": image, "overlap": 0.2}, 0)
+            self.assertIsNone(state["team_group"])
+            for t in (0, .4):
+                teams.observe(state, {"image": image, "overlap": 0}, t)
+            self.assertIsNone(state["team_group"])
+            teams.observe(state, {"image": image, "overlap": 0}, .8)
+        self.assertEqual([s["team_group"] for s in states],
+                         ["team_1", "team_2", "team_1"])
+        teams.observe(states[0], {"image": dark, "overlap": 0}, 1.2)
+        self.assertIsNone(states[0]["team_group"])
+        for t in (1.6, 2.0):
+            teams.observe(states[0], {"image": dark, "overlap": 0}, t)
+        self.assertTrue(states[0]["color_conflict"])
+        self.assertIsNone(states[0]["team_group"])
 
     def test_decoder_requires_eos_full_string_and_confidence(self):
         p = np.full((4, 95), 0.00001)

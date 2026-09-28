@@ -5,6 +5,7 @@ import time
 from collections import deque
 
 from training.jersey.config import number, settings
+from training.jersey.colors import TeamColors
 from training.jersey.crops import candidate
 from training.jersey.reader import ParseqReader, ResourceDeferred
 
@@ -17,6 +18,7 @@ class JerseyRecognizer:
         self.reader = reader if reader is not None else ParseqReader(self.config)
         self.clock = clock
         self.states = {}
+        self.team_colors = TeamColors()
         self.segment = None
         self.frame = -1
         self.timestamp = -1.0
@@ -40,9 +42,14 @@ class JerseyRecognizer:
             "config": self.config,
             "fusion": "causal weighted agreement with consecutive confirmation",
             "budget": "source-time token bucket and wall-time duty cooldown",
+            "team_colors": "two anonymous groups from repeated dominant torso colors",
         }
 
     def _decision(self, state, now):
+        if state.get("color_votes") and now - state["color_votes"][-1][0] > 12:
+            state["team_group"] = None
+        group = {"team_group": state.get("team_group"),
+                 "team_group_conflict": state.get("color_conflict", False)}
         votes = state["votes"]
         while (
             votes
@@ -61,6 +68,7 @@ class JerseyRecognizer:
                 "status": "unknown",
                 "votes": 0,
                 "agreement": 0.0,
+                **group,
                 **self.roster.identity(None),
             }
         best = max(totals, key=lambda n: (totals[n], n))
@@ -79,6 +87,7 @@ class JerseyRecognizer:
             "status": "confirmed" if confirmed else "uncertain",
             "votes": counts[best],
             "agreement": agreement,
+            **group,
         }
 
     def _finish(self, tid, now, reason):
@@ -164,6 +173,11 @@ class JerseyRecognizer:
                     "last_sample": -1e9,
                     "pending": None,
                     "votes": deque(maxlen=cfg["max_evidence"]),
+                    "color_votes": TeamColors.new_votes(),
+                    "last_color_sample": -1e9,
+                    "team_group": None,
+                    "first_team_group": None,
+                    "color_conflict": False,
                 }
             s = self.states[tid]
             s.update(last_seen=now, last_frame=frame_index)
@@ -173,18 +187,24 @@ class JerseyRecognizer:
                 if decision["number"] is not None
                 else cfg["read_interval_seconds"]
             )
-            if (
-                now - s["last_read"] < interval
-                or now - s["last_sample"] < cfg["sample_interval_seconds"]
-            ):
+            ocr_ready = (
+                now - s["last_read"] >= interval
+                and now - s["last_sample"] >= cfg["sample_interval_seconds"]
+            )
+            color_ready = now - s["last_color_sample"] >= 0.35
+            if not ocr_ready and not color_ready:
                 continue
-            s["last_sample"] = now
             if d["confidence"] < cfg["min_detection_confidence"]:
                 continue
             crop = candidate(image, d, detections, cfg)
             if crop is None:
                 self.stats["quality_rejections"] += 1
                 continue
+            if color_ready:
+                self.team_colors.observe(s, crop, now)
+            if not ocr_ready:
+                continue
+            s["last_sample"] = now
             crop.update(
                 frame_index=frame_index,
                 timestamp_seconds=now,
@@ -316,6 +336,8 @@ class JerseyRecognizer:
                     else "capacity_limit",
                     "votes": 0,
                     "agreement": 0.0,
+                    "team_group": None,
+                    "team_group_conflict": False,
                 }
             )
             jersey = {**jersey, **self.roster.identity(jersey["number"])}

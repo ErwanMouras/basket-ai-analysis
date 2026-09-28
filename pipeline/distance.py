@@ -43,6 +43,7 @@ class Distance:
                 "subject_id": subject, "player_id": subject if who else None,
                 "player_name": jersey.get("player_name") if who else None,
                 "team_id": who[0] if who else None, "jersey_number": who[1] if who else None,
+                "team_group": jersey.get("team_group"),
                 "identity_status": "confirmed" if who else "anonymous",
                 "track_refs": [{"run_id": self.run_id, "segment_id": segment, "track_id": p["track_id"]}],
                 "distance": 0.0, "tracked_duration_s": 0.0, "measured_duration_s": 0.0,
@@ -64,6 +65,17 @@ class Distance:
                         row["jersey_number"] = number
                 if jersey.get("identity_status") == "ambiguous":
                     row["warnings"].add("roster_identity_ambiguous")
+            if jersey.get("team_group_conflict"):
+                row["team_group"] = None
+                row["warnings"].add("team_group_conflict")
+            elif jersey.get("team_group") is None:
+                row["team_group"] = None
+            elif "team_group_conflict" not in row["warnings"]:
+                if row["team_group"] is None:
+                    row["team_group"] = jersey["team_group"]
+                elif row["team_group"] != jersey["team_group"]:
+                    row["team_group"] = None
+                    row["warnings"].add("team_group_conflict")
             if conflict:
                 row["warnings"].add("identity_conflict")
             prev = self.previous.get(track)

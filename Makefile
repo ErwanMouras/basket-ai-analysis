@@ -12,6 +12,7 @@ BALL_EXPORT = cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.export --source "
 
 help:
 	@echo 'make analyze-video VIDEO=... OUTPUT=runs/analysis/example [ROSTER=jersey.json]'
+	@echo 'make view-analysis  # Open the local run visualizer on port 8765'
 	@echo 'make annotate-ball VIDEO="/path/to/clip.mp4"'
 	@echo 'make export-ball  # Export all ball formats'
 	@echo 'make export-ball-yolo | export-ball-coco | export-ball-tracknet-totnet'
@@ -213,3 +214,8 @@ analyze-video:
 
 test-analysis:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest discover -s pipeline/tests -v
+
+VIEWER_PORT ?= 8765
+.PHONY: view-analysis
+view-analysis:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m viewer.server --port "$(VIEWER_PORT)"
