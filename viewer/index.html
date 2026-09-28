@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e13">
+  <title>Vyneros — Studio d'analyse</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark"><i></i><i></i><i></i></span><div><strong>VYNEROS</strong><small>STUDIO D’ANALYSE</small></div></div>
+      <div class="topbar-center"><span class="breadcrumb">Workspace</span><span class="slash">/</span><span class="breadcrumb-current">Analyse vidéo</span></div>
+      <div class="topbar-right"><span class="local-pill"><span class="status-dot"></span> Studio local</span><span class="avatar">V</span></div>
+    </header>
+
+    <div class="page-heading">
+      <div><div class="eyebrow"><span class="eyebrow-line"></span> ANALYSE DE PERFORMANCE <span class="eyebrow-index">/ 01</span></div><h1>Analyse de match<span class="title-accent">.</span></h1><p>Explorez chaque instant. Comprenez chaque mouvement.</p></div>
+      <div class="run-picker"><label for="runSelect">RUN À ANALYSER</label><div class="select-wrap"><select id="runSelect" aria-label="Choisir un run"></select><span class="select-chevron">⌄</span></div></div>
+    </div>
+
+    <main class="workspace">
+      <aside class="filters panel">
+        <div class="panel-title-row"><div><div class="section-kicker">AFFICHAGE</div><h2>Calques vidéo</h2></div><span class="layers-icon">▤</span></div>
+        <p class="section-desc">Personnalisez les détections visibles sur la séquence.</p>
+        <div class="filter-group-label">DÉTECTIONS</div>
+        <label class="filter-row"><span class="filter-symbol player-symbol">▣</span><span class="filter-copy"><strong>Joueurs</strong><small>Boîtes de détection</small></span><input type="checkbox" data-filter="players" checked><span class="switch"></span></label>
+        <label class="filter-row"><span class="filter-symbol referee-symbol">▣</span><span class="filter-copy"><strong>Arbitres</strong><small>Suivi des officiels</small></span><input type="checkbox" data-filter="referees" checked><span class="switch"></span></label>
+        <label class="filter-row"><span class="filter-symbol ball-symbol">●</span><span class="filter-copy"><strong>Ballon</strong><small>Position détectée</small></span><input type="checkbox" data-filter="ball" checked><span class="switch"></span></label>
+        <div class="filter-group-label second">ANALYSE</div>
+        <label class="filter-row"><span class="filter-symbol pose-symbol">✧</span><span class="filter-copy"><strong>Pose</strong><small>Points & squelette</small></span><input type="checkbox" data-filter="pose"><span class="switch"></span></label>
+        <label class="filter-row"><span class="filter-symbol track-symbol">#</span><span class="filter-copy"><strong>Identifiants</strong><small>Tracks, maillots et groupes</small></span><input type="checkbox" data-filter="labels" checked><span class="switch"></span></label>
+        <label class="filter-row"><span class="filter-symbol point-symbol">⌖</span><span class="filter-copy"><strong>Points terrain</strong><small>Repères de calibration</small></span><input type="checkbox" data-filter="court"><span class="switch"></span></label>
+        <div class="aside-bottom"><div class="hint-icon">i</div><p>G1 et G2 distinguent deux couleurs de maillot. Leur équipe réelle reste à confirmer.</p></div>
+      </aside>
+
+      <section class="video-panel panel" aria-label="Lecteur vidéo">
+        <div class="panel-toolbar"><div class="toolbar-left"><span class="live-mark"></span><span>LECTEUR VIDÉO</span><span class="toolbar-divider"></span><span id="videoFilename" class="muted">—</span></div><span id="frameBadge" class="frame-badge">FRAME —</span></div>
+        <div class="video-stage" id="videoStage"><video id="video" playsinline preload="metadata"></video><canvas id="overlay" aria-label="Calques de détection"></canvas><div class="video-empty" id="videoEmpty"><span class="empty-glyph">▶</span><strong>Prêt à explorer le match</strong><span>Sélectionnez un run pour commencer.</span></div><div class="video-corner tl"></div><div class="video-corner tr"></div><div class="video-corner bl"></div><div class="video-corner br"></div><span class="stage-tag" id="stageTag">ANALYSE VIDÉO</span></div>
+        <div class="player-controls"><button class="play-button" id="playButton" aria-label="Lire ou mettre en pause"><span id="playIcon">▶</span></button><div class="timecode"><span id="currentTime">00:00</span><span class="time-separator">/</span><span id="totalTime">00:00</span></div><div class="seek-wrap"><input type="range" id="seek" min="0" max="1" step="0.001" value="0" aria-label="Position dans la vidéo"><div class="seek-fill" id="seekFill"></div></div><select id="speed" class="speed-select" aria-label="Vitesse de lecture"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><button class="icon-button" id="fullscreen" title="Plein écran" aria-label="Plein écran">⛶</button></div>
+        <div class="video-footer"><div><span class="footer-dot"></span><span id="calibrationStatus">Calibration en attente</span></div><div id="frameDetails">—</div></div>
+      </section>
+
+      <aside class="insights"><section class="court-panel panel"><div class="panel-title-row"><div><div class="section-kicker">VUE TACTIQUE</div><h2>Terrain en temps réel</h2></div><span class="card-top-icon">↗</span></div><p class="section-desc">Positions projetées sur le parquet.</p><div class="court-wrap"><svg id="courtSvg" viewBox="0 0 660 374" role="img" aria-label="Terrain de basket et positions des joueurs"><defs><pattern id="floorPattern" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M 42 0 L 0 0 0 42" fill="none" stroke="#bce3a3" stroke-opacity=".035" stroke-width="1"/></pattern></defs><rect x="0" y="0" width="660" height="374" rx="12" fill="#17271e"/><rect x="0" y="0" width="660" height="374" rx="12" fill="url(#floorPattern)"/><g id="courtLines"></g><g id="courtPoints"></g></svg><span class="court-orientation">VUE DU DESSUS</span></div><div class="court-legend"><span><i class="legend-dot player"></i> Joueurs</span><span><i class="legend-dot referee"></i> Arbitres</span><span><i class="legend-dot support"></i> Zone calibrée</span></div><div class="court-footer"><span id="courtStatusDot" class="tiny-status"></span><span id="courtStatus">En attente des données terrain</span></div></section>
+      <section class="snapshot panel"><div class="panel-title-row"><div><div class="section-kicker">À CET INSTANT</div><h2>Vue d'ensemble</h2></div><span class="card-top-icon">◫</span></div><div class="metrics-grid"><div class="metric"><span class="metric-label">JOUEURS DÉTECTÉS</span><div class="metric-value" id="playersCount">—</div><span class="metric-sub">sur cette image</span></div><div class="metric"><span class="metric-label">SUR LE TERRAIN</span><div class="metric-value" id="projectedCount">—</div><span class="metric-sub">positions projetées</span></div></div><div class="metric-wide"><div><span class="metric-label">DISTANCE OBSERVÉE</span><span class="metric-sub">cumulée jusqu'à cet instant</span></div><div><strong id="totalDistance">—</strong><span class="metric-unit">m</span></div></div></section></aside>
+
+      <section class="stats-panel panel"><div class="stats-heading"><div><div class="section-kicker">PROGRESSION DU MATCH</div><h2>Statistiques joueurs <span class="heading-count" id="statsCount">0</span></h2></div><div class="stats-controls"><span id="statsTimeLabel">Jusqu'à 00:00</span><div class="segmented"><button id="sortDistance" class="active">Distance</button><button id="sortName">Nom</button></div></div></div><div class="stats-table-wrap"><table><thead><tr><th>JOUEUR / TRACK</th><th>ÉQUIPE</th><th>DISTANCE OBSERVÉE</th><th>DURÉE MESURÉE</th><th>ÉTAT</th></tr></thead><tbody id="statsBody"><tr><td colspan="5" class="table-empty">Les statistiques apparaîtront pendant la lecture.</td></tr></tbody></table></div><div class="stats-footnote">Distance observable sur les images analysées ; les périodes sans projection ne sont pas extrapolées.</div></section>
+    </main>
+    <footer class="global-footer"><span>VYNEROS / STUDIO D’ANALYSE</span><span>Lecture locale des artefacts de pipeline · v1</span></footer>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
