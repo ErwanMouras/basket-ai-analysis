@@ -140,7 +140,7 @@ class ExportTests(unittest.TestCase):
         )
         for split in ("train", "val"):
             coco = read_json(self.output / "coco/annotations" / f"{split}.json")
-            self.assertEqual(coco["categories"], [{"id": 1, "name": "player"}])
+            self.assertEqual(coco["categories"], [{"id": 1, "name": "player"}, {"id": 2, "name": "referee"}])
             for img in coco["images"]:
                 name = img["file_name"]
                 self.assertEqual(
@@ -155,7 +155,7 @@ class ExportTests(unittest.TestCase):
                 self.assertEqual(len(boxes), len(lines))
                 for line, ann in zip(lines, boxes):
                     cls, cx, cy, w, h = map(float, line.split())
-                    self.assertEqual(cls, 0)
+                    self.assertEqual(cls, ann["category_id"] - 1)
                     x, y, bw, bh = ann["bbox"]
                     np.testing.assert_allclose(
                         [
@@ -176,6 +176,17 @@ class ExportTests(unittest.TestCase):
         self.assertNotEqual(
             manifests["yolo"]["export_id"], manifests["coco"]["export_id"]
         )
+
+    def test_referee_keeps_its_class_in_both_exports(self):
+        self.edit(self.train, lambda document: document["frames"][0]["boxes"][0].update(class_id=1))
+        self.export()
+        record = next(row for row in self.records() if row["split"] == "train" and row["boxes"])
+        self.assertEqual({box["class_id"] for box in record["boxes"]}, {0, 1})
+        labels = (self.output / "yolo" / record["image"].replace("images/", "labels/")).with_suffix(".txt")
+        self.assertEqual({line.split()[0] for line in labels.read_text().splitlines()}, {"0", "1"})
+        coco = read_json(self.output / "coco/annotations/train.json")
+        self.assertEqual({a["category_id"] for a in coco["annotations"]}, {1, 2})
+        verify_bundle(self.output)
 
     def test_geometry_roundtrip_letterbox_and_stretch_and_jpeg(self):
         for mode in ("letterbox", "stretch"):
