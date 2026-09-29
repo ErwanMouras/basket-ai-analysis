@@ -58,6 +58,17 @@ class AnnotationTests(MediaFixture):
         restored.reopen(1)
         self.assertEqual(verified_frames(restored.document), [])
 
+    def test_reclassify_existing_box_preserves_identity_and_requires_review(self):
+        box_id = self.store.add_box(0, [1, 2, 20, 40])
+        self.store.verify(0)
+        self.store.edit_box(0, box_id, class_id=1)
+        frame = Store(self.reader, self.root).frame(0)
+        self.assertEqual(frame["review_status"], "in_progress")
+        self.assertEqual(frame["boxes"][0]["object_id"], box_id)
+        self.assertEqual(frame["boxes"][0]["class_id"], 1)
+        with self.assertRaises(ValueError):
+            self.store.edit_box(0, box_id, class_id=2)
+
     def test_failed_save_keeps_disk_memory_and_verification(self):
         box = self.store.add_box(0, [0, 0, 100, 80])
         self.store.verify(0)

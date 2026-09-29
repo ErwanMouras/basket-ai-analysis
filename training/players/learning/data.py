@@ -28,7 +28,9 @@ def preflight(config):
     for split in ("train", "val"):
         limit = config[f"max_{split}_images"]
         items = [r for r in rows if r["split"] == split][:limit]
-        if not items or not any(r["boxes"] for r in items):
+        if not items or not any(
+            b["class_id"] == 0 for r in items for b in r["boxes"]
+        ):
             raise ValueError(
                 f"{split} requires images and at least one annotated player"
             )
@@ -55,7 +57,12 @@ def prepare(config, records, output):
                 ".txt"
             )
             (view / label).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(root / label, view / label)
+            (view / label).write_text(
+                "".join(
+                    line for line in (root / label).read_text().splitlines(keepends=True)
+                    if line.startswith("0 ")
+                )
+            )
         (view / "data.yaml").write_text(
             yaml.safe_dump(
                 {
@@ -75,8 +82,10 @@ def prepare(config, records, output):
             coco["images"] = [i for i in coco["images"] if i["file_name"] in names]
             ids = {i["id"] for i in coco["images"]}
             coco["annotations"] = [
-                a for a in coco["annotations"] if a["image_id"] in ids
+                a for a in coco["annotations"]
+                if a["image_id"] in ids and a["category_id"] == 1
             ]
+            coco["categories"] = [{"id": 1, "name": "player"}]
             for image in coco["images"]:
                 original = root / image["file_name"]
                 image["file_name"] = original.name

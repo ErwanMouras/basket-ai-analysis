@@ -157,6 +157,35 @@ class TrainingContracts(unittest.TestCase):
                 self.assertFalse(Path(config["dataset"]).is_symlink())
             self.assertEqual(before, verify_bundle(exports))
 
+    def test_private_training_views_exclude_referees(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            exports = make_dataset(base)
+            sidecar = base / "source/train/0.png.playersann.json"
+            document = read_json(sidecar)
+            document["frames"][0]["boxes"].append({
+                "object_id": "fixture-referee", "class_id": 1,
+                "bbox": [60, 10, 90, 88], "occluded": False, "truncated": False,
+            })
+            write_json(sidecar, document)
+            export_dataset(base / "source", exports)
+            for family, fmt in (("yolo", "yolo"), ("rfdetr", "coco")):
+                config = self.config(family)
+                config.update(dataset=str(exports / fmt), output=str(base / "runs"))
+                _, records = preflight(config)
+                out = base / family
+                out.mkdir()
+                view = prepare(config, records, out)
+                if family == "yolo":
+                    labels = list((view / "labels/train").glob("*.txt"))
+                    self.assertTrue(labels)
+                    self.assertTrue(all(line.startswith("0 ") for path in labels for line in path.read_text().splitlines()))
+                else:
+                    coco = read_json(view / "train/_annotations.coco.json")
+                    self.assertEqual(coco["categories"], [{"id": 1, "name": "player"}])
+                    self.assertTrue(all(a["category_id"] == 1 for a in coco["annotations"]))
+            verify_bundle(exports)
+
     def test_preflight_rejects_wrong_format_and_negative_only_selection(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

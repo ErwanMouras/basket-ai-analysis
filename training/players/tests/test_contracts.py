@@ -53,6 +53,11 @@ class ContractsTests(unittest.TestCase):
         document["frames"][0]["boxes"].append(second)
         self.assertEqual(len(validate_annotations(document)["frames"][0]["boxes"]), 2)
 
+    def test_referee_annotation_is_allowed(self):
+        document = example("annotations")
+        document["frames"][0]["boxes"][0]["class_id"] = 1
+        self.assertEqual(validate_annotations(document)["frames"][0]["boxes"][0]["class_id"], 1)
+
     def test_invalid_boxes_are_rejected(self):
         cases = [
             {"bbox": [-1, 0, 100, 100]},
@@ -62,7 +67,7 @@ class ContractsTests(unittest.TestCase):
             {"bbox": [0, 0, float("nan"), 3]},
             {"bbox": [False, 0, 1, 2]},
             {"bbox": [0, 1, 2]},
-            {"class_id": 1},
+            {"class_id": 2},
             {"class_id": False},
             {"occluded": 1},
             {"truncated": "unknown"},
@@ -152,6 +157,10 @@ class ContractsTests(unittest.TestCase):
             validate_predictions(document)
 
     def test_prediction_scores_and_model_provenance(self):
+        document = example("predictions")
+        document["frames"][0]["detections"][0]["class_id"] = 1
+        with self.assertRaises(ValueError):
+            validate_predictions(document)
         for score in (-0.1, 1.1, True, float("nan")):
             document = example("predictions")
             document["frames"][0]["detections"][0]["confidence"] = score

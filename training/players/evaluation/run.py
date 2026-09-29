@@ -29,6 +29,8 @@ def prepare(config):
     records = [r for r in records if r["split"] == config["split"]][:config["max_images"]]
     if not records:
         raise ValueError("Evaluation selection is empty")
+    records = [{**record, "boxes": [box for box in record["boxes"] if box["class_id"] == 0]}
+               for record in records]
     code = source_fingerprints(ROOT, list((ROOT / "training/players/evaluation").glob("*.py"))
                                + [ROOT / "training/players/models.py", ROOT / "training/players/inference.py",
                                   ROOT / "training/players/export/geometry.py"])

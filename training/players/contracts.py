@@ -14,7 +14,7 @@ from pathlib import PurePosixPath
 from training.common.config import SPLITS
 
 SCHEMA_VERSION = 1
-CLASSES = {0: "player"}
+CLASSES = {0: "player", 1: "referee"}
 REVIEW_STATES = ("unannotated", "proposed", "in_progress", "verified")
 
 
@@ -148,8 +148,8 @@ def _frame_index(index, source, seen):
 
 def _bbox(box, source):
     _integer(box["class_id"], "class_id")
-    if box["class_id"] != 0:
-        raise ValueError("Only class_id=0 (player) is supported")
+    if box["class_id"] not in CLASSES:
+        raise ValueError("Unknown player annotation class_id")
     coordinates = box["bbox"]
     _list(coordinates, "bbox")
     if len(coordinates) != 4:
@@ -235,6 +235,8 @@ def validate_predictions(document):
         for detection in frame["detections"]:
             _fields(detection, ("class_id", "bbox", "confidence"))
             _bbox(detection, source)
+            if detection["class_id"] != 0:
+                raise ValueError("Player predictions require class_id=0")
             _confidence(detection["confidence"])
     return deepcopy(document)
 
@@ -280,8 +282,8 @@ def validate_manifest(document):
         _hash(document[key])
     if document["format"] not in ("yolo", "coco"):
         raise ValueError("Players export format must be yolo or coco")
-    if document["classes"] != {"0": "player"}:
-        raise ValueError('classes must be {"0": "player"}')
+    if document["classes"] != {str(key): name for key, name in CLASSES.items()}:
+        raise ValueError("classes must match the player annotation classes")
     splits = document["splits"]
     _list(splits, "splits")
     if (

@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from training.common.files import write_bytes
-from training.players.contracts import validate_annotations
+from training.players.contracts import CLASSES, validate_annotations
 
 from .media import resolve_identity, source_record
 
@@ -113,13 +113,15 @@ class Store:
             document["provenance"].append(manual)
         self._commit(document)
 
-    def add_box(self, index, bbox):
+    def add_box(self, index, bbox, class_id=0):
+        if type(class_id) is not int or class_id not in CLASSES:
+            raise ValueError("Unknown annotation class_id")
         frame = self.frame(index)
         box_id = uuid4().hex
         frame["boxes"].append(
             {
                 "object_id": box_id,
-                "class_id": 0,
+                "class_id": class_id,
                 "bbox": list(bbox),
                 "occluded": None,
                 "truncated": None,
@@ -130,8 +132,8 @@ class Store:
         return box_id
 
     def edit_box(self, index, box_id, **changes):
-        if set(changes) - {"bbox", "occluded", "truncated"}:
-            raise ValueError("Only geometry and visibility can be edited")
+        if set(changes) - {"class_id", "bbox", "occluded", "truncated"}:
+            raise ValueError("Only class, geometry and visibility can be edited")
         frame = self.frame(index)
         box = next((b for b in frame["boxes"] if b["object_id"] == box_id), None)
         if box is None:

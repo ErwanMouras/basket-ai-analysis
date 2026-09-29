@@ -11,7 +11,7 @@ import yaml
 from training.common.files import write_bytes, write_json, write_jsonl
 from training.common.provenance import ROOT, file_hash, object_hash, source_fingerprints
 from training.players.annotator.media import MediaReader
-from training.players.contracts import validate_manifest
+from training.players.contracts import CLASSES, validate_manifest
 from training.players.export.config import ExportConfig
 from training.players.export.formats import (
     coco_document,
@@ -125,7 +125,7 @@ def build_pair(stage, clips, audit, config):
     common = {
         "schema_version": 1,
         "artifact_type": "players_dataset_export",
-        "classes": {"0": "player"},
+        "classes": {str(key): name for key, name in CLASSES.items()},
         "splits": list(config.splits),
         "sources": [
             {

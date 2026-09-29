@@ -3,6 +3,7 @@
 from pathlib import PurePosixPath
 
 from training.common.provenance import object_hash
+from training.players.contracts import CLASSES
 
 
 def frame_record(source, frame, geometry, image_format, image_sha256):
@@ -43,13 +44,18 @@ def yolo_label(record):
             (x2 - x1) / width,
             (y2 - y1) / height,
         )
-        lines.append("0 " + " ".join(format(v, ".17g") for v in values) + "\n")
+        lines.append(
+            str(box["class_id"])
+            + " "
+            + " ".join(format(v, ".17g") for v in values)
+            + "\n"
+        )
     return "".join(lines)
 
 
 def yolo_config(splits):
     return {
-        "names": {0: "player"},
+        "names": CLASSES,
         "train": None,
         "val": None,
         **{split: f"images/{split}" for split in splits},
@@ -76,7 +82,7 @@ def coco_document(records, split):
                 {
                     "id": len(annotations) + 1,
                     "image_id": image_id,
-                    "category_id": 1,
+                    "category_id": box["class_id"] + 1,
                     "bbox": [x1, y1, x2 - x1, y2 - y1],
                     "area": (x2 - x1) * (y2 - y1),
                     "iscrowd": 0,
@@ -85,7 +91,7 @@ def coco_document(records, split):
     return {
         "images": images,
         "annotations": annotations,
-        "categories": [{"id": 1, "name": "player"}],
+        "categories": [{"id": key + 1, "name": name} for key, name in CLASSES.items()],
     }
 
 

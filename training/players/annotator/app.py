@@ -9,6 +9,8 @@ from tkinter import messagebox, ttk
 import cv2
 from PIL import Image, ImageTk
 
+from training.players.contracts import CLASSES
+
 from .media import IMAGE_EXTENSIONS, MediaReader, selected_frames
 from .model import Store, sidecar_path
 
@@ -76,10 +78,11 @@ class App:
         self.info = tk.StringVar(root)
         self.status = tk.StringVar(
             root,
-            value="Dessinez une boîte. Vérifiez tous les joueurs avant de valider la frame.",
+            value="Dessinez une boîte. Vérifiez les joueurs et arbitres avant de valider la frame.",
         )
         self.new_box = tk.BooleanVar(root, value=False)
-        root.title("Annotation joueurs")
+        self.active_class = tk.IntVar(root, value=0)
+        root.title("Annotation joueurs et arbitres")
         root.geometry("1200x850")
         root.minsize(850, 550)
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -130,6 +133,14 @@ class App:
         ttk.Checkbutton(actions, text="Nouvelle boîte [N]", variable=self.new_box).pack(
             side="left"
         )
+        for label, class_id in (("Joueur [J]", 0), ("Arbitre [A]", 1)):
+            ttk.Button(
+                actions,
+                text=label,
+                command=lambda value=class_id: self.perform(
+                    lambda: self.set_class(value)
+                ),
+            ).pack(side="left", padx=1)
         for label, action in (
             ("Supprimer [Suppr]", self.delete),
             ("Occultation [O]", lambda: self.toggle("occluded")),
@@ -148,7 +159,8 @@ class App:
         ttk.Label(
             root,
             text="Glisser dans une boîte : déplacer | Glisser un coin : redimensionner | "
-            "Validation : tous les joueurs, y compris une frame vide | Sauvegarde automatique",
+            "J/A : classe de la boîte sélectionnée ou des nouvelles boîtes | "
+            "Validation : joueurs et arbitres vérifiés | Sauvegarde automatique",
             padding=6,
         ).pack(fill="x")
         root.bind("<KeyPress>", self.key)
@@ -161,7 +173,7 @@ class App:
             self.gesture = None
             self.status.set(str(exc))
             self.redraw()
-            messagebox.showerror("Annotation joueurs", str(exc), parent=self.root)
+            messagebox.showerror("Annotation joueurs et arbitres", str(exc), parent=self.root)
 
     def close(self):
         if self.reader:
@@ -260,14 +272,19 @@ class App:
         self.canvas.configure(scrollregion=(0, 0, max(cw, dw), max(ch, dh)))
         frame = self.store.frame(self.index)
         for box in frame["boxes"]:
-            color = "#39dc87" if frame["review_status"] == "verified" else "#f4b942"
+            color = (
+                "#39dc87" if frame["review_status"] == "verified" else "#f4b942"
+            ) if box["class_id"] == 0 else "#63c7ff"
             selected = box["object_id"] == self.selected
             coords = self.transform.display(box["bbox"])
             self.canvas.create_rectangle(
                 *coords, outline="#ffffff" if selected else color, width=2
             )
             self.canvas.create_text(
-                coords[0] + 3, coords[1] + 3, text="joueur", fill=color, anchor="nw"
+                coords[0] + 3, coords[1] + 3,
+                text="joueur" if box["class_id"] == 0 else "arbitre",
+                fill=color,
+                anchor="nw",
             )
             if selected:
                 x1, y1, x2, y2 = coords
@@ -288,12 +305,16 @@ class App:
         detail = (
             ""
             if not selected
-            else f" | occultation : {visibility[selected['occluded']]} | troncature : {visibility[selected['truncated']]}"
+            else f" | classe : {CLASSES[selected['class_id']]} | occultation : {visibility[selected['occluded']]} | troncature : {visibility[selected['truncated']]}"
         )
+        counts = {
+            class_id: sum(box["class_id"] == class_id for box in frame["boxes"])
+            for class_id in CLASSES
+        }
         self.info.set(
             f"{self.media_index + 1}/{len(self.paths)} : {self.reader.path.name} | "
             f"frame {self.index}/{self.reader.frame_count - 1} | {states[frame['review_status']]} | "
-            f"{len(frame['boxes'])} joueur(s){detail}"
+            f"{counts[0]} joueur(s), {counts[1]} arbitre(s) | nouvelle classe : {CLASSES[self.active_class.get()]}{detail}"
         )
 
     def point(self, x, y, *, clamp=False):
@@ -381,7 +402,23 @@ class App:
                 if bbox != gesture["box"]["bbox"]:
                     self.store.edit_box(self.index, self.selected, bbox=bbox)
             else:
-                self.selected = self.store.add_box(self.index, bbox)
+                self.selected = self.store.add_box(
+                    self.index, bbox, self.active_class.get()
+                )
+        self.redraw()
+
+    def set_class(self, class_id):
+        self.active_class.set(class_id)
+        if self.selected:
+            box = next(
+                (
+                    b for b in self.store.frame(self.index)["boxes"]
+                    if b["object_id"] == self.selected
+                ),
+                None,
+            )
+            if box and box["class_id"] != class_id:
+                self.store.edit_box(self.index, self.selected, class_id=class_id)
         self.redraw()
 
     def delete(self):
@@ -407,7 +444,7 @@ class App:
     def verify(self):
         self.store.verify(self.index)
         self.status.set(
-            "Frame vérifiée et sauvegardée, y compris son absence de joueur si elle est vide."
+            "Frame vérifiée et sauvegardée, y compris si elle est vide."
         )
         self.redraw()
 
@@ -427,6 +464,8 @@ class App:
             "t": lambda: self.toggle("truncated"),
             "f": self.next_unverified,
             "n": lambda: self.new_box.set(not self.new_box.get()),
+            "j": lambda: self.set_class(0),
+            "a": lambda: self.set_class(1),
             "Escape": lambda: (setattr(self, "gesture", None), self.redraw()),
         }
         if event.keysym in actions:
