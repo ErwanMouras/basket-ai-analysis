@@ -3,6 +3,8 @@ variant: rfdetr_nano
 weights: models/players/rf-detr-nano.pth
 reference: "Local COCO pretrained weights; replace with actual source/version"
 source_class: 1
+referee_weights: models/players/ebard_yolov8n.pt
+referee_source_class: 3
 dataset: exports/players/coco
 split: val
 output: runs/players/evaluation

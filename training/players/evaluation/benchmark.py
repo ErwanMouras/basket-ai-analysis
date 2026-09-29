@@ -89,7 +89,11 @@ def benchmark(detector, records, root, config):
     # Separate pass: measure the torch module only, without contaminating adapter timings.
     module = (detector.model.predictor.model if detector.family == "yolo"
               else detector.model.model.model)
+    modules = [module]
+    if detector.referee_model is not detector.model:
+        modules.append(detector.referee_model.predictor.model)
     started = []
+    individual_forwards = []
 
     def before(*args):
         sync()
@@ -97,13 +101,18 @@ def benchmark(detector, records, root, config):
 
     def after(*args):
         sync()
-        forward_times.append(time.perf_counter() - started.pop())
+        individual_forwards.append(time.perf_counter() - started.pop())
 
-    handles = [module.register_forward_pre_hook(before), module.register_forward_hook(after)]
+    handles = [hook for current in modules for hook in
+               (current.register_forward_pre_hook(before), current.register_forward_hook(after))]
     try:
         for _ in range(config["repeats"]):
             for record in records:
+                previous = len(individual_forwards)
                 predict(cv2.imread(str(root / record["image"])))
+                if len(individual_forwards) - previous != len(modules):
+                    raise RuntimeError("Expected one forward per model and image")
+                forward_times.append(sum(individual_forwards[previous:]))
     finally:
         for handle in handles:
             handle.remove()

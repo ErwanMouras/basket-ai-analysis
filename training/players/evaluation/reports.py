@@ -47,8 +47,10 @@ def artifacts(output, root, records, predictions, metrics, curves, events, max_e
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     for threshold in (0.5, 0.75, 0.95):
-        points = [p for p in curves["coco_pr"] if abs(p["iou"] - threshold) < 1e-6]
-        axes[0].plot([p["recall"] for p in points], [p["precision"] for p in points], label=f"IoU {threshold}")
+        for class_id, name in ((0, "player"), (1, "referee")):
+            points = [p for p in curves["coco_pr"] if p["class_id"] == class_id and abs(p["iou"] - threshold) < 1e-6]
+            if points:
+                axes[0].plot([p["recall"] for p in points], [p["precision"] for p in points], label=f"{name} IoU {threshold}")
     for key in ("precision", "recall", "f1"):
         axes[1].plot([p["score_threshold"] for p in curves["score"]], [p[key] for p in curves["score"]], label=key)
     for ax, xlabel in zip(axes, ("Recall (COCO)", "Score threshold")):
@@ -65,12 +67,13 @@ def artifacts(output, root, records, predictions, metrics, curves, events, max_e
         record = by_id[event["frame_id"]]
         prediction = predictions[event["frame_id"]][event["prediction_index"]] if event["prediction_index"] is not None else None
         gt = record["boxes"][event["gt_index"]] if event["gt_index"] is not None else None
-        review.append({**event, "source_id": record["source_id"], "frame_index": record["frame_index"],
+        review.append({**event, "class": "referee" if event["class_id"] == 1 else "player",
+                       "source_id": record["source_id"], "frame_index": record["frame_index"],
                        "match_id": record["match_id"], "venue_id": record["venue_id"],
                        "score": prediction["confidence"] if prediction else None,
                        "prediction_bbox": json.dumps(prediction["bbox"]) if prediction else None,
                        "gt_bbox": json.dumps(gt["source_bbox"]) if gt else None})
-    write_csv(output / "review.csv", review, fields=["frame_id", "kind", "prediction_index", "gt_index", "iou",
+    write_csv(output / "review.csv", review, fields=["frame_id", "class_id", "class", "kind", "prediction_index", "gt_index", "iou",
               "source_id", "frame_index", "match_id", "venue_id", "score", "prediction_bbox", "gt_bbox"])
     selected = list(dict.fromkeys(e["frame_id"] for e in events if e["kind"] in ("FP", "FN")))[:max_examples]
     links = []
@@ -88,7 +91,8 @@ def artifacts(output, root, records, predictions, metrics, curves, events, max_e
                 color = (0, 0, 255)
             x1, y1, x2, y2 = [round(v) for v in geometry.bbox(box)]
             cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(image, event["kind"], (x1, max(12, y1)), cv2.FONT_HERSHEY_SIMPLEX, .4, color, 1)
+            name = "referee" if event["class_id"] == 1 else "player"
+            cv2.putText(image, f"{name} {event['kind']}", (x1, max(12, y1)), cv2.FONT_HERSHEY_SIMPLEX, .4, color, 1)
         path = output / "examples" / f"{frame_id}.png"
         path.parent.mkdir(exist_ok=True)
         if not cv2.imwrite(str(path), image):

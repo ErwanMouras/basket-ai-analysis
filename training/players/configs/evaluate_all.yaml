@@ -1,0 +1,70 @@
+# One validation sweep: five YOLO26 sizes, four RF-DETR sizes and E-BARD YOLOv8n.
+# Put checkpoints at the paths below, or change a weights path to an existing file.
+# RF-DETR source_class=1 is for pretrained COCO person weights; use 0 for a
+# locally trained player-only checkpoint. The referee model remains E-BARD.
+schema_version: 1
+base_recipe: training/players/configs/evaluate_yolo.yaml
+output: runs/players/all-evaluations
+models:
+  - name: yolo26n
+    model: yolo
+    variant: yolo26n
+    weights: models/players/yolo26n.pt
+    source_class: 0
+    reference: "Local YOLO26n COCO checkpoint"
+  - name: yolo26s
+    model: yolo
+    variant: yolo26s
+    weights: models/players/yolo26s.pt
+    source_class: 0
+    reference: "Local YOLO26s COCO checkpoint"
+  - name: yolo26m
+    model: yolo
+    variant: yolo26m
+    weights: models/players/yolo26m.pt
+    source_class: 0
+    reference: "Local YOLO26m COCO checkpoint"
+  - name: yolo26l
+    model: yolo
+    variant: yolo26l
+    weights: models/players/baseline_player.pt
+    source_class: 0
+    reference: "Local player-only YOLO26l baseline checkpoint"
+  - name: yolo26x
+    model: yolo
+    variant: yolo26x
+    weights: models/players/yolo26x.pt
+    source_class: 0
+    reference: "Local YOLO26x COCO checkpoint"
+  - name: rfdetr_nano
+    model: rfdetr
+    variant: rfdetr_nano
+    weights: models/players/rf-detr-nano.pth
+    source_class: 1
+    reference: "Local RF-DETR Nano COCO checkpoint"
+  - name: rfdetr_small
+    model: rfdetr
+    variant: rfdetr_small
+    weights: models/players/rf-detr-small.pth
+    source_class: 1
+    reference: "Local RF-DETR Small COCO checkpoint"
+  - name: rfdetr_medium
+    model: rfdetr
+    variant: rfdetr_medium
+    weights: models/players/rf-detr-medium.pth
+    source_class: 1
+    reference: "Local RF-DETR Medium COCO checkpoint"
+  - name: rfdetr_large
+    model: rfdetr
+    variant: rfdetr_large
+    weights: models/players/rf-detr-large.pth
+    source_class: 1
+    reference: "Local RF-DETR Large COCO checkpoint"
+  - name: yolov8_ebard
+    model: yolo
+    variant: yolov8n
+    weights: models/players/ebard_yolov8n.pt
+    source_class: 2
+    referee_weights: null
+    referee_source_class: 3
+    reference: "E-BARD BODD YOLOv8n checkpoint"

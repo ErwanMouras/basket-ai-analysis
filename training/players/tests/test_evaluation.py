@@ -20,7 +20,7 @@ from training.players.evaluation.metrics import (AREA_RANGES, coco_metrics, eval
                                                 normalize_predictions, operating_metrics)
 from training.players.export.config import ExportConfig
 from training.players.export.geometry import Geometry
-from training.players.models import Detector
+from training.players.models import Detector, remove_referee_duplicates
 
 HAS_COCO = importlib.util.find_spec("pycocotools") is not None
 PROTOCOL = {"score_floor": .001, "score_threshold": .5, "iou_threshold": .5, "max_detections": 100}
@@ -115,9 +115,19 @@ class MatchingTests(unittest.TestCase):
     def test_score_floor_cap_and_invalid_predictions(self):
         result = normalize_predictions(record(), [detection(score=.1), detection(score=.9), detection(score=.001)], max_detections=1)
         self.assertEqual(result[0]["confidence"], .9)
-        for bad in (detection(score=float("nan")), detection((20, 20, 10, 10)), {**detection(), "class_id": 1}):
+        for bad in (detection(score=float("nan")), detection((20, 20, 10, 10)), {**detection(), "class_id": 2}):
             with self.assertRaises(ValueError):
                 normalize_predictions(record(), [bad])
+
+    def test_referee_prediction_survives_normalization(self):
+        referee = {**detection(), "class_id": 1}
+        self.assertEqual(normalize_predictions(record(), [referee])[0]["class_id"], 1)
+
+    def test_referee_wins_duplicate_person_box(self):
+        player = detection()
+        referee = {**detection((11, 11, 31, 31)), "class_id": 1}
+        self.assertEqual(remove_referee_duplicates([player, referee]), [referee])
+        self.assertEqual(len(remove_referee_duplicates([detection((50, 10, 70, 30)), referee])), 2)
 
     def test_recipe_validation(self):
         for change in ({"precision": "amp"}, {"warmup": 0}, {"score_floor": .25},
@@ -189,6 +199,22 @@ class CocoTests(unittest.TestCase):
         self.assertTrue(unsupported)
         self.assertTrue(all(g["ap50"] is None for g in unsupported))
 
+    def test_referee_counts_and_wrong_role_is_not_a_match(self):
+        row = record()
+        row["boxes"].append({"class_id": 1, "source_bbox": [50, 10, 70, 30],
+                             "bbox": [50, 10, 70, 30], "occluded": False})
+        predictions = {"a": [detection(), {**detection((50, 10, 70, 30)), "class_id": 1}]}
+        metrics, curves, events = evaluate([row], predictions, PROTOCOL)
+        self.assertEqual(metrics["global"]["tp"], 2)
+        self.assertAlmostEqual(metrics["global"]["ap50_95"], 1)
+        self.assertEqual({g["value"] for g in metrics["groups"] if g["group"] == "class"}, {"player", "referee"})
+        self.assertEqual(len(curves["coco_pr"]), 2020)
+        self.assertEqual({e["class_id"] for e in events}, {0, 1})
+        wrong = {"a": [{**detection((50, 10, 70, 30)), "class_id": 0}]}
+        metrics, _, _ = evaluate([row], wrong, PROTOCOL)
+        referee = next(g for g in metrics["groups"] if g["group"] == "class" and g["value"] == "referee")
+        self.assertEqual((referee["tp"], referee["fn"]), (0, 1))
+
     def test_empty_detections_no_gt_and_duplicate_ap(self):
         metrics, _ = coco_metrics([record()], {"a": []})
         self.assertEqual(metrics["ap50_95"], 0)
@@ -219,11 +245,30 @@ class CocoTests(unittest.TestCase):
             else:
                 native = SimpleNamespace(xyxy=np.array(boxes), confidence=np.array(scores), class_id=np.array([1, 1]))
             detector.model = SimpleNamespace(predict=lambda *args, **kwargs: native)
+            detector.referee_model = detector.model
+            detector.referee_source_class = 3
             with patch.dict("sys.modules", {"torch": SimpleNamespace(device=lambda value: value)}):
                 predictions = normalize_predictions(record(), detector.predict(image, confidence=.001, max_detections=100, square=True))
             outputs.append(evaluate([record()], {"a": predictions}, PROTOCOL))
         self.assertEqual(outputs[0], outputs[1])
         self.assertEqual(outputs[0][0]["global"]["fp"], 1)
+
+    def test_yolov8_native_class_mapping(self):
+        class Tensor:
+            def __init__(self, values): self.values = np.asarray(values)
+            def cpu(self): return self
+            def numpy(self): return self.values
+        detector = Detector.__new__(Detector)
+        detector.family, detector.source_class, detector.referee_source_class = "yolo", 2, 3
+        detector.device, detector.resolution = "cpu", 128
+        native = [SimpleNamespace(boxes=SimpleNamespace(
+            xyxy=Tensor([[10, 10, 30, 30], [50, 10, 70, 30]]),
+            conf=Tensor([.9, .8]), cls=Tensor([2, 3])))]
+        detector.model = SimpleNamespace(predict=lambda *args, **kwargs: native)
+        detector.referee_model = detector.model
+        with patch.dict("sys.modules", {"torch": SimpleNamespace(device=lambda value: value)}):
+            result = detector.predict(np.zeros((80, 100, 3), dtype=np.uint8))
+        self.assertEqual([d["class_id"] for d in result], [0, 1])
 
 
 class ComparisonTests(unittest.TestCase):

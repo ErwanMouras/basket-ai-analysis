@@ -1,7 +1,7 @@
 """Load local pretrained or fine-tuned detectors without a dataset or training.
 
-Input to predict is a uint8 BGR image. Outputs are source-pixel XYXY boxes,
-class_id=0 (player), and confidence. The source class must be chosen explicitly.
+Input to predict is a uint8 BGR image. Outputs are source-pixel XYXY boxes
+with class_id=0 (player) or class_id=1 (referee).
 """
 
 import argparse
@@ -16,7 +16,7 @@ import numpy as np
 
 from training.common.files import write_json
 from training.common.provenance import file_hash
-from training.players.learning.config import VARIANTS
+from training.players.evaluation.config import EVALUATION_VARIANTS
 from training.players.learning.runtime import check_versions
 
 
@@ -87,22 +87,44 @@ def check_yolo_variant(model, variant):
     architecture = model.yaml
     name = str(architecture.get("yaml_file", ""))
     scale = architecture.get("scale", "")
-    if (
-        "yolo26" not in name
-        or (scale and scale != variant[-1])
-        or not getattr(model, "end2end", False)
-    ):
+    if variant.startswith("yolov8"):
+        valid = (not getattr(model, "end2end", False)
+                 and type(model.model[-1]).__name__ == "Detect"
+                 and any(type(layer).__name__ == "C2f" for layer in model.model)
+                 and architecture.get("width_multiple") == 0.25
+                 and architecture.get("depth_multiple") == 0.33)
+    else:
+        valid = ("yolo26" in name and (not scale or scale == variant[-1])
+                 and getattr(model, "end2end", False))
+    if not valid:
         raise ValueError(f"Checkpoint architecture does not match {variant}")
+
+
+def remove_referee_duplicates(detections, threshold=0.6, min_referee_score=0.25):
+    """Give an overlapping referee box its explicit role when models are combined."""
+    referees = [d["bbox"] for d in detections
+                if d["class_id"] == 1 and d["confidence"] >= min_referee_score]
+    def overlap(a, b):
+        intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
+            0, min(a[3], b[3]) - max(a[1], b[1]))
+        area_a = (a[2] - a[0]) * (a[3] - a[1])
+        area_b = (b[2] - b[0]) * (b[3] - b[1])
+        return intersection / (area_a + area_b - intersection)
+    return [d for d in detections if d["class_id"] == 1 or
+            all(overlap(d["bbox"], referee) < threshold for referee in referees)]
 
 
 class Detector:
     def __init__(
-        self, family, variant, weights, *, device="cpu", resolution=None, source_class
+        self, family, variant, weights, *, device="cpu", resolution=None, source_class,
+        referee_weights=None, referee_source_class=3,
     ):
-        if family not in VARIANTS or variant not in VARIANTS[family]:
+        if family not in EVALUATION_VARIANTS or variant not in EVALUATION_VARIANTS[family]:
             raise ValueError("Unsupported detection variant")
         if type(source_class) is not int or source_class < 0:
             raise ValueError("Specify a nonnegative source class ID")
+        if type(referee_source_class) is not int or referee_source_class < 0:
+            raise ValueError("Specify a nonnegative referee source class ID")
         if not isinstance(device, str) or not re.fullmatch(r"cpu|cuda:\d+", device):
             raise ValueError("Use one cpu or cuda:N device")
         if resolution is not None and (
@@ -112,6 +134,7 @@ class Detector:
         path = Path(weights).expanduser().resolve(strict=True)
         check_versions(family)
         self.family, self.source_class, self.device = family, source_class, device
+        self.referee_source_class = referee_source_class
         self.resolution = resolution or (
             640
             if family == "yolo"
@@ -138,6 +161,22 @@ class Detector:
                 raise ValueError(
                     "Selected class does not exist in the RF-DETR checkpoint"
                 )
+        referee_path = (Path(referee_weights).expanduser().resolve(strict=True)
+                        if referee_weights is not None else path)
+        if referee_path == path:
+            if family != "yolo":
+                raise ValueError("RF-DETR needs a separate referee YOLO checkpoint")
+            if source_class == referee_source_class:
+                raise ValueError("Player and referee source classes must differ")
+            self.referee_model = self.model
+        else:
+            check_versions("yolo")
+            from ultralytics import YOLO
+            self.referee_model = YOLO(str(referee_path), task="detect")
+            check_yolo_variant(self.referee_model.model, "yolov8n")
+        if referee_source_class not in self.referee_model.names or \
+                str(self.referee_model.names[referee_source_class]).lower() != "referee":
+            raise ValueError("Selected referee class is not named referee in its checkpoint")
         self.provenance = {
             "family": family,
             "variant": variant,
@@ -145,6 +184,8 @@ class Detector:
             "device": device,
             "resolution": self.resolution,
             "source_class": source_class,
+            "referee_source_class": referee_source_class,
+            "referee_checkpoint_sha256": file_hash(referee_path),
         }
 
     def predict(self, image, *, confidence=0.25, max_detections=None, square=False):
@@ -169,7 +210,8 @@ class Detector:
                 conf=confidence,
                 imgsz=self.resolution,
                 device=torch.device(self.device),
-                classes=[self.source_class],
+                classes=([self.source_class, self.referee_source_class]
+                         if self.referee_model is self.model else [self.source_class]),
                 verbose=False,
                 **({"max_det": max_detections, "half": False, "rect": not square}
                    if max_detections is not None else {}),
@@ -178,22 +220,37 @@ class Detector:
                 result.boxes.xyxy.cpu().numpy(),
                 result.boxes.conf.cpu().numpy(),
             )
+            classes = result.boxes.cls.cpu().numpy() if hasattr(result.boxes, "cls") else np.full(len(boxes), self.source_class)
         else:
             result = self.model.predict(
                 cv2.cvtColor(image, cv2.COLOR_BGR2RGB), threshold=confidence
             )
             mask = result.class_id == self.source_class
             boxes, scores = result.xyxy[mask], result.confidence[mask]
+            classes = np.full(len(boxes), self.source_class)
+        if self.referee_model is not self.model:
+            import torch
+            referee = self.referee_model.predict(
+                image, conf=confidence, imgsz=self.resolution, device=torch.device(self.device),
+                classes=[self.referee_source_class], verbose=False,
+                **({"max_det": max_detections, "half": False, "rect": not square}
+                   if max_detections is not None else {}),
+            )[0]
+            boxes = np.concatenate((boxes, referee.boxes.xyxy.cpu().numpy()))
+            scores = np.concatenate((scores, referee.boxes.conf.cpu().numpy()))
+            classes = np.concatenate((classes, np.full(len(referee.boxes.conf), self.referee_source_class)))
         height, width = image.shape[:2]
         detections = []
-        for box, score in zip(boxes, scores):
+        for box, score, source_class in zip(boxes, scores, classes):
             box = np.clip(box, [0, 0, 0, 0], [width, height, width, height]).tolist()
             if not all(np.isfinite(box)) or not np.isfinite(score):
                 raise ValueError("Non-finite model prediction")
             if box[2] > box[0] and box[3] > box[1]:
                 detections.append(
-                    {"class_id": 0, "bbox": box, "confidence": float(score)}
+                    {"class_id": 1 if source_class == self.referee_source_class else 0,
+                     "bbox": box, "confidence": float(score)}
                 )
+        detections = remove_referee_duplicates(detections)
         if max_detections is not None:
             detections = sorted(detections, key=lambda d: -d["confidence"])[:max_detections]
         return detections
@@ -201,10 +258,12 @@ class Detector:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--family", choices=list(VARIANTS), required=True)
+    parser.add_argument("--family", choices=list(EVALUATION_VARIANTS), required=True)
     parser.add_argument("--variant", required=True)
     parser.add_argument("--weights", required=True)
     parser.add_argument("--source-class", type=int, required=True)
+    parser.add_argument("--referee-weights", default="models/players/ebard_yolov8n.pt")
+    parser.add_argument("--referee-source-class", type=int, default=3)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--resolution", type=int)
     parser.add_argument("--image", type=Path, help="Optional local image for inference")
@@ -217,6 +276,7 @@ def main():
         device=args.device,
         resolution=args.resolution,
         source_class=args.source_class,
+        referee_weights=args.referee_weights, referee_source_class=args.referee_source_class,
     )
     result = {"model": model.provenance}
     if args.image:

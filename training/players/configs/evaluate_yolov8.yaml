@@ -1,9 +1,9 @@
 model: yolo
-variant: yolo26n
-weights: models/players/yolo26n.pt
-reference: "Local COCO pretrained weights; replace with actual source/version"
-source_class: 0
-referee_weights: models/players/ebard_yolov8n.pt
+variant: yolov8n
+weights: models/players/ebard_yolov8n.pt
+reference: "E-BARD BODD YOLOv8n, local checkpoint; verify provenance before final test"
+source_class: 2
+referee_weights: null  # Use class 3 of the same checkpoint.
 referee_source_class: 3
 dataset: exports/players/coco
 split: val

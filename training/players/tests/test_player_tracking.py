@@ -219,7 +219,7 @@ class TrackerTests(unittest.TestCase):
 
 @unittest.skipUnless(available(), "Install the dedicated players lock including lap")
 class TrackingVideoTests(unittest.TestCase):
-    def run_video(self, root, *, tracker="botsort", stop=None, family="yolo"):
+    def run_video(self, root, *, tracker="botsort", stop=None, family="yolo", include_referee=False):
         video = root / "input.mp4"
         if not video.exists():
             writer = cv2.VideoWriter(
@@ -237,7 +237,8 @@ class TrackingVideoTests(unittest.TestCase):
 
             def predict(self, image, **kwargs):
                 self.index += 1
-                return [] if self.index == 3 else [detection(10 + self.index)]
+                players = [] if self.index == 3 else [detection(10 + self.index)]
+                return [*players, {**detection(80), "class_id": 1}] if include_referee else players
 
         config = {
             **VIDEO_DEFAULTS,
@@ -329,6 +330,16 @@ class TrackingVideoTests(unittest.TestCase):
             result = self.run_video(root, tracker=None)
             self.assertFalse(result["tracking"]["enabled"])
             self.assertFalse((root / "yolo/tracks.jsonl").exists())
+
+    def test_referees_are_exported_without_entering_player_tracker(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.run_video(root, include_referee=True)
+            predictions = [json.loads(line) for line in (root / "yolo/predictions.jsonl").read_text().splitlines()]
+            tracks = [json.loads(line) for line in (root / "yolo/tracks.jsonl").read_text().splitlines()]
+            self.assertTrue(all(any(d["class_id"] == 1 for d in row["detections"]) for row in predictions))
+            self.assertTrue(all(next(d for d in row["detections"] if d["class_id"] == 1)["track_id"] is None
+                                for row in tracks))
 
 
 if __name__ == "__main__":

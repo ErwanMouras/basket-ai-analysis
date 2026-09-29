@@ -29,13 +29,13 @@ def prepare(config):
     records = [r for r in records if r["split"] == config["split"]][:config["max_images"]]
     if not records:
         raise ValueError("Evaluation selection is empty")
-    records = [{**record, "boxes": [box for box in record["boxes"] if box["class_id"] == 0]}
-               for record in records]
     code = source_fingerprints(ROOT, list((ROOT / "training/players/evaluation").glob("*.py"))
                                + [ROOT / "training/players/models.py", ROOT / "training/players/inference.py",
-                                  ROOT / "training/players/export/geometry.py"])
+                                  ROOT / "training/players/export/geometry.py", ROOT / "training/players/contracts.py"])
+    referee_path = Path(config["referee_weights"] or config["weights"])
     identity = {"dataset_id": manifest["dataset_id"], "selection_id": object_hash(records),
-                "checkpoint_sha256": file_hash(Path(config["weights"])), "evaluator_id": object_hash(code)}
+                "checkpoint_sha256": file_hash(Path(config["weights"])),
+                "referee_checkpoint_sha256": file_hash(referee_path), "evaluator_id": object_hash(code)}
     return root, manifest, records, identity, code
 
 
@@ -70,8 +70,8 @@ def run(config):
     protocol.update(schema_version=1, evaluator_id=identity["evaluator_id"], environment=environment,
                     batch_size=1, tf32=False, matching="score descending; best unmatched IoU; GT order tie",
                     coordinates="source XYXY; inverse export transform; clip to source; stable score sort",
-                    coco="bbox; IoU .50:.05:.95; 101 recall points; one player class",
-                    inference="pinned native preprocess/postprocess; square input; no added NMS; cap after class filter",
+                    coco="bbox; IoU .50:.05:.95; 101 recall points; player and referee classes; supported-class macro AP",
+                    inference="pinned native preprocess/postprocess; square input; no added NMS; referee score >= .25 wins overlapping person at IoU >= .6; cap after class merge",
                     timing="perf_counter; CUDA sync around calls; forward hooks in separate pass; warm filesystem cache",
                     memory="torch CUDA peak allocated/reserved after warmup; process RSS sampled after each image",
                     occlusion="overlapping image cohorts; retain all GT in each image; unknown explicit")
@@ -91,9 +91,12 @@ def run(config):
             client.set_tag(run_id, "training_run_id", reference["training_run_id"] or "imported")
             client.set_tag(run_id, "comparison_id", object_hash(comparison))
             detector = Detector(config["model"], config["variant"], config["weights"], device=config["device"],
-                                resolution=config["resolution"], source_class=config["source_class"])
+                                resolution=config["resolution"], source_class=config["source_class"],
+                                referee_weights=config["referee_weights"], referee_source_class=config["referee_source_class"])
             if detector.provenance["checkpoint_sha256"] != identity["checkpoint_sha256"]:
                 raise ValueError("Checkpoint changed while constructing detector")
+            if detector.provenance["referee_checkpoint_sha256"] != identity["referee_checkpoint_sha256"]:
+                raise ValueError("Referee checkpoint changed while constructing detector")
             predictions = {}
             for index, record in enumerate(records):
                 image = cv2.imread(str(root / record["image"]))

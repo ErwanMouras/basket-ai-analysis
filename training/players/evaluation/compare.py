@@ -41,6 +41,7 @@ def compare(paths, output, *, include_smoke=False):
             continue
         contract = result["reference"].get("training_contract") or {}
         model, performance = result["model"], result["performance"]
+        class_metrics = {g["value"]: g for g in result["metrics"].get("groups", []) if g["group"] == "class"}
         protocol = result["comparison"]["protocol"]
         environment = protocol.get("environment", {})
         rows.append({"comparison_id": result["comparison_id"], "run_id": run_id,
@@ -65,6 +66,10 @@ def compare(paths, output, *, include_smoke=False):
                      "training_resolution": contract.get("resolution"),
                      "initialization_sha256": contract.get("initial_weights_sha256"),
                      "checkpoint_sha256": model["checkpoint_sha256"],
+                     "referee_checkpoint_sha256": model.get("referee_checkpoint_sha256"),
+                     **{f"{name}_{metric}": values[metric]
+                        for name, values in class_metrics.items()
+                        for metric in ("ap50", "ap50_95", "precision", "recall", "f1", "support")},
                      **result["metrics"]["global"],
                      **{f"{scope}_{key}": performance[scope][key] for scope in ("forward", "adapter", "image_pipeline")
                         for key in ("median_ms", "p95_ms", "images_per_second")},

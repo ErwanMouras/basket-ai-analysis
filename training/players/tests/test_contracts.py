@@ -159,6 +159,8 @@ class ContractsTests(unittest.TestCase):
     def test_prediction_scores_and_model_provenance(self):
         document = example("predictions")
         document["frames"][0]["detections"][0]["class_id"] = 1
+        self.assertEqual(validate_predictions(document), document)
+        document["frames"][0]["detections"][0]["class_id"] = 2
         with self.assertRaises(ValueError):
             validate_predictions(document)
         for score in (-0.1, 1.1, True, float("nan")):

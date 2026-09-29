@@ -62,6 +62,10 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
         raise ValueError("Invalid evaluation protocol identity")
     if file_hash(weights) != result["model"]["checkpoint_sha256"]:
         raise ValueError("Weights differ from the evaluated checkpoint")
+    recipe = json.loads((evaluation / "recipe.json").read_text())
+    referee = Path(recipe["referee_weights"] or weights).resolve(strict=True)
+    if file_hash(referee) != result["model"]["referee_checkpoint_sha256"]:
+        raise ValueError("Referee weights differ from the evaluated checkpoint")
     client, uri = client_for(mlflow_uri)
     tracked = client.get_run(result["run_id"])
     if tracked.info.status != "FINISHED" or client.get_experiment(tracked.info.experiment_id).name != "players-evaluation":
@@ -90,6 +94,7 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
                 "export_id": manifest["export_id"], "selection_id": result["comparison"]["selection_id"],
                 "comparison_id": result["comparison_id"], "metrics": result["metrics"], "smoke": smoke,
                 "weights_file": "weights" + weights.suffix, "code": code,
+                "referee_weights_file": ("referee" + referee.suffix if referee != weights else None),
                 "requirements_file": requirements_path.name,
                 "requirements_sha256": file_hash(requirements_path)}
     candidate_id = object_hash(metadata)
@@ -124,6 +129,10 @@ def register_candidate(evaluation, weights, *, mlflow_uri="sqlite:///mlflow.db")
                     bundle = temp / "bundle"
                     bundle.mkdir()
                     shutil.copy2(weights, bundle / metadata["weights_file"])
+                    if metadata["referee_weights_file"]:
+                        shutil.copy2(referee, bundle / metadata["referee_weights_file"])
+                        if file_hash(bundle / metadata["referee_weights_file"]) != metadata["model"]["referee_checkpoint_sha256"]:
+                            raise ValueError("Referee checkpoint changed while packaging")
                     if file_hash(bundle / metadata["weights_file"]) != metadata["model"]["checkpoint_sha256"]:
                         raise ValueError("Checkpoint changed while packaging")
                     write_json(bundle / "candidate.json", metadata)

@@ -4,6 +4,8 @@ model: yolo
 variant: yolo26n
 weights: models/players/yolo26n.pt
 source_class: 0
+referee_weights: models/players/ebard_yolov8n.pt
+referee_source_class: 3
 device: cpu
 precision: fp32
 resolution: 640

@@ -13,6 +13,7 @@ help:
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 	@echo 'make test-players-training  # Opt-in short real training integrations'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
+	@echo 'make check-players-models | evaluate-all-players [DEVICE=cuda:0]  # Série de 10 modèles'
 	@echo 'make test-players-evaluation  # Analytical COCO fixtures'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 	@echo 'See PIPELINE.md for resume, video and explicit registry aliases.'
@@ -38,8 +39,8 @@ export-players verify-players-export:
 train-players-yolo train-players-rfdetr test-players-training:
 	$(MAKE) -C "$(ROOT_DIR)" $@
 
-.PHONY: evaluate-players compare-players test-players-evaluation
-evaluate-players compare-players test-players-evaluation:
+.PHONY: evaluate-players compare-players test-players-evaluation check-players-models evaluate-all-players
+evaluate-players compare-players test-players-evaluation check-players-models evaluate-all-players:
 	$(MAKE) -C "$(ROOT_DIR)" $@
 
 .PHONY: pipeline-players predict-players register-players test-players-pipeline

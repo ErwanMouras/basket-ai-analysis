@@ -6,6 +6,7 @@ import io
 import numpy as np
 
 from training.players.export.geometry import Geometry
+from training.players.contracts import CLASSES
 
 AREA_RANGES = {"all": (0, 1e10), "small": (0, 32**2),
                "medium": (32**2, 96**2), "large": (96**2, 1e10)}
@@ -30,13 +31,13 @@ def normalize_predictions(record, detections, *, score_floor=0.001, max_detectio
         score = detection["confidence"]
         if (box.shape != (4,) or not np.isfinite(box).all()
                 or type(score) not in (int, float) or not np.isfinite(score)
-                or not 0 <= score <= 1 or detection["class_id"] != 0
+                or not 0 <= score <= 1 or detection["class_id"] not in CLASSES
                 or box[2] <= box[0] or box[3] <= box[1]):
             raise ValueError("Invalid detector prediction")
         box = np.clip(geometry.bbox(box, inverse=True), [0, 0, 0, 0],
                       [geometry.source_width, geometry.source_height] * 2).tolist()
         if score >= score_floor and box[2] > box[0] and box[3] > box[1]:
-            result.append({"class_id": 0, "bbox": box, "confidence": float(score)})
+            result.append({"class_id": detection["class_id"], "bbox": box, "confidence": float(score)})
     return sorted(result, key=lambda d: -d["confidence"])[:max_detections]
 
 
@@ -67,12 +68,20 @@ def match_frame(boxes, predictions, *, score_threshold, iou_threshold, area_rang
     return events
 
 
-def operating_metrics(records, predictions, *, score_threshold, iou_threshold, area_range=None):
+def operating_metrics(records, predictions, *, score_threshold, iou_threshold, area_range=None, class_id=0):
     events = []
     for record in records:
-        events.extend({"frame_id": record["frame_id"], **event} for event in match_frame(
-            [b["source_bbox"] for b in record["boxes"]], predictions[record["frame_id"]],
-            score_threshold=score_threshold, iou_threshold=iou_threshold, area_range=area_range))
+        boxes = [(i, b["source_bbox"]) for i, b in enumerate(record["boxes"])
+                 if b.get("class_id", 0) == class_id]
+        detected = [(i, d) for i, d in enumerate(predictions[record["frame_id"]])
+                    if d["class_id"] == class_id]
+        for event in match_frame([b for _, b in boxes], [d for _, d in detected],
+                                 score_threshold=score_threshold, iou_threshold=iou_threshold,
+                                 area_range=area_range):
+            events.append({"frame_id": record["frame_id"], "class_id": class_id, **event,
+                           "gt_index": boxes[event["gt_index"]][0] if event["gt_index"] is not None else None,
+                           "prediction_index": detected[event["prediction_index"]][0]
+                           if event["prediction_index"] is not None else None})
     counts = {kind.lower(): sum(e["kind"] == kind for e in events) for kind in ("TP", "FP", "FN")}
     tp, fp, fn = (counts[k] for k in ("tp", "fp", "fn"))
     supported = tp + fn > 0
@@ -81,7 +90,7 @@ def operating_metrics(records, predictions, *, score_threshold, iou_threshold, a
             "f1": 2 * tp / (2 * tp + fp + fn) if supported else None}, events
 
 
-def coco_metrics(records, predictions, *, max_detections=100, area_name="all"):
+def coco_metrics(records, predictions, *, max_detections=100, area_name="all", class_id=0):
     from pycocotools.coco import COCO
     from pycocotools.cocoeval import COCOeval
 
@@ -89,11 +98,15 @@ def coco_metrics(records, predictions, *, max_detections=100, area_name="all"):
     for image_id, record in enumerate(records, 1):
         images.append({"id": image_id})
         for box in record["boxes"]:
+            if box.get("class_id", 0) != class_id:
+                continue
             x1, y1, x2, y2 = box["source_bbox"]
             annotations.append({"id": len(annotations) + 1, "image_id": image_id,
                                 "category_id": 1, "bbox": [x1, y1, x2-x1, y2-y1],
                                 "area": (x2-x1)*(y2-y1), "iscrowd": 0})
         for prediction in predictions[record["frame_id"]]:
+            if prediction["class_id"] != class_id:
+                continue
             x1, y1, x2, y2 = prediction["bbox"]
             detections.append({"image_id": image_id, "category_id": 1,
                                "bbox": [x1, y1, x2-x1, y2-y1], "score": prediction["confidence"]})
@@ -104,7 +117,7 @@ def coco_metrics(records, predictions, *, max_detections=100, area_name="all"):
     with contextlib.redirect_stdout(io.StringIO()):
         gt = COCO()
         gt.dataset = {"images": images, "annotations": annotations,
-                      "categories": [{"id": 1, "name": "player"}], "info": {}}
+                      "categories": [{"id": 1, "name": CLASSES[class_id]}], "info": {}}
         gt.createIndex()
         if detections:
             dt = gt.loadRes(detections)
@@ -132,14 +145,37 @@ def evaluate(records, predictions, protocol):
     if set(predictions) != {r["frame_id"] for r in records}:
         raise ValueError("Predictions must cover exactly the selected frames, including empty images")
 
-    def measure(items, area_name="all"):
-        ap, curve = coco_metrics(items, predictions, max_detections=protocol["max_detections"], area_name=area_name)
-        operating, events = operating_metrics(items, predictions, score_threshold=protocol["score_threshold"],
-                                             iou_threshold=protocol["iou_threshold"], area_range=AREA_RANGES[area_name])
-        return {**ap, **operating}, curve, events
+    def measure(items, area_name="all", class_id=None, score_threshold=None):
+        ids = (class_id,) if class_id is not None else tuple(CLASSES)
+        scores = []
+        curves, events = [], []
+        for current in ids:
+            ap, curve = coco_metrics(items, predictions, max_detections=protocol["max_detections"],
+                                     area_name=area_name, class_id=current)
+            operating, matches = operating_metrics(items, predictions,
+                score_threshold=protocol["score_threshold"] if score_threshold is None else score_threshold,
+                iou_threshold=protocol["iou_threshold"], area_range=AREA_RANGES[area_name], class_id=current)
+            scores.append({**ap, **operating})
+            curves.extend({"class_id": current, **point} for point in curve)
+            events.extend(matches)
+        if class_id is not None:
+            return scores[0], curves, events
+        tp, fp, fn = (sum(s[key] for s in scores) for key in ("tp", "fp", "fn"))
+        supported = [s for s in scores if s["support"]]
+        result = {"ap50": sum(s["ap50"] for s in supported) / len(supported) if supported else None,
+                  "ap50_95": sum(s["ap50_95"] for s in supported) / len(supported) if supported else None,
+                  "support": sum(s["support"] for s in scores), "images": len(items),
+                  "tp": tp, "fp": fp, "fn": fn,
+                  "precision": tp / (tp + fp) if tp + fp else None,
+                  "recall": tp / (tp + fn) if tp + fn else None,
+                  "f1": 2 * tp / (2 * tp + fp + fn) if tp + fn else None}
+        return result, curves, events
 
     global_metrics, pr_curve, events = measure(records)
     groups = []
+    for class_id, name in CLASSES.items():
+        result, _, _ = measure(records, class_id=class_id)
+        groups.append({"group": "class", "value": name, **result})
     for key in ("match_id", "source_id", "venue_id"):
         for value in sorted({r[key] for r in records if r[key] is not None}):
             result, _, _ = measure([r for r in records if r[key] == value])
@@ -157,7 +193,14 @@ def evaluate(records, predictions, protocol):
         result, _, _ = measure(items)
         groups.append({"group": "occlusion_image_cohort", "value": str(value), **result})
     thresholds = sorted(set(np.linspace(protocol["score_floor"], 1, 51).tolist() + [protocol["score_threshold"]]))
-    score_curve = [{"score_threshold": score, **operating_metrics(
-        records, predictions, score_threshold=score, iou_threshold=protocol["iou_threshold"])[0]}
-        for score in thresholds]
+    score_curve = []
+    for score in thresholds:
+        parts = [operating_metrics(records, predictions, score_threshold=score,
+                                  iou_threshold=protocol["iou_threshold"], class_id=class_id)[0]
+                 for class_id in CLASSES]
+        tp, fp, fn = (sum(part[key] for part in parts) for key in ("tp", "fp", "fn"))
+        score_curve.append({"score_threshold": score, "tp": tp, "fp": fp, "fn": fn,
+                            "precision": tp / (tp + fp) if tp + fp else None,
+                            "recall": tp / (tp + fn) if tp + fn else None,
+                            "f1": 2 * tp / (2 * tp + fp + fn) if tp + fn else None})
     return {"global": global_metrics, "groups": groups}, {"coco_pr": pr_curve, "score": score_curve}, events

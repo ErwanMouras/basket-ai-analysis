@@ -35,7 +35,7 @@ from training.players.tracking import PlayerTracker
 from training.players.tracking import settings as tracking_settings
 
 DEFAULTS = {k: EVAL_DEFAULTS[k] for k in (
-    "model", "variant", "weights", "source_class", "device", "resolution", "precision",
+    "model", "variant", "weights", "source_class", "referee_weights", "referee_source_class", "device", "resolution", "precision",
     "cpu_threads", "score_floor", "score_threshold", "max_detections")}
 DEFAULTS.update(video=None, output="runs/players/video", max_frames=None, codec="mp4v",
                 registry_uri=None, mlflow_uri="sqlite:///mlflow.db", tracking=TRACKING_DEFAULTS, pose=POSE_DEFAULTS, jersey=JERSEY_DEFAULTS, court=COURT_DEFAULTS)
@@ -92,7 +92,7 @@ def load_config(path, *, video=None, checkpoint=None, tracker=None, output=None,
     validate_config(validation)
     config["tracking"] = tracking_settings(config["tracking"], score_floor=config["score_floor"])
     config["pose"] = pose_settings(config["pose"], score_floor=config["score_floor"])
-    for key in ("video", "output", "weights"):
+    for key in ("video", "output", "weights", "referee_weights"):
         if config[key] is not None:
             config[key] = str((ROOT / Path(config[key]).expanduser()).resolve())
     return config
@@ -122,12 +122,14 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
             if config["registry_uri"]:
                 from training.players.registry import load_candidate
                 detector, registered = load_candidate(config["registry_uri"], config["mlflow_uri"], device=config["device"])
-                config.update({k: detector.provenance[k] for k in ("variant", "resolution", "source_class")})
+                config.update({k: detector.provenance[k] for k in ("variant", "resolution", "source_class", "referee_source_class")})
                 config["model"] = detector.family
                 write_json(output / "registry.json", registered)
             else:
                 detector = Detector(config["model"], config["variant"], config["weights"],
-                                    source_class=config["source_class"], device=config["device"], resolution=config["resolution"])
+                                    source_class=config["source_class"], referee_weights=config["referee_weights"],
+                                    referee_source_class=config["referee_source_class"],
+                                    device=config["device"], resolution=config["resolution"])
         environment = runtime(config)
         write_json(output / "config.resolved.json", config)
         write_json(output / "model.json", detector.provenance)
@@ -213,6 +215,10 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                 elif dimensions != (width, height):
                     raise ValueError("Variable video dimensions are unsupported")
                 detections = predict_image(detector, image, config)
+                players = [d for d in detections if d["class_id"] == 0]
+                def with_players(current, updated):
+                    iterator = iter(updated)
+                    return [next(iterator) if d["class_id"] == 0 else d for d in current]
                 index = progress["frames"]
                 handle.write(json.dumps({"schema_version": 1, "artifact_type": "players_video_predictions",
                     "coordinate_space": "source", "source_sha256": digest, "frame_index": index,
@@ -221,15 +227,17 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                 displayed = detections
                 court_record = None
                 if court_model is not None:
-                    court_record = court_model.update(image, detections, frame_index=index,
+                    court_record = court_model.update(image, players, frame_index=index,
                         force_cut=index in config["tracking"]["reset_frames"])
                     court_handle.write(json.dumps({"schema_version": 1,
                         "artifact_type": "nba_court_calibration", "source_sha256": digest,
                         "court_run_id": court_run_id, **court_record}, allow_nan=False) + "\n")
                     court_handle.flush()
                 if tracker is not None:
-                    displayed = tracker.update(detections, image, frame_index=index,
-                                               scene_cut=bool(court_record and court_record["scene_cut"]))
+                    tracked = tracker.update(players, image, frame_index=index,
+                                             scene_cut=bool(court_record and court_record["scene_cut"]))
+                    displayed = with_players(detections, tracked)
+                    displayed = [{**d, "track_id": None} if d["class_id"] == 1 else d for d in displayed]
                     tracks_handle.write(json.dumps({"schema_version": 1,
                         "artifact_type": "players_video_tracks", "coordinate_space": "source",
                         "source_sha256": digest, "tracking_run_id": tracking_run_id,
@@ -238,7 +246,10 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                     tracks_handle.flush()
                     tracked_observations += sum(d["track_id"] is not None for d in displayed)
                 if pose_model is not None:
-                    displayed = pose_model.predict(image, displayed)
+                    posed = pose_model.predict(image, [d for d in displayed if d["class_id"] == 0])
+                    displayed = with_players(displayed, posed)
+                    displayed = [{**d, "pose": None, "pose_status": "not_applicable"}
+                                 if d["class_id"] == 1 else d for d in displayed]
                     poses_handle.write(json.dumps({"schema_version": 1,
                         "artifact_type": "players_video_poses", "coordinate_space": "source",
                         "source_sha256": digest, "pose_run_id": pose_run_id,
@@ -247,11 +258,12 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                         "frame_index": index, "timestamp_seconds": index / fps,
                         "detections": displayed}, allow_nan=False) + "\n")
                     poses_handle.flush()
-                    posed_observations += sum(d["pose"] is not None for d in displayed)
-                    valid_keypoints += sum(d["pose"]["valid_keypoints"] for d in displayed if d["pose"] is not None)
+                    posed_observations += sum(d.get("pose") is not None for d in displayed)
+                    valid_keypoints += sum(d["pose"]["valid_keypoints"] for d in displayed if d.get("pose") is not None)
                 if jersey_model is not None:
-                    displayed, readings, ended = jersey_model.update(image, displayed,
+                    recognized, readings, ended = jersey_model.update(image, [d for d in displayed if d["class_id"] == 0],
                         frame_index=index, timestamp_seconds=index/fps, segment_id=tracker.segment_id)
+                    displayed = with_players(displayed, recognized)
                     write_jersey("jerseys", {"coordinate_space": "source", "frame_index": index,
                         "timestamp_seconds": index/fps, "segment_id": tracker.segment_id,
                         "detections": [{k: v for k, v in d.items() if k not in ("pose", "pose_status")} for d in displayed]})
@@ -260,7 +272,7 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                     for row in ended:
                         write_jersey("jersey_tracks", row)
                 if court_model is not None:
-                    court_positions = court_model.project_players(displayed, court_record, image.shape)
+                    court_positions = court_model.project_players([d for d in displayed if d["class_id"] == 0], court_record, image.shape)
                     positions_handle.write(json.dumps({"schema_version": 1,
                         "artifact_type": "nba_court_positions", "coordinate_space": "nba_court_metres",
                         "source_sha256": digest, "court_run_id": court_run_id,
@@ -284,15 +296,17 @@ def predict_video(config, *, detector=None, pose_estimator=None, jersey_recogniz
                         continue
                     x1, y1, x2, y2 = [round(v) for v in detection["bbox"]]
                     track_id = detection.get("track_id")
-                    color = ((60 + track_id * 67 % 196, 60 + track_id * 131 % 196,
+                    color = ((0, 165, 255) if detection["class_id"] == 1 else
+                             (60 + track_id * 67 % 196, 60 + track_id * 131 % 196,
                               60 + track_id * 43 % 196) if track_id is not None else (0, 220, 0))
-                    label = f"#{track_id}" if track_id is not None else ("player ?" if tracker else "player")
+                    role = "referee" if detection["class_id"] == 1 else "player"
+                    label = (f"#{track_id}" if track_id is not None else ("player ?" if tracker else "player")) if role == "player" else "referee"
                     if detection.get("jersey", {}).get("number") is not None:
                         label += f" jersey {detection['jersey']['number']}"
                     cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(image, f"{label} {detection['confidence']:.2f}", (x1, max(15, y1)),
                                 cv2.FONT_HERSHEY_SIMPLEX, .45, color, 1)
-                    if pose_model is not None:
+                    if pose_model is not None and detection["class_id"] == 0:
                         draw_pose(image, detection["pose"], color)
                 writer.write(image)
                 progress["frames"] += 1

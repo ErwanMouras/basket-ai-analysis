@@ -235,8 +235,6 @@ def validate_predictions(document):
         for detection in frame["detections"]:
             _fields(detection, ("class_id", "bbox", "confidence"))
             _bbox(detection, source)
-            if detection["class_id"] != 0:
-                raise ValueError("Player predictions require class_id=0")
             _confidence(detection["confidence"])
     return deepcopy(document)
 

@@ -19,8 +19,13 @@ def detector_from_bundle(path, device="cpu"):
     model = metadata["model"]
     if file_hash(weights) != model["checkpoint_sha256"]:
         raise ValueError("Registered checkpoint integrity mismatch")
+    referee_file = metadata.get("referee_weights_file")
+    referee_weights = path / referee_file if referee_file else weights
+    if model.get("referee_checkpoint_sha256") and file_hash(referee_weights) != model["referee_checkpoint_sha256"]:
+        raise ValueError("Registered referee checkpoint integrity mismatch")
     detector = Detector(model["family"], model["variant"], weights, device=device,
-                        resolution=model["resolution"], source_class=model["source_class"])
+                        resolution=model["resolution"], source_class=model["source_class"],
+                        referee_weights=referee_weights, referee_source_class=model.get("referee_source_class", 3))
     return detector, metadata
 
 

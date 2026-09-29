@@ -30,6 +30,9 @@ help:
 	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
+	@echo 'make evaluate-players CONFIG=training/players/configs/evaluate_yolov8.yaml  # Joueurs + arbitres'
+	@echo 'make check-players-models  # Vérifier les 10 poids et l’export sans évaluation'
+	@echo 'make evaluate-all-players [DEVICE=cuda:0]  # 10 évaluations et tableau de bord HTML'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
 	@echo 'make setup-jersey | predict-jersey VIDEO=... CHECKPOINT=... OUTPUT=...  # Budgeted jersey OCR'
@@ -135,9 +138,15 @@ train-players-rfdetr:
 test-players-training:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m unittest training.players.tests.test_training_integration -v
 
-.PHONY: evaluate-players compare-players test-players-evaluation
+.PHONY: evaluate-players compare-players test-players-evaluation check-players-models evaluate-all-players
 evaluate-players:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.evaluation evaluate --config "$(if $(CONFIG),$(CONFIG),training/players/configs/evaluate_yolo.yaml)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
+
+check-players-models:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.evaluation.sweep check --config "$(if $(CONFIG),$(CONFIG),training/players/configs/evaluate_all.yaml)" $(if $(DEVICE),--device "$(DEVICE)",) $(if $(OUTPUT),--output "$(OUTPUT)",)
+
+evaluate-all-players:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m training.players.evaluation.sweep run --config "$(if $(CONFIG),$(CONFIG),training/players/configs/evaluate_all.yaml)" $(if $(DEVICE),--device "$(DEVICE)",) $(if $(OUTPUT),--output "$(OUTPUT)",)
 
 # RUNS is a space-separated list of local evaluation run directories.
 compare-players:
