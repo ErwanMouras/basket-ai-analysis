@@ -20,7 +20,7 @@ from training.players.evaluation.metrics import (AREA_RANGES, coco_metrics, eval
                                                 normalize_predictions, operating_metrics)
 from training.players.export.config import ExportConfig
 from training.players.export.geometry import Geometry
-from training.players.models import Detector, remove_referee_duplicates
+from training.players.models import Detector, remove_referee_duplicates, rfdetr_weights
 
 HAS_COCO = importlib.util.find_spec("pycocotools") is not None
 PROTOCOL = {"score_floor": .001, "score_threshold": .5, "iou_threshold": .5, "max_detections": 100}
@@ -128,6 +128,19 @@ class MatchingTests(unittest.TestCase):
         referee = {**detection((11, 11, 31, 31)), "class_id": 1}
         self.assertEqual(remove_referee_duplicates([player, referee]), [referee])
         self.assertEqual(len(remove_referee_duplicates([detection((50, 10, 70, 30)), referee])), 2)
+
+    def test_rfdetr_large_accepts_published_weights_without_architecture_metadata(self):
+        import torch
+
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "weights.pth"
+            torch.save({"model": {}}, path)
+            with rfdetr_weights(path, variant="rfdetr_large") as prepared:
+                self.assertEqual(prepared, str(path))
+            torch.save({"model": {}, "args": {"encoder": "dinov2_windowed_base"}}, path)
+            with self.assertRaisesRegex(ValueError, "does not match rfdetr_large: encoder"):
+                with rfdetr_weights(path, variant="rfdetr_large"):
+                    pass
 
     def test_recipe_validation(self):
         for change in ({"precision": "amp"}, {"warmup": 0}, {"score_floor": .25},

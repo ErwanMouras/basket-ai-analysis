@@ -19,6 +19,7 @@ class SweepTests(unittest.TestCase):
         self.assertEqual(len(plan["models"]), 10)
         self.assertTrue(all(m["recipe"]["split"] == "val" for m in plan["models"]))
         self.assertTrue(all(m["recipe"]["max_images"] is None for m in plan["models"]))
+        self.assertTrue(all(m["recipe"]["device"] == "cuda:0" for m in plan["models"]))
         self.assertEqual(plan["models"][-1]["recipe"]["referee_source_class"], 3)
         self.assertIsNone(plan["models"][-1]["recipe"]["referee_weights"])
 

@@ -2,6 +2,7 @@
 # Put checkpoints at the paths below, or change a weights path to an existing file.
 # RF-DETR source_class=1 is for pretrained COCO person weights; use 0 for a
 # locally trained player-only checkpoint. The referee model remains E-BARD.
+# All models inherit device: cuda:0 from evaluate_yolo.yaml.
 schema_version: 1
 base_recipe: training/players/configs/evaluate_yolo.yaml
 output: runs/players/all-evaluations
@@ -57,9 +58,9 @@ models:
   - name: rfdetr_large
     model: rfdetr
     variant: rfdetr_large
-    weights: models/players/rf-detr-large.pth
+    weights: models/players/rf-detr-large-2026.pth
     source_class: 1
-    reference: "Local RF-DETR Large COCO checkpoint"
+    reference: "RF-DETR Large 2026 COCO checkpoint"
   - name: yolov8_ebard
     model: yolo
     variant: yolov8n

@@ -32,7 +32,7 @@ help:
 	@echo 'make evaluate-players CONFIG=... | compare-players RUNS="... ..." REPORT_OUTPUT=...'
 	@echo 'make evaluate-players CONFIG=training/players/configs/evaluate_yolov8.yaml  # Joueurs + arbitres'
 	@echo 'make check-players-models  # Vérifier les 10 poids et l’export sans évaluation'
-	@echo 'make evaluate-all-players [DEVICE=cuda:0]  # 10 évaluations et tableau de bord HTML'
+	@echo 'make evaluate-all-players  # 10 évaluations sur cuda:0 et tableau de bord HTML'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
 	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
 	@echo 'make setup-jersey | predict-jersey VIDEO=... CHECKPOINT=... OUTPUT=...  # Budgeted jersey OCR'

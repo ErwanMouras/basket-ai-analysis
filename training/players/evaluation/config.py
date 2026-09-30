@@ -13,7 +13,7 @@ DEFAULTS = {
     "model": "yolo", "variant": "yolo26n", "weights": None, "source_class": 0,
     "referee_weights": "models/players/ebard_yolov8n.pt", "referee_source_class": 3,
     "dataset": "exports/players/coco", "split": "val", "output": "runs/players/evaluation",
-    "device": "cpu", "precision": "fp32", "resolution": 640, "cpu_threads": 4,
+    "device": "cuda:0", "precision": "fp32", "resolution": 640, "cpu_threads": 4,
     "score_floor": 0.001, "score_threshold": 0.25, "iou_threshold": 0.5,
     "max_detections": 100, "warmup": 5, "repeats": 3, "max_images": None,
     "max_examples": 20, "purpose": "evaluation", "reference": None,

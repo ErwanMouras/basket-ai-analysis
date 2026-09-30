@@ -1,6 +1,6 @@
 model: yolo
-variant: yolo26n
-weights: models/players/yolo26n.pt
+variant: yolo26l
+weights: models/players/yolo26l.pt
 reference: "Local COCO pretrained weights; replace with actual source/version"
 source_class: 0
 referee_weights: models/players/ebard_yolov8n.pt
@@ -8,7 +8,7 @@ referee_source_class: 3
 dataset: exports/players/coco
 split: val
 output: runs/players/evaluation
-device: cpu
+device: cuda:0
 precision: fp32
 resolution: 640
 cpu_threads: 4

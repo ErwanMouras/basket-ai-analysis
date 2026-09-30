@@ -6,4 +6,4 @@ referee_weights: models/players/ebard_yolov8n.pt
 referee_source_class: 3
 dataset: exports/players/coco
 resolution: 640
-device: cpu
+device: cuda:0

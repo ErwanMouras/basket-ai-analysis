@@ -32,14 +32,17 @@ def rfdetr_weights(path, *, variant=None):
         config_class = getattr(
             rf_config, "RFDETR" + variant.split("_")[1].title() + "Config"
         )
-        architecture = payload.get("model_config", payload.get("args", {}))
-        if not isinstance(architecture, dict):
-            architecture = vars(architecture)
-        for key in ("encoder", "dec_layers", "hidden_dim"):
-            if architecture.get(key) != config_class.model_fields[key].default:
-                raise ValueError(
-                    f"RF-DETR checkpoint architecture does not match {variant}: {key}"
-                )
+        # Published weight-only checkpoints have just a "model" state dict.
+        # Their compatibility is checked by RF-DETR when it loads the weights.
+        architecture = payload.get("model_config", payload.get("args"))
+        if architecture is not None:
+            if not isinstance(architecture, dict):
+                architecture = vars(architecture)
+            for key in ("encoder", "dec_layers", "hidden_dim"):
+                if architecture.get(key) != config_class.model_fields[key].default:
+                    raise ValueError(
+                        f"RF-DETR checkpoint architecture does not match {variant}: {key}"
+                    )
     if "players_training" not in payload:
         yield str(path)
         return
@@ -116,7 +119,7 @@ def remove_referee_duplicates(detections, threshold=0.6, min_referee_score=0.25)
 
 class Detector:
     def __init__(
-        self, family, variant, weights, *, device="cpu", resolution=None, source_class,
+        self, family, variant, weights, *, device="cuda:0", resolution=None, source_class,
         referee_weights=None, referee_source_class=3,
     ):
         if family not in EVALUATION_VARIANTS or variant not in EVALUATION_VARIANTS[family]:
@@ -264,7 +267,7 @@ def main():
     parser.add_argument("--source-class", type=int, required=True)
     parser.add_argument("--referee-weights", default="models/players/ebard_yolov8n.pt")
     parser.add_argument("--referee-source-class", type=int, default=3)
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--resolution", type=int)
     parser.add_argument("--image", type=Path, help="Optional local image for inference")
     parser.add_argument("--output", type=Path, help="Optional report path")
