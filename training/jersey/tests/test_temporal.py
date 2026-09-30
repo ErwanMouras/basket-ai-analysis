@@ -7,7 +7,7 @@ import numpy as np
 from training.jersey.config import number, settings
 from training.jersey.colors import TeamColors, dominant_color
 from training.jersey.crops import candidate
-from training.jersey.reader import ResourceDeferred, decode
+from training.jersey.reader import ResourceDeferred, decode, decode_digits
 from training.jersey.roster import Roster
 from training.jersey.temporal import JerseyRecognizer
 
@@ -76,6 +76,12 @@ class Reader:
 
 
 class TemporalTests(unittest.TestCase):
+    def test_digit_constrained_decoding_only_returns_jersey_numbers(self):
+        self.assertEqual(decode_digits([3, 1, 0], [.96, .94, .99])["number"], "20")
+        self.assertEqual(decode_digits([1, 0, 0], [.95, .98, .99])["number"], "0")
+        with self.assertRaises(RuntimeError):
+            decode_digits([11, 0, 0], [.9, .9, .9])
+
     def setUp(self):
         self.image = np.random.default_rng(4).integers(
             0, 256, (160, 100, 3), dtype=np.uint8
@@ -232,15 +238,19 @@ class TemporalTests(unittest.TestCase):
         d = observation()
         crop = candidate(self.image, d, [d], settings())
         self.assertEqual(crop["image"].shape, (32, 128, 3))
-        self.assertEqual(crop["region"], "center_chest")
+        self.assertEqual(crop["region"], "bbox_number")
         self.assertIsNone(candidate(self.image, d, [d, observation(2)], settings()))
         d["pose"] = {"keypoints": [[0, 0]] * 17, "valid": [False] * 17}
         for i, p in zip((5, 6, 11, 12), ([20, 30], [80, 30], [25, 100], [75, 100])):
             d["pose"]["keypoints"][i] = p
             d["pose"]["valid"][i] = True
-        self.assertEqual(
-            candidate(self.image, d, [d], settings())["region"], "pose_torso"
-        )
+        crop = candidate(self.image, d, [d], settings())
+        self.assertEqual(crop["region"], "pose_number")
+        self.assertGreater(crop["bbox"][1], 30)
+        self.assertEqual(crop["color_image"].shape, (32, 128, 3))
+        center = candidate(self.image, d, [d], settings(), variant="center")
+        self.assertEqual(center["region"], "pose_number_center")
+        self.assertLess(center["bbox"][3], crop["bbox"][3])
 
     def test_color_groups_require_clean_repeated_torso_crops(self):
         teams = TeamColors()

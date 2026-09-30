@@ -82,6 +82,15 @@ class RosterTests(unittest.TestCase):
             with self.subTest(payload=payload), self.assertRaises(ValueError):
                 Roster(payload)
 
+    def test_optional_team_color_must_be_hex(self):
+        payload = fixture_roster().payload
+        payload["teams"][0]["color"] = "#12ABef"
+        self.assertEqual(Roster(payload).payload["teams"][0]["color"], "#12ABef")
+        for invalid in ("red", "#123", "#12345678", 123, " #123456"):
+            payload["teams"][0]["color"] = invalid
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "Team color"):
+                Roster(payload)
+
     def test_loading_snapshot_missing_malformed_and_duplicate_json(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "jersey.json"

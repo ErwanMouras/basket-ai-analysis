@@ -281,6 +281,9 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(len(rows), 8)
         self.assertEqual(rows[4]["ball"]["status"], "unavailable")
         self.assertEqual(rows[6]["ball"]["source_frames"], [4, 5, 6])
+        self.assertTrue(all(p["display_color"].startswith("#") for row in rows for p in row["persons"]))
+        manifest = json.loads((self.root / "out/run.json").read_text())
+        self.assertEqual(manifest["display_colors"]["referee"], "#FFBD78")
         self.assertFalse(list((self.root / "out").glob("*.partial.*")))
 
     def test_sequential_parallel_same_measurements(self):
@@ -316,10 +319,13 @@ class IntegrationTests(unittest.TestCase):
     def test_roster_snapshot(self):
         roster = self.root / "roster.json"
         payload = {"schema_version": 1, "teams": [
-            {"team_id": t, "name": t, "players": [{"name": t, "number": "23"}]} for t in ("a", "b")]}
+            {"team_id": t, "name": t, "color": "#123ABC" if t == "a" else "#EF4567",
+             "players": [{"name": t, "number": "23"}]} for t in ("a", "b")]}
         roster.write_text(json.dumps(payload))
         self.run_video("out", roster=roster)
         self.assertEqual(json.loads((self.root / "out/roster.json").read_text()), payload)
+        colors = json.loads((self.root / "out/run.json").read_text())["display_colors"]
+        self.assertEqual(colors["teams"], {"a": "#123ABC", "b": "#EF4567"})
 
     def test_failure_keeps_partial_outputs(self):
         class BadPeople:

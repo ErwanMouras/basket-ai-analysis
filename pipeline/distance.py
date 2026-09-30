@@ -5,6 +5,13 @@ import math
 
 
 def identity(person):
+    if person.get("jersey_number_suppressed"):
+        return None
+    resolved = person.get("resolved_identity") or {}
+    if resolved.get("team_id") and resolved.get("number") is not None:
+        return (resolved["team_id"], resolved["number"])
+    if "majority_jersey_number" in person:
+        return None
     jersey = person.get("jersey") or {}
     if jersey.get("identity_status") == "unique_number" and jersey.get("status") == "confirmed":
         return (jersey["team_id"], jersey["number"])
@@ -39,10 +46,12 @@ class Distance:
             subject = "roster:" + ":".join(who) if who else f"anonymous-s{segment}-t{p['track_id']}"
             key = (subject, segment, p["track_id"])
             jersey = p.get("jersey") or {}
+            resolved = p.get("resolved_identity") or {}
             row = self.rows.setdefault(key, {
                 "subject_id": subject, "player_id": subject if who else None,
-                "player_name": jersey.get("player_name") if who else None,
-                "team_id": who[0] if who else None, "jersey_number": who[1] if who else None,
+                "player_name": (resolved.get("player_name") or jersey.get("player_name")) if who else None,
+                "team_id": who[0] if who else p.get("resolved_team_id"),
+                "jersey_number": who[1] if who else None,
                 "team_group": jersey.get("team_group"),
                 "identity_status": "confirmed" if who else "anonymous",
                 "track_refs": [{"run_id": self.run_id, "segment_id": segment, "track_id": p["track_id"]}],
@@ -56,7 +65,11 @@ class Distance:
             row["last_frame"] = index
             if not who:
                 row["warnings"].add("identity_not_resolved")
-                number = jersey.get("number") if jersey.get("status") == "confirmed" else None
+                if p.get("jersey_number_suppressed"):
+                    row["warnings"].add("jersey_number_suppressed")
+                number = (None if p.get("jersey_number_suppressed") else
+                          p.get("majority_jersey_number") if "majority_jersey_number" in p else
+                          jersey.get("number") if jersey.get("status") == "confirmed" else None)
                 if number is not None and "jersey_number_conflict" not in row["warnings"]:
                     if row["jersey_number"] is not None and row["jersey_number"] != number:
                         row["jersey_number"] = None

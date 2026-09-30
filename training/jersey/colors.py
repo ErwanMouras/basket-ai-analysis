@@ -52,7 +52,7 @@ class TeamColors:
         if timestamp - state["last_color_sample"] < 0.35:
             return
         state["last_color_sample"] = timestamp
-        sample = dominant_color(crop["image"])
+        sample = dominant_color(crop.get("color_image", crop["image"]))
         if sample is None:
             return
         votes = state["color_votes"]

@@ -5,11 +5,16 @@ import numpy as np
 from PIL import Image
 
 
-def candidate(image, detection, others, config):
+def candidate(image, detection, others, config, *, variant="lower"):
+    if variant not in ("lower", "upper", "center"):
+        raise ValueError("Unknown number crop variant")
     x1, y1, x2, y2 = detection["bbox"]
     w, h = x2 - x1, y2 - y1
-    box = [x1 + 0.22 * w, y1 + 0.20 * h, x1 + 0.78 * w, y1 + 0.56 * h]
-    region = "center_chest"
+    color_box = [x1 + 0.22 * w, y1 + 0.20 * h, x1 + 0.78 * w, y1 + 0.56 * h]
+    box = ([x1 + 0.22 * w, y1 + 0.20 * h, x1 + 0.78 * w, y1 + 0.56 * h]
+           if variant in ("upper", "center") else
+           [x1 + 0.24 * w, y1 + 0.30 * h, x1 + 0.76 * w, y1 + 0.53 * h])
+    region = "bbox_number_upper" if variant in ("upper", "center") else "bbox_number"
     pose = detection.get("pose")
     if pose and all(pose["valid"][i] for i in (5, 6, 11, 12)):
         pts = np.array([pose["keypoints"][i] for i in (5, 6, 11, 12)])
@@ -20,13 +25,32 @@ def candidate(image, detection, others, config):
             return None
         if not (x1 <= left < right <= x2 and y1 <= top < bottom <= y2):
             return None
-        box = [
+        color_box = [
             left + 0.10 * (right - left),
             top + 0.12 * (bottom - top),
             right - 0.10 * (right - left),
             bottom - 0.08 * (bottom - top),
         ]
-        region = "pose_torso"
+        number_box = [
+            left + 0.10 * (right - left),
+            top + 0.48 * (bottom - top),
+            right - 0.10 * (right - left),
+            bottom + 0.12 * (bottom - top),
+        ]
+        if variant == "center":
+            # Keep the printed digits; the full torso also contains sponsor text
+            # and arms, which dilute confidence after resizing to 128 x 32.
+            box = [left + 0.05 * (right - left), top + 0.37 * (bottom - top),
+                   right - 0.05 * (right - left), top + 0.78 * (bottom - top)]
+            region = "pose_number_center"
+        elif variant == "upper":
+            box, region = color_box, "pose_number_upper"
+        else:
+            box = number_box if (number_box[2] - number_box[0] >= config["min_crop_width"]
+                                 and number_box[3] - number_box[1] >= config["min_crop_height"]) else color_box
+            region = "pose_number" if box is number_box else "pose_number_upper"
+    elif variant == "center":
+        return None
     ih, iw = image.shape[:2]
     a, b, c, d = [round(v) for v in box]
     a, b, c, d = max(0, a), max(0, b), min(iw, c), min(ih, d)
@@ -67,8 +91,15 @@ def candidate(image, detection, others, config):
     rgb = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)).resize(
         (128, 32), Image.Resampling.BICUBIC
     )
+    ca, cb, cc, cd = [round(v) for v in color_box]
+    ca, cb, cc, cd = max(0, ca), max(0, cb), min(iw, cc), min(ih, cd)
+    torso = image[cb:cd, ca:cc]
+    color_rgb = Image.fromarray(cv2.cvtColor(torso, cv2.COLOR_BGR2RGB)).resize(
+        (128, 32), Image.Resampling.BICUBIC
+    )
     return {
         "image": np.asarray(rgb).copy(),
+        "color_image": np.asarray(color_rgb).copy(),
         "bbox": [a, b, c, d],
         "region": region,
         "quality": quality,

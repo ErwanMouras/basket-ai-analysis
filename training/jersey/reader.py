@@ -4,7 +4,6 @@ import importlib.metadata
 import math
 import string
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 
@@ -37,9 +36,10 @@ class ParseqReader:
             "device": config["device"],
             "precision": "fp32",
             "input_size": [128, 32],
-            "alphabet": CHARSET,
-            "max_decode_length": 3,
-            "refine_iters": 1,
+            "alphabet": string.digits,
+            "max_decode_length": 2,
+            "refine_iters": 0,
+            "decoding": "digit-constrained autoregressive; confidence from full vocabulary",
             "timm_version": "0.9.16",
             "weights_only": True,
         }
@@ -101,13 +101,10 @@ class ParseqReader:
             )
             batch = batch.to(self.config["device"])
             with torch.inference_mode():
-                logits = self.model(
-                    SimpleNamespace(eos_id=0, bos_id=95, pad_id=96), batch, max_length=3
-                )
-                probabilities = logits.softmax(-1).cpu().numpy()
+                results = self._read_numbers(batch, torch)
             if cuda:
                 torch.cuda.synchronize(self.config["device"])
-            return [decode(p) for p in probabilities]
+            return results
         except torch.cuda.OutOfMemoryError as exc:
             self.model = None
             self.failed_cuda = True
@@ -117,6 +114,48 @@ class ParseqReader:
         finally:
             if not cuda and self.manage_threads:
                 torch.set_num_threads(previous_threads)
+
+    def _read_numbers(self, batch, torch):
+        """Feed back digits only; retain full-vocabulary probability as confidence."""
+        model = self.model
+        batch_size, steps = batch.shape[0], 3  # Two digits followed by EOS.
+        memory = model.encode(batch)
+        queries = model.pos_queries[:, :steps].expand(batch_size, -1, -1)
+        mask = torch.triu(torch.ones((steps, steps), dtype=torch.bool, device=batch.device), 1)
+        context = torch.full((batch_size, steps), 96, dtype=torch.long, device=batch.device)
+        context[:, 0] = 95  # BOS
+        chosen_tokens, chosen_probabilities = [], []
+        for index in range(steps):
+            length = index + 1
+            decoded = model.decode(context[:, :length], memory, mask[:length, :length],
+                                   tgt_query=queries[:, index:length],
+                                   tgt_query_mask=mask[index:length, :length])
+            logits = model.head(decoded).squeeze(1)
+            probabilities = logits.softmax(-1)
+            allowed = torch.full_like(logits, -torch.inf)
+            if index < 2:
+                allowed[:, 1:11] = logits[:, 1:11]  # 0-9 in the pinned charset.
+            if index > 0:
+                allowed[:, 0] = logits[:, 0]  # EOS after one or two digits.
+            token = allowed.argmax(-1)
+            chosen_tokens.append(token)
+            chosen_probabilities.append(probabilities.gather(1, token[:, None]).squeeze(1))
+            if length < steps:
+                context[:, length] = token
+        ids = torch.stack(chosen_tokens, dim=1).cpu().numpy()
+        probabilities = torch.stack(chosen_probabilities, dim=1).cpu().numpy()
+        return [decode_digits(tokens, probs) for tokens, probs in zip(ids, probabilities)]
+
+
+def decode_digits(ids, probabilities):
+    if len(ids) != 3 or len(probabilities) != 3 or ids[0] not in range(1, 11):
+        raise RuntimeError("Invalid digit-constrained PARSeq output")
+    end = 1 if ids[1] == 0 else 2
+    if ids[end] != 0 or any(token not in range(1, 11) for token in ids[:end]):
+        raise RuntimeError("Numeric OCR did not terminate after one or two digits")
+    text = ''.join(str(int(token) - 1) for token in ids[:end])
+    confidence = math.prod(float(value) for value in probabilities[:end + 1])
+    return {"text": text, "number": text, "confidence": confidence, "eos": True}
 
 
 def decode(probabilities):

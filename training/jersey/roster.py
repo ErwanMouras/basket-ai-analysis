@@ -3,10 +3,10 @@
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from training.jersey.config import number
-
 
 def _unique_keys(pairs):
     result = {}
@@ -73,14 +73,15 @@ class Roster:
         team_ids = set()
         total = eligible = 0
         for team in self._payload["teams"]:
-            if not isinstance(team, dict) or set(team) != {
-                "team_id",
-                "name",
-                "players",
-            }:
-                raise ValueError("Each team requires team_id, name and players")
+            if (not isinstance(team, dict) or set(team) - {"team_id", "name", "players", "color", "uniform_color"}
+                    or not {"team_id", "name", "players"} <= set(team)):
+                raise ValueError("Each team requires team_id, name and players; color is optional")
             tid = _text(team["team_id"], "team_id")
             name = _text(team["name"], "team name")
+            for color_field in ("color", "uniform_color"):
+                if color_field in team and (not isinstance(team[color_field], str)
+                                            or not re.fullmatch(r"#[0-9A-Fa-f]{6}", team[color_field])):
+                    raise ValueError(f"Team {color_field} must be a #RRGGBB hex string")
             if tid in team_ids:
                 raise ValueError(f"Duplicate team_id: {tid}")
             team_ids.add(tid)

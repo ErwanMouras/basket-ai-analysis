@@ -202,6 +202,7 @@ class JerseyRecognizer:
                 continue
             if color_ready:
                 self.team_colors.observe(s, crop, now)
+            crop.pop("color_image", None)
             if not ocr_ready:
                 continue
             s["last_sample"] = now
@@ -294,6 +295,7 @@ class JerseyRecognizer:
                     if n is not None and not permitted:
                         self.stats["roster_rejections"] += 1
                     reading = {
+                        "decoder": "digits_only_v2",
                         "track_id": tid,
                         "segment_id": segment_id,
                         "processed_frame": frame_index,

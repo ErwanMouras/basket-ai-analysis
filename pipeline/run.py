@@ -13,6 +13,8 @@ from pipeline.adapters import Ball, People, RoleTracker
 from pipeline.config import included
 from pipeline.contracts import validate_frame, validate_statistics
 from pipeline.distance import Distance
+from pipeline.identity import replay_artifacts
+from pipeline.jersey_votes import build_track_votes
 from pipeline.runtime import Runtime
 from pipeline.video import Video
 from training.common.files import write_json
@@ -22,6 +24,7 @@ from training.court.geometry import metadata as court_metadata
 from training.court.model import CourtKeypoints
 from training.jersey.reader import ParseqReader
 from training.jersey.roster import Roster
+from training.jersey.display import display_colors, person_display_color
 from training.jersey.temporal import JerseyRecognizer
 from training.players.pose import PlayerPose
 
@@ -125,6 +128,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
     """Run one video. Injected models are useful for deterministic integration tests."""
     # An explicitly invalid roster fails before output creation or any model load.
     roster = Roster.load(roster_path) if roster_path is not None else None
+    palette = display_colors(roster)
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
     run_id = uuid4().hex
@@ -134,7 +138,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
     video = models = None
     manifest = {"schema_version": 1, "run_id": run_id, "status": "running",
                 "config": config, "roster_sha256": roster.sha256 if roster else None,
-                "warnings": [], "artifacts": {}}
+                "warnings": [], "artifacts": {}, "display_colors": palette}
     root = Path(__file__).resolve().parents[1]
     manifest["code_sha256"] = {str(path.relative_to(root)): file_hash(path)
                                for folder in ("pipeline", "training/players", "training/court", "training/jersey", "training/ball", "training/common")
@@ -251,6 +255,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 persons = []
                 for n, (p, position) in enumerate(zip(tracked, positions, strict=True)):
                     persons.append({**p, "observation_id": f"{run_id}:{frame.index}:{n}",
+                                    "display_color": person_display_color(p, palette),
                                     "position_m": position["position_m"], "position_status": position["status"],
                                     "ground_point_px": position["ground_point_px"],
                                     "ground_point_method": position["ground_point_method"]})
@@ -284,6 +289,19 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                                                           "elapsed_s": time.perf_counter() - started})
         if models.jersey:
             models.jersey.finish()
+        team_votes_path = None
+        if roster and models.jersey and "jersey" not in stage_failures:
+            team_votes_path = output / "team_votes.partial.json"
+            manifest["track_vote_evidence"] = build_track_votes(
+                output / "observations.partial.jsonl", output / "jersey_reads.partial.jsonl",
+                video.source["path"], roster, run_id, team_votes_path, config["jersey"])
+        if roster:
+            metric, resolved_tracks = replay_artifacts(
+                output / "observations.partial.jsonl", output / "tracks.partial.jsonl",
+                output / "jersey_reads.partial.jsonl", roster, video.source["path"],
+                config["distance"], run_id, team_votes_path=team_votes_path)
+            manifest["resolved_player_tracks"] = resolved_tracks
+            manifest["spatial_handoffs"] = metric.spatial_handoffs
         manifest["source"] = dict(video.source)
         if config["max_frames"] is None and frames_done != video.source["declared_frames"]:
             manifest["warnings"].append("declared_decoded_frame_count_mismatch")
@@ -295,7 +313,10 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                  "capabilities": models.capabilities, "artifacts": {"observations": "observations.jsonl", "tracks": "tracks.jsonl"}}
         validate_statistics(stats)
         write_json(output / "statistics.partial.json", stats)
-        for name in ("observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "statistics.json"):
+        artifacts = ["observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "statistics.json"]
+        if team_votes_path:
+            artifacts.append("team_votes.json")
+        for name in artifacts:
             stem, suffix = name.rsplit(".", 1)
             os.replace(output / f"{stem}.partial.{suffix}", output / name)
             manifest["artifacts"][name] = {"sha256": file_hash(output / name)}
