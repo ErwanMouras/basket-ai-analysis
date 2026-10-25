@@ -1,0 +1,6 @@
+[core]
+    remote = r2
+['remote "r2"']
+    url = s3://vyneros-dvc/vyneros
+    endpointurl = https://9ef7472648b16c54b4f42362a61cf94a.r2.cloudflarestorage.com
+    region = auto
