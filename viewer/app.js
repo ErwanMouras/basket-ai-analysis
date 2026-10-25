@@ -1,9 +1,8 @@
 const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
-const state = { runs: [], name: null, meta: null, frame: null, metrics: [], cache: new Map(), batches: new Map(),
-  target: -1, current: -1, generation: 0, sort: 'distance', loaded: false, selected: null, selectedRead: null,
-  reads: [], lastStatsRender: 0 };
+const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
+  target: -1, current: -1, generation: 0, loaded: false, selected: null, teamId: null };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
@@ -29,7 +28,7 @@ async function init() {
   try {
     const { runs } = await json('/api/runs'); state.runs = runs;
     const select = $('runSelect'); select.replaceChildren();
-    if (!runs.length) { const opt = new Option('Aucun run terminé', ''); select.add(opt); $('videoEmpty').querySelector('span:last-child').textContent = 'Aucun run terminé dans runs/analysis.'; return; }
+    if (!runs.length) { const opt = new Option('Aucun run terminé', ''); select.add(opt); $('videoEmpty').querySelector('span:last-child').textContent = 'Aucun run terminé dans runs/analysis.'; renderRosterPanel(); return; }
     for (const run of [...runs].sort((a,b) => b.duration_s - a.duration_s || a.name.localeCompare(b.name)))
       select.add(new Option(`${run.match || run.video || 'Vidéo'} · ${fmtTime(run.duration_s)} · ${run.name}`, run.name));
     const requested = new URLSearchParams(location.search).get('run');
@@ -40,9 +39,11 @@ async function init() {
 }
 async function loadRun(name) {
   if (!name) return;
-  video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null; state.metrics = [];
-  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.reads = [];
-  const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren(); renderSelection();
+  video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
+  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
+  $('runMeta').textContent='Chargement du match…';
+  renderRosterPanel();
   $('videoEmpty').classList.remove('hidden'); $('videoEmpty').querySelector('strong').textContent = 'Chargement du run…'; $('videoEmpty').querySelector('span:last-child').textContent = name;
   try {
     const data = await json(`/api/run?${params({ name })}`);
@@ -51,13 +52,11 @@ async function loadRun(name) {
     state.loaded = true;
     history.replaceState(null, '', `?${params({ run: name })}`);
     const run = state.runs.find(r => r.name === name);
-    const named=(data.statistics?.players||[]).filter(player=>player.player_name).length;
-    $('runMeta').textContent = [run?.match, run?.date, `${data.timestamps.length} images`,
-      data.run.identity_resolution?.mode==='posthoc' ? 'Effectif appliqué après analyse'
-        : run?.roster ? 'Effectif utilisé par le run' : data.reference_roster ? 'Run sans effectif · référence vidéo disponible' : 'Run sans effectif',
-      `${named} joueur${named>1?'s':''} identifié${named>1?'s':''}`,
-      'N°* = confirmé ailleurs sur la track',
-      data.reference_roster ? 'Boîte pointillée = équipe déduite du n°' : null].filter(Boolean).join(' · ');
+    const named=(data.statistics?.players||[]).filter(player=>player.identity_status==='confirmed').length;
+    $('runMeta').textContent = [run?.match, run?.date,
+      data.roster ? 'Effectif du match' : data.reference_roster ? 'Effectif indicatif' : 'Sans effectif',
+      `${named} joueur${named>1?'s':''} identifié${named>1?'s':''}`].filter(Boolean).join(' · ');
+    renderRosterPanel();
     $('videoFilename').textContent = shortName(data.run.source?.path);
     $('totalTime').textContent = fmtTime(duration());
     $('seek').max = Math.max(duration(), .001);
@@ -85,6 +84,7 @@ async function fetchBatch(index) {
       state.cache.delete(oldest);state.batches.delete(Math.floor(oldest/30)*30);
     }
     if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true);
+    else if (state.current >= start && state.current < start + 35 && state.frame) drawOverlay(state.frame);
   }).catch(err => { state.batches.delete(start); if (generation === state.generation) toast(err.message); });
   state.batches.set(start, promise);
   return promise;
@@ -105,13 +105,14 @@ function displayAt(time, force = false) {
   const data = state.cache.get(index);
   if (data) {
     if (force || state.current !== index) {
-      state.current = index; state.frame = data.observation; state.metrics = data.metrics; render(data, force);
+      state.current = index; state.frame = data.observation; render(data);
     }
   } else {
     state.current = -1; state.frame = null; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
     fetchBatch(index);
     if (force) fetchOne(index);
   }
+  if (filters().ball && index > 0) fetchBatch(Math.max(0, index - 5));
   if (!video.paused) fetchBatch(Math.min(index + 30, state.meta.timestamps.length - 1));
 }
 function updateClock(time = video.currentTime || 0) {
@@ -120,7 +121,6 @@ function updateClock(time = video.currentTime || 0) {
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
   $('playIcon').textContent = video.paused ? '▶' : '❚❚';
-  $('statsTimeLabel').textContent = `Jusqu'à ${fmtTime(time)}`;
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
 }
 function videoFrameLoop(_now, metadata) {
@@ -149,6 +149,20 @@ function personSubject(person, segment) {
   const jersey = person.jersey || {};
   return jersey.identity_status === 'unique_number' && jersey.status === 'confirmed' && jersey.team_id
     ? `roster:${jersey.team_id}:${jersey.number}` : `anonymous-s${segment}-t${person.track_id}`;
+}
+function identifiedSubject(person, segment) {
+  if (person.role !== 'player') return null;
+  const subject = personSubject(person, segment);
+  if (!subject.startsWith('roster:')) return null;
+  const roster = state.meta?.roster;
+  return roster?.teams?.some(team => (team.players || []).some(player =>
+    subject === `roster:${team.team_id}:${player.number}`)) ? subject : null;
+}
+function visiblePerson(person, segment, on) {
+  if ($('identityMode').value === 'identified')
+    return person.role === 'player' && on.players && Boolean(identifiedSubject(person, segment));
+  if (person.role === 'referee') return on.referees;
+  return person.role === 'player' && on.players;
 }
 function observedJersey(track, segment) { return state.meta?.observed_jerseys?.[`${segment}:${track}`] || null; }
 function rosterCandidates(number) {
@@ -188,7 +202,8 @@ function drawOverlay(row) {
   const on = filters();
   for (const person of row.persons || []) {
     const role = person.role;
-    const showBox = (role === 'player' && on.players) || (role === 'referee' && on.referees);
+    if (!visiblePerson(person, row.segment_id, on)) continue;
+    const showBox = true;
     const box = person.bbox;
     if (!Array.isArray(box) || box.length !== 4) continue;
     const color = personColor(person,row.segment_id);
@@ -209,7 +224,7 @@ function drawOverlay(row) {
     }
     if (on.labels && showBox) {
       const number=personNumber(person,row.segment_id);
-      const base = person.resolved_identity?.player_name || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : `${role === 'referee' ? 'REF' : 'T'} ${person.track_id ?? '—'}`);
+      const base = person.resolved_identity?.player_name || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
         && !person.jersey_number_suppressed && person.jersey?.team_group
         ? `${base} · G${person.jersey.team_group.slice(-1)}` : base;
@@ -229,6 +244,20 @@ function drawOverlay(row) {
     }
   }
   if (on.ball && row.ball?.position_px) {
+    const current = row.frame_index;
+    for (let age = 5; age >= 1; age--) {
+      const previous = state.cache.get(current - age)?.observation;
+      if (!previous || previous.segment_id !== row.segment_id) continue;
+      // A scene cut ends the visible trail even when segment IDs are absent in older runs.
+      if (Array.from({length: age}, (_, offset) => state.cache.get(current - offset)?.observation)
+        .some(frame => !frame || frame.scene_cut)) continue;
+      const position = previous.ball?.position_px;
+      if (!Array.isArray(position) || !position.every(safeNumber)) continue;
+      ctx.globalAlpha = .13 + (6 - age) * .12;
+      ctx.fillStyle = C.ball;
+      ctx.beginPath(); ctx.arc(position[0], position[1], 2 + (6 - age) * 1.15, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     const [x,y] = row.ball.position_px;
     ctx.strokeStyle = C.ball;ctx.fillStyle = C.ball;ctx.lineWidth = 2.5;
     ctx.beginPath();ctx.arc(x,y,11,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
@@ -236,7 +265,7 @@ function drawOverlay(row) {
   }
   if (on.court && row.court?.keypoints) {
     ctx.fillStyle = C.court;ctx.strokeStyle = C.court;ctx.lineWidth = 1.6;
-    row.court.keypoints.forEach((p,i) => { if (!p || p[2] < .5) return;ctx.beginPath();ctx.arc(p[0],p[1],6,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(p[0],p[1],2,0,Math.PI*2);ctx.fill();ctx.font='bold 12px Manrope,sans-serif';ctx.fillText(String(i),p[0]+9,p[1]-8); });
+    row.court.keypoints.forEach(p => { if (!p || p[2] < .5) return;ctx.beginPath();ctx.arc(p[0],p[1],6,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(p[0],p[1],2,0,Math.PI*2);ctx.fill(); });
   }
 }
 function resizeCanvasOnly(row) { if (canvas.width !== row.width || canvas.height !== row.height) { canvas.width = row.width; canvas.height = row.height; resizeOverlay(); } }
@@ -269,100 +298,127 @@ function drawCourtLines() {
 }
 function renderCourt(row) {
   const g=$('courtPoints');g.replaceChildren();
+  const on=filters();
   const support=row.court?.support_polygon_m;
   if (Array.isArray(support) && support.length>2) svg('polygon',{points:support.filter(p=>safeNumber(p?.[0])&&safeNumber(p?.[1])).map(p=>`${x(p[0])},${y(p[1])}`).join(' '),fill:'#c8f57e',opacity:.09,stroke:'#c8f57e','stroke-width':2},g);
   let points=0;
   for(const person of row.persons||[]) {
+    if (!visiblePerson(person, row.segment_id, on)) continue;
     const p=person.position_m;
     if(!Array.isArray(p)||!safeNumber(p[0])||!safeNumber(p[1])||p[0]<0||p[0]>court.L||p[1]<0||p[1]>court.W)continue;
     points++;
     const px=x(p[0]),py=y(p[1]), color=personColor(person,row.segment_id);
     const subject=personSubject(person,row.segment_id);
+    const clickable=Boolean(identifiedSubject(person,row.segment_id));
     const selected=state.selected?.subject===subject;
     svg('circle',{cx:px,cy:py,r:9,fill:color,opacity:.14},g);
-    const point=svg('circle',{cx:px,cy:py,r:selected?7:4.2,fill:color,stroke:'#132216','stroke-width':1.5,class:'court-point'},g);
-    point.addEventListener('click',()=>selectSubject(subject,person.track_id,row.segment_id));
-    if(person.track_id!=null) svg('text',{x:px+8,y:py-7,fill:'#e6f5d7','font-size':9,'font-weight':800},g).textContent=person.resolved_identity?.number ? `#${person.resolved_identity.number}` : String(person.track_id);
+    const point=svg('circle',{cx:px,cy:py,r:selected?7:4.2,fill:color,stroke:'#132216','stroke-width':1.5,class:clickable?'court-point':''},g);
+    if(clickable)point.addEventListener('click',()=>selectSubject(subject));
+    if(person.track_id!=null) svg('text',{x:px+8,y:py-7,fill:'#e6f5d7','font-size':9,'font-weight':800},g).textContent=personNumber(person,row.segment_id) ? `#${personNumber(person,row.segment_id)}` : $('identityMode').value==='all' ? String(person.track_id) : '';
   }
-  const status=row.court?.status;
-  $('courtStatus').textContent=points?`${points} position${points>1?'s':''} projetée${points>1?'s':''} · ${status==='fit'?'calibration directe':status==='propagated'?'calibration propagée':status||'terrain'}`:'Aucune position projetée sur cette image';
+  $('courtStatus').textContent=points?`${points} position${points>1?'s':''} sur le terrain`:'Aucune position sur le terrain à cet instant';
   $('courtStatusDot').classList.toggle('off',!points);
 }
-function playerInfo(subject) {
-  const p=state.meta?.statistics?.players?.find(p=>p.subject_id===subject);
-  const observed=p?.warnings?.includes('jersey_number_suppressed')?[]:
-    (p?.track_refs||[]).map(ref=>observedJersey(ref.track_id,ref.segment_id)).filter(Boolean);
-  const observedNumbers=[...new Set(observed.map(o=>o.number).filter(Boolean))];
-  const number=p?.jersey_number || (observedNumbers.length===1?observedNumbers[0]:null);
-  const name=p?.player_name || (number ? `Joueur n° ${number}`
-    : `Track ${p?.track_refs?.[0]?.track_id ?? subject.match(/t(\d+)$/)?.[1] ?? '—'}`);
-  const numberSource=p?.jersey_number?'statistics':number?'observations':null;
-  const groups=[...new Set(observed.map(o=>o.team_group).filter(Boolean))];
-  const group=p?.team_group || (groups.length===1?groups[0]:null);
-  const candidates=rosterCandidates(number);
-  const roster=state.meta?.roster||state.meta?.reference_roster;
-  const confirmedTeam=p?.team_id ? roster?.teams?.find(t=>t.team_id===p.team_id) : null;
-  const team=p?.team_id ? confirmedTeam?.name||p.team_id.replaceAll('_',' ')
-    : candidates.length===1 ? `${candidates[0].team_name} (n° seul)`
-    : candidates.length>1 ? `${candidates.map(c=>c.team_name).join(' ou ')} (n° partagé)`
-    : group ? `Groupe couleur ${group.slice(-1)}` : 'Équipe indéterminée';
-  const palette=state.meta?.run?.display_colors || {};
-  const reference=state.meta?.reference_display_colors || {};
-  const color=palette.teams?.[p?.team_id] || palette.groups?.[group]
-    || (candidates.length===1 ? reference.teams?.[candidates[0].team_id]||palette.teams?.[candidates[0].team_id] : null) || C.player;
-  return {name,team,number,numberSource,group,candidates,track:p?.track_refs?.[0]?.track_id,
-    status:p?.measurement_status || 'unavailable',color,record:p};
-}
-function cell(tr, content, className='') { const td=document.createElement('td');td.className=className;if(content instanceof Node)td.append(content);else td.textContent=content;tr.append(td);return td; }
-function renderStats() {
-  const body=$('statsBody');body.replaceChildren();
-  const all=[...state.metrics].map(m=>({...m,info:playerInfo(m.subject_id)}));
-  const search=$('statsSearch').value.trim().toLocaleLowerCase('fr');
-  const filter=$('statsFilter').value;
-  const rows=all.filter(r=>{
-    if(filter==='confirmed'&&r.info.record?.identity_status!=='confirmed')return false;
-    if(filter==='anonymous'&&r.info.record?.identity_status==='confirmed')return false;
-    if(filter==='measured'&&r.distance_m==null)return false;
-    return !search || [r.info.name,r.info.team,r.subject_id,r.info.number].some(v=>String(v||'').toLocaleLowerCase('fr').includes(search));
-  });
-  if(state.sort==='name')rows.sort((a,b)=>a.info.name.localeCompare(b.info.name,'fr'));
-  else rows.sort((a,b)=>(b.distance_m??-1)-(a.distance_m??-1));
-  $('statsCount').textContent=`${rows.length}/${all.length}`;
-  if(!rows.length){const tr=document.createElement('tr');cell(tr,'Aucun joueur pour ce filtre.','table-empty').colSpan=6;body.append(tr);return;}
-  const max=Math.max(1,...rows.map(r=>r.distance_m || 0));
-  const fragment=document.createDocumentFragment();
-  for(const r of rows){
-    const tr=document.createElement('tr');
-    tr.classList.toggle('selected',state.selected?.subject===r.subject_id);
-    tr.tabIndex=0;tr.addEventListener('click',()=>{const ref=r.info.record?.track_refs?.[0];selectSubject(r.subject_id,ref?.track_id,ref?.segment_id);});
-    tr.addEventListener('keydown',e=>{if(e.key==='Enter')tr.click();});
-    const player=document.createElement('div');player.className='player-cell';
-    const avatar=document.createElement('span');avatar.className='player-avatar';avatar.style.setProperty('--team-color',r.info.color);avatar.textContent=r.info.number?`#${r.info.number}`:`${r.info.track??'?'}`;
-    const label=document.createElement('span');const name=document.createElement('span');name.className='player-name';name.textContent=r.info.name;const secondary=document.createElement('span');secondary.className='player-secondary';secondary.textContent=r.info.record?.identity_status==='confirmed'?`N° ${r.info.number}`:r.info.number?'Identité à confirmer':r.subject_id;label.append(name,secondary);player.append(avatar,label);cell(tr,player);
-    const team=document.createElement('span');team.className='team-chip';team.style.setProperty('--team-color',r.info.color);const dot=document.createElement('i');team.append(dot,document.createTextNode(r.info.team));cell(tr,team);
-    const distance=document.createElement('span');distance.className='distance-number';distance.textContent=r.distance_m==null?'—':fmtDistance(r.distance_m);const wrap=document.createElement('span');wrap.append(distance);
-    if(r.distance_m!=null){const unit=document.createElement('span');unit.className='distance-unit-small';unit.textContent=' m';const bar=document.createElement('span');bar.className='distance-bar';bar.style.width=`${Math.max(2,Math.round(74*r.distance_m/max))}px`;wrap.append(unit,bar);}cell(tr,wrap);
-    cell(tr,r.distance_m==null?'—':`${fmtDistance(r.measured_duration_s)} s`);
-    const coverage=r.info.record?.coverage_ratio;cell(tr,coverage==null?'—':`${Math.round(coverage*100)} %`,coverage!=null&&coverage<.5?'coverage-low':'coverage-good');
-    const status=document.createElement('span');status.className=`status-chip ${r.info.status}`;status.textContent=r.info.status==='ok'?'Complet':r.info.status==='partial'?'Partiel':'Indisponible';cell(tr,status);fragment.append(tr);
+function matchRoster() { return state.meta?.roster || state.meta?.reference_roster || null; }
+function rosterPlayer(subject) {
+  for (const team of matchRoster()?.teams || []) {
+    for (const player of Array.isArray(team.players) ? team.players : []) {
+      if (subject === 'roster:'+team.team_id+':'+player.number) return {team,player};
+    }
   }
-  body.append(fragment);
+  return null;
 }
-function render(data, force=false){
+function teamColor(teamId) {
+  const colors=state.meta?.roster ? state.meta?.run?.display_colors?.teams
+    : state.meta?.reference_display_colors?.teams;
+  return colors?.[teamId] || C.player;
+}
+function finalPlayerStats(teamId, number) {
+  // The player card is sourced exclusively from completed-run statistics.
+  const records=state.meta?.roster ? (state.meta?.statistics?.players || []).filter(record =>
+    record.identity_status==='confirmed' && record.team_id===teamId
+      && String(record.jersey_number)===String(number)) : [];
+  const measured=records.filter(record=>safeNumber(record.observed_distance_m));
+  return {observed_distance_m:measured.length
+    ? measured.reduce((sum,record)=>sum+record.observed_distance_m,0) : null};
+}
+const FINAL_PLAYER_METRICS=[
+  {key:'observed_distance_m',label:'DISTANCE OBSERVÉE',unit:'m',format:fmtDistance},
+];
+function renderRosterPanel() {
+  const roster=matchRoster();
+  const selected=state.selected ? rosterPlayer(state.selected.subject) : null;
+  $('rosterBrowse').hidden=Boolean(selected);
+  $('rosterDetail').hidden=!selected;
+  if (selected) {
+    const {team,player}=selected;
+    $('playerHero').style.setProperty('--team-color',teamColor(team.team_id));
+    $('detailNumber').textContent='#'+player.number;
+    $('detailTeam').textContent=team.name;
+    $('detailName').textContent=player.name;
+    const stats=finalPlayerStats(team.team_id,player.number);
+    const tiles=$('finalStats');tiles.replaceChildren();
+    for (const metric of FINAL_PLAYER_METRICS) {
+      const tile=document.createElement('div');tile.className='final-stat';
+      const label=document.createElement('span');label.className='final-stat-label';label.textContent=metric.label;
+      const value=document.createElement('strong');value.className='final-stat-value';
+      const measured=stats[metric.key];value.textContent=measured==null?'—':metric.format(measured);
+      tile.append(label,value);
+      if(measured!=null){const unit=document.createElement('span');unit.className='final-stat-unit';unit.textContent=metric.unit;tile.append(unit);}
+      tiles.append(tile);
+    }
+    $('finalStatsNote').textContent=!state.meta?.roster
+      ? 'Effectif indicatif : aucune statistique attribuée sans identification validée.'
+      : stats.observed_distance_m==null ? 'Aucune distance mesurée pour ce joueur.'
+      : 'Distance finale observée sur les séquences analysées.';
+    return;
+  }
+  const toggle=$('teamToggle'),heading=$('rosterTeamHeading'),list=$('rosterList');
+  toggle.replaceChildren();heading.replaceChildren();list.replaceChildren();
+  if (!roster?.teams?.length) {
+    heading.textContent='Aucun effectif disponible';
+    list.textContent='Aucun joueur associé à ce match.';
+    return;
+  }
+  if (!roster.teams.some(team=>team.team_id===state.teamId)) state.teamId=roster.teams[0].team_id;
+  for (const team of roster.teams) {
+    const button=document.createElement('button');button.type='button';button.className='team-option';
+    button.classList.toggle('active',team.team_id===state.teamId);
+    button.setAttribute('aria-pressed',String(team.team_id===state.teamId));
+    button.style.setProperty('--team-color',teamColor(team.team_id));
+    const dot=document.createElement('i');dot.setAttribute('aria-hidden','true');
+    const name=document.createElement('span');name.textContent=team.name;
+    button.append(dot,name);
+    button.addEventListener('click',()=>{state.teamId=team.team_id;renderRosterPanel();});
+    toggle.append(button);
+  }
+  const team=roster.teams.find(item=>item.team_id===state.teamId);
+  const players=Array.isArray(team.players) ? team.players : [];
+  const name=document.createElement('h3');name.textContent=team.name;
+  const count=document.createElement('span');count.textContent=players.length+' joueurs';
+  heading.append(name,count);
+  for (const player of players) {
+    const button=document.createElement('button');button.type='button';button.className='roster-player';
+    button.style.setProperty('--team-color',teamColor(team.team_id));
+    button.setAttribute('aria-label','Voir le bilan final de '+player.name);
+    const badge=document.createElement('span');badge.className='roster-number';badge.textContent='#'+player.number;
+    const playerName=document.createElement('span');playerName.className='roster-player-name';playerName.textContent=player.name;
+    const arrow=document.createElement('span');arrow.className='roster-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
+    button.append(badge,playerName,arrow);
+    button.addEventListener('click',()=>selectSubject('roster:'+team.team_id+':'+player.number));
+    list.append(button);
+  }
+}
+function render(data){
   const row=data.observation;
-  $('frameBadge').textContent=`FRAME ${String(row.frame_index).padStart(4,'0')}`;
-  $('playersCount').textContent=String((row.persons||[]).filter(p=>p.role==='player').length);
-  $('projectedCount').textContent=String((row.persons||[]).filter(p=>p.position_m).length);
-  $('totalDistance').textContent=data.total_distance_m==null?'—':fmtDistance(data.total_distance_m);
-  $('calibrationStatus').textContent=row.court?.status==='fit'?'Calibration terrain validée':row.court?.status==='propagated'?'Calibration terrain propagée':'Calibration terrain indisponible';
-  $('frameDetails').textContent=`${row.persons?.length||0} détections · segment ${row.segment_id??'—'}${row.included?'':' · hors analyse'}`;
+  $('calibrationStatus').textContent=row.court?.status==='fit'?'Terrain détecté':row.court?.status==='propagated'?'Terrain suivi':'Terrain indisponible';
+  $('frameDetails').textContent=`${row.persons?.length||0} personnes détectées${row.included?'':' · hors analyse'}`;
   drawOverlay(row);renderCourt(row);
-  if(force||performance.now()-state.lastStatsRender>300){renderStats();state.lastStatsRender=performance.now();}
 }
 function renderMarkers(){
   const target=$('timelineMarkers');target.replaceChildren();
   const used=new Set();
-  for(const marker of state.meta?.markers||[]){
+  for(const marker of (state.meta?.markers||[]).filter(marker=>marker.type==='cut')){
     const key=`${marker.index}:${marker.type}`;if(used.has(key))continue;used.add(key);
     const button=document.createElement('button');button.className=marker.type;button.type='button';
     button.style.left=`${100*marker.time/Math.max(duration(),.001)}%`;
@@ -378,68 +434,31 @@ function seekToFrame(index){
 }
 function stepFrame(delta){video.pause();seekToFrame((state.current>=0?state.current:nearestFrame(video.currentTime))+delta);}
 function stepMarker(delta){
-  const markers=[...new Set((state.meta?.markers||[]).map(m=>m.index))].sort((a,b)=>a-b);
+  const markers=[...new Set((state.meta?.markers||[]).filter(m=>m.type==='cut').map(m=>m.index))].sort((a,b)=>a-b);
   const current=nearestFrame(video.currentTime);
   const next=delta>0?markers.find(i=>i>current):markers.reverse().find(i=>i<current);
   if(next!=null)seekToFrame(next);
 }
-async function selectSubject(subject,track,segment){
-  state.selected={subject,track,segment};state.selectedRead=null;state.reads=[];
-  renderSelection();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}renderStats();
-  if(track==null||segment==null)return;
-  const generation=state.generation;
-  try{const {reads}=await json(`/api/reads?${params({name:state.name,track,segment})}`);
-    if(generation===state.generation&&state.selected?.subject===subject&&state.selected?.track===track){state.reads=reads;renderSelection();}
-  }catch(err){if(generation===state.generation)toast(err.message);}
+function selectSubject(subject){
+  const location=rosterPlayer(subject);
+  if (!location) return;
+  state.selected={subject};
+  state.teamId=location.team.team_id;
+  renderRosterPanel();
+  if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
 }
-function renderSelection(){
-  const selected=state.selected, details=$('selectionDetails'), list=$('ocrReads');list.replaceChildren();
-  if(!selected){details.textContent='Cliquez une boîte, un point du terrain ou une ligne de statistiques.';$('ocrCrop').classList.remove('visible');return;}
-  const info=playerInfo(selected.subject), p=info.record;
-  const coverage=p?.coverage_ratio==null?'—':`${Math.round(p.coverage_ratio*100)} %`;
-  const excluded=Object.entries(p?.excluded_intervals||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([key,count])=>`${key} (${count})`).join(', ');
-  const handoff=state.meta?.spatial_handoffs?.find(h=>h.segment_id===selected.segment
-    && h.track_id===selected.track && h.start_frame<=state.frame?.frame_index
-    && state.frame?.frame_index<=h.end_frame);
-  const provenance=handoff?`Identité reliée par continuité spatiale depuis la track ${handoff.source_track_id}${handoff.direction==='backward'?' (apparue ensuite)':''} ; aucun joueur proche ou indice contradictoire à cette transition`
-    :p?.team_id?(state.meta?.run?.identity_resolution?.mode==='posthoc'
-    ? 'Identité résolue après analyse avec les lectures et la couleur du maillot'
-    : 'Équipe validée dans le run'):info.candidates.length===1?'Équipe déduite du numéro avec l’effectif de référence, non validée par le run':info.candidates.length>1?'Numéro partagé par les deux équipes : identité non résolue':'Aucune équipe déduite';
-  const candidateNames=!p?.team_id&&info.candidates.length?`\nCandidats : ${info.candidates.map(c=>`${c.player_name} (${c.team_name})`).join(' · ')}`:'';
-  const identityLine=info.record?.identity_status==='confirmed'
-    ? `${handoff?'Joueur':'Maillot'} n° ${info.number||'inconnu'}`
-    : `Track ${selected.track??'—'} · segment ${selected.segment??'—'} · maillot ${info.number||'inconnu'}${info.numberSource==='observations'?' (confirmé dans les observations)':''}`;
-  const trackVotes=state.meta?.track_votes?.[`${selected.segment}:${selected.track}`];
-  const numericVotes=trackVotes?Object.values(trackVotes.number_votes||{}).reduce((sum,count)=>sum+count,0):0;
-  const numberEvidence=trackVotes?`\nVote numéro : ${trackVotes.number_majority?`#${trackVotes.number_majority}`:'indécis'} (${trackVotes.number_majority?(trackVotes.number_votes?.[trackVotes.number_majority]||0):0}/${numericVotes} lectures fiables ; ${trackVotes.number_attempts} images examinées)`:'';
-  const teamVotes=trackVotes?Object.values(trackVotes.team_votes||{}).reduce((sum,count)=>sum+count,0):0;
-  const teamName=state.meta?.roster?.teams?.find(team=>team.team_id===trackVotes?.team_id)?.name||trackVotes?.team_id||'indécise';
-  const teamEvidence=trackVotes?`\nVote équipe : ${teamName} (${trackVotes.team_id?(trackVotes.team_votes?.[trackVotes.team_id]||0):0}/${teamVotes} couleurs lisibles ; ${trackVotes.visible_frames} images de la track)`:'';
-  details.textContent=`${info.name} · ${info.team}\n${identityLine}\n${provenance}${candidateNames}${numberEvidence}${teamEvidence}\nCouverture finale : ${coverage} · état : ${info.status}\nExclusions : ${excluded||'aucune'}`;
-  if(!state.reads.length){list.textContent='Aucune lecture OCR pour ce passage.';return;}
-  const votes=state.reads.filter(r=>r.status==='vote').length;
-  const count=document.createElement('div');count.className='section-desc';count.textContent=`${state.reads.length} lectures · ${votes} retenues · ${state.reads.length-votes} rejetées`;list.append(count);
-  for(const read of state.reads){
-    const button=document.createElement('button');button.type='button';button.className='ocr-read';button.classList.toggle('active',state.selectedRead===read);
-    const title=document.createElement('strong');title.textContent=`${fmtTime(read.timestamp_seconds)} · ${read.text||'—'} · ${read.status==='vote'?'vote':'rejet'}`;
-    const sub=document.createElement('small');sub.textContent=`Confiance ${safeNumber(read.confidence)?Math.round(read.confidence*100)+' %':'—'} · ${read.rejection_reason||read.region||'—'}`;
-    button.append(title,sub);button.addEventListener('click',()=>{video.pause();state.selectedRead=read;seekToFrame(read.frame_index);renderSelection();});list.append(button);
-  }
-}
-function renderCrop(){
-  const read=state.selectedRead, crop=$('ocrCrop');
-  if(!read?.crop_bbox||video.readyState<2)return;
-  const [x1,y1,x2,y2]=read.crop_bbox;
-  if(x2<=x1||y2<=y1)return;
-  const context=crop.getContext('2d');context.clearRect(0,0,crop.width,crop.height);
-  try{context.drawImage(video,x1,y1,x2-x1,y2-y1,0,0,crop.width,crop.height);crop.classList.add('visible');}catch(_err){crop.classList.remove('visible');}
+function backToRoster(){
+  state.selected=null;
+  renderRosterPanel();
+  if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
 }
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
+$('rosterBack').addEventListener('click',backToRoster);
 $('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast('Vidéo source indisponible.');if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
 video.addEventListener('play',()=>{updateClock();displayAt(video.currentTime);});
 video.addEventListener('pause',()=>updateClock());
 video.addEventListener('timeupdate',()=>updateClock());
-video.addEventListener('seeked',()=>{updateClock();displayAt(video.currentTime,true);renderCrop();});
+video.addEventListener('seeked',()=>{updateClock();displayAt(video.currentTime,true);});
 video.addEventListener('loadedmetadata',resizeOverlay);
 video.addEventListener('error',()=>{if(state.loaded)toast('La vidéo ne peut pas être lue par ce navigateur.');});
 $('seek').addEventListener('input',e=>{video.currentTime=Number(e.target.value);updateClock();ctx.clearRect(0,0,canvas.width,canvas.height);});
@@ -447,23 +466,20 @@ $('prevFrame').addEventListener('click',()=>stepFrame(-1));
 $('nextFrame').addEventListener('click',()=>stepFrame(1));
 $('prevMarker').addEventListener('click',()=>stepMarker(-1));
 $('nextMarker').addEventListener('click',()=>stepMarker(1));
-$('clearSelection').addEventListener('click',()=>{state.selected=null;state.reads=[];state.selectedRead=null;renderSelection();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}renderStats();});
 $('focusVideo').addEventListener('click',()=>{const focused=$('workspace').classList.toggle('focus-video');$('focusVideo').textContent=focused?'Afficher les panneaux':'Agrandir la vidéo';$('focusVideo').setAttribute('aria-pressed',String(focused));resizeOverlay();});
 canvas.addEventListener('click',e=>{
   if(!state.frame)return;
   const bounds=canvas.getBoundingClientRect(), px=(e.clientX-bounds.left)*canvas.width/bounds.width, py=(e.clientY-bounds.top)*canvas.height/bounds.height;
-  const matches=(state.frame.persons||[]).filter(p=>p.track_id!=null&&p.bbox&&px>=p.bbox[0]&&px<=p.bbox[2]&&py>=p.bbox[1]&&py<=p.bbox[3]);
+  const matches=(state.frame.persons||[]).filter(p=>identifiedSubject(p,state.frame.segment_id)&&p.bbox&&px>=p.bbox[0]&&px<=p.bbox[2]&&py>=p.bbox[1]&&py<=p.bbox[3]);
   matches.sort((a,b)=>(a.bbox[2]-a.bbox[0])*(a.bbox[3]-a.bbox[1])-(b.bbox[2]-b.bbox[0])*(b.bbox[3]-b.bbox[1]));
-  if(matches[0])selectSubject(personSubject(matches[0],state.frame.segment_id),matches[0].track_id,state.frame.segment_id);
+  if(matches[0])selectSubject(personSubject(matches[0],state.frame.segment_id));
 });
 $('speed').addEventListener('change',e=>video.playbackRate=Number(e.target.value));
 $('fullscreen').addEventListener('click',()=>{const el=$('videoStage');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen?.();});
 document.addEventListener('fullscreenchange',resizeOverlay);window.addEventListener('resize',resizeOverlay);
-document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener('change',()=>{if(state.frame)drawOverlay(state.frame);}));
-$('sortDistance').addEventListener('click',()=>{state.sort='distance';$('sortDistance').classList.add('active');$('sortName').classList.remove('active');renderStats();});
-$('sortName').addEventListener('click',()=>{state.sort='name';$('sortName').classList.add('active');$('sortDistance').classList.remove('active');renderStats();});
-$('statsSearch').addEventListener('input',renderStats);
-$('statsFilter').addEventListener('change',renderStats);
+new ResizeObserver(resizeOverlay).observe($('videoStage'));
+document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
+$('identityMode').addEventListener('change',()=>{document.querySelector('[data-filter="referees"]').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.code==='Space'){e.preventDefault();$('playButton').click();}
   else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime)+(e.code==='ArrowRight'?30:-30));}

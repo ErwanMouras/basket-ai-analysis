@@ -91,6 +91,19 @@ class ViewerTests(unittest.TestCase):
             self.get('/api/video?name=match', {'Range': 'bytes=100-'})
         self.assertEqual(exc.exception.code, 416)
 
+    def test_portable_relative_video_paths_stay_inside_video_root(self):
+        path = self.server.runs_root / 'match' / 'run.json'
+        manifest = json.loads(path.read_text())
+        manifest['source']['path'] = 'game.mp4'
+        path.write_text(json.dumps(manifest))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertTrue(json.loads(body)['video_available'])
+        self.assertEqual(self.get('/api/video?name=match')[2], b'0123456789')
+        manifest['source']['path'] = '../outside.mp4'
+        path.write_text(json.dumps(manifest))
+        with self.assertRaises(HTTPError):
+            self.get('/api/video?name=match')
+
     def test_majority_vote_summary_prefers_digit_only_reads(self):
         run = self.server.runs_root / 'match'
         (run / 'team_votes.json').write_text(json.dumps({'tracks': {'0:1': {
