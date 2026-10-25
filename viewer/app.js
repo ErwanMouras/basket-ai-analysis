@@ -8,7 +8,21 @@ const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
 const maskCache = new Map();
 let maskCachePixels = 0;
-const filters = () => Object.fromEntries([...document.querySelectorAll('[data-filter]')].map(input => [input.dataset.filter, input.checked]));
+function filters() {
+  const options=Object.fromEntries([...document.querySelectorAll('[data-filter]')].map(input=>[input.dataset.filter,input.checked]));
+  options.playerMode=$('playerDisplay').value || 'bbox';
+  options.refereeMode=$('refereeDisplay').value || 'bbox';
+  options.players=options.playerMode !== 'hidden';
+  options.referees=options.refereeMode !== 'hidden';
+  return options;
+}
+function personOptions(person, on) {
+  const prefix=person.role === 'referee' ? 'referee' : 'player';
+  const mode=on[`${prefix}Mode`];
+  return {bbox:mode === 'bbox' || mode === 'both',
+    segmentation:mode === 'segmentation' || mode === 'both',
+    pose:on[`${prefix}Pose`],labels:on[`${prefix}Labels`]};
+}
 const params = (values) => new URLSearchParams(values).toString();
 let toastTimer;
 function toast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 4200); }
@@ -238,7 +252,7 @@ function maskSurface(mask, color, width, height) {
 }
 function drawSegmentation(row, on) {
   for (const person of row.persons || []) {
-    if (!visiblePerson(person,row.segment_id,on) || person.segmentation?.status !== 'ok') continue;
+    if (!visiblePerson(person,row.segment_id,on) || !personOptions(person,on).segmentation || person.segmentation?.status !== 'ok') continue;
     const mask=person.segmentation.mask;
     const surface=maskSurface(mask,personColor(person,row.segment_id),row.width,row.height);
     if (!surface) continue;
@@ -250,11 +264,12 @@ function drawOverlay(row) {
   resizeCanvasOnly(row);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const on = filters();
-  if (on.segmentation) drawSegmentation(row,on);
+  drawSegmentation(row,on);
   for (const person of row.persons || []) {
     const role = person.role;
     if (!visiblePerson(person, row.segment_id, on)) continue;
-    const showBox = true;
+    const options=personOptions(person,on);
+    const showBox = options.bbox;
     const box = person.bbox;
     if (!Array.isArray(box) || box.length !== 4) continue;
     const color = personColor(person,row.segment_id);
@@ -273,7 +288,7 @@ function drawOverlay(row) {
       // Draw short corners so the frame remains legible over game footage.
       ctx.beginPath(); ctx.moveTo(x1+size,y1);ctx.lineTo(x1,y1);ctx.lineTo(x1,y1+size);ctx.moveTo(x2-size,y1);ctx.lineTo(x2,y1);ctx.lineTo(x2,y1+size);ctx.moveTo(x1,y2-size);ctx.lineTo(x1,y2);ctx.lineTo(x1+size,y2);ctx.moveTo(x2-size,y2);ctx.lineTo(x2,y2);ctx.lineTo(x2,y2-size);ctx.stroke();
     }
-    if (on.labels && showBox) {
+    if (options.labels) {
       const number=personNumber(person,row.segment_id);
       const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
@@ -285,7 +300,7 @@ function drawOverlay(row) {
       ctx.fillStyle = '#0c1512eb'; ctx.fillRect(x1, top, labelW, 24);
       ctx.fillStyle = color; ctx.fillText(title, x1+9, top+17);
     }
-    if (on.pose && person.pose?.keypoints) {
+    if (options.pose && person.pose?.keypoints) {
       const kp = person.pose.keypoints, valid = person.pose.valid || [];
       ctx.strokeStyle = C.pose; ctx.lineWidth = 2; ctx.globalAlpha = .85;
       for (const [a,b] of SKELETON) if (valid[a] && valid[b] && kp[a] && kp[b]) { ctx.beginPath();ctx.moveTo(...kp[a]);ctx.lineTo(...kp[b]);ctx.stroke(); }
@@ -296,7 +311,7 @@ function drawOverlay(row) {
   }
   if (on.ball && row.ball?.position_px) {
     const current = row.frame_index;
-    for (let age = 5; age >= 1; age--) {
+    for (let age = on.ballTrail ? 5 : 0; age >= 1; age--) {
       const previous = state.cache.get(current - age)?.observation;
       if (!previous || previous.segment_id !== row.segment_id) continue;
       // A scene cut ends the visible trail even when segment IDs are absent in older runs.
@@ -540,8 +555,8 @@ $('speed').addEventListener('change',e=>video.playbackRate=Number(e.target.value
 $('fullscreen').addEventListener('click',()=>{const el=$('videoStage');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen?.();});
 document.addEventListener('fullscreenchange',resizeOverlay);window.addEventListener('resize',resizeOverlay);
 new ResizeObserver(resizeOverlay).observe($('videoStage'));
-document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
-$('identityMode').addEventListener('change',()=>{document.querySelector('[data-filter="referees"]').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
+document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
+$('identityMode').addEventListener('change',()=>{$('refereeOptions').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.code==='Space'){e.preventDefault();$('playButton').click();}
   else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime+(e.code==='ArrowRight'?1:-1)));}

@@ -129,14 +129,46 @@ test('ROI RLE foreground spans rows in source order and malformed masks are igno
   assert.equal(ui.run("maskSurface({encoding:'roi_rle_c',roi:[0,0,4,3],counts:[1,99]},'#ff0000',10,10)"),null);
 });
 
-test('segmentation toggle controls only masks and supports old observations', async () => {
-  const ui=await app();
-  ui.inputs.push({dataset:{filter:'players'},checked:true},{dataset:{filter:'segmentation'},checked:false});
-  ui.run("state.meta={run:{source:{width:10,height:10}}};state.frame={width:10,height:10,segment_id:0,persons:[{role:'player',bbox:[1,1,5,5],track_id:1,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[1,1,5,5],counts:[0,16]}}}]}");
-  ui.drawCalls.length=0;ui.run('drawOverlay(state.frame)');
-  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
-  ui.inputs[1].checked=true;ui.run('drawOverlay(state.frame)');
+function layerFrame(ui) {
+  ui.run("state.meta={run:{source:{width:10,height:10}}};state.frame={width:10,height:10,segment_id:0,persons:[{role:'player',bbox:[1,1,5,5],track_id:1,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[1,1,5,5],counts:[0,16]}}},{role:'referee',bbox:[5,1,9,5],track_id:2,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[5,1,9,5],counts:[0,16]}}}]}");
+  ui.byId('overlay').width=10;ui.byId('overlay').height=10;
+  ui.drawCalls.length=0;
+}
+
+test('players can show segmentation alone while referees keep their boxes', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';
+  ui.byId('refereeDisplay').value='bbox';
+  ui.run('drawOverlay(state.frame)');
   assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
-  ui.drawCalls.length=0;ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='strokeRect'),[['strokeRect',5,1,4,4]]);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='fillText').length,0);
+});
+
+test('both representations and hidden categories are independent', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='both';
+  ui.byId('refereeDisplay').value='hidden';
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='strokeRect'),[['strokeRect',1,1,4,4]]);
+  assert.equal(ui.run('visiblePerson(state.frame.persons[1],0,filters())'),false);
+});
+
+test('labels can accompany masks without boxes and remain category specific', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';
+  ui.byId('refereeDisplay').value='hidden';
+  ui.inputs.push({dataset:{filter:'playerLabels'},checked:true},{dataset:{filter:'refereeLabels'},checked:true});
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='fillText').length,1);
+});
+
+test('mask-only mode never falls back to boxes for an old run without masks', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';ui.byId('refereeDisplay').value='hidden';
+  ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
   assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
 });

@@ -156,3 +156,12 @@
   .final-stats-note{font-size:9px;margin-top:8px}
   .workspace.focus-video{display:grid;grid-template-rows:minmax(0,1fr)}
 }
+
+/* Video layers are configured independently for each category. */
+.layer-toolbar{flex:1 1 100%;align-items:stretch;gap:7px}
+.layer-category{min-width:0;margin:0;padding:5px 7px 7px;border:1px solid #35413a;border-radius:7px}
+.layer-category legend{padding:0 4px;color:#b9cbb5;font-size:9px;font-weight:800;letter-spacing:.04em}
+.category-options{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.category-options select{max-width:100%;background:#1c2521;color:#dcebd6;border:1px solid #435444;border-radius:5px;padding:5px 6px;font-size:10px;cursor:pointer}
+.layer-category:disabled{opacity:.45}
+.layer-category:disabled label,.layer-category:disabled select{cursor:not-allowed}
