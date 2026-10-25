@@ -7,6 +7,34 @@ import numpy as np
 from training.ball.learning.metrics import center
 
 
+def cut_safe_samples(samples, cuts):
+    return [(row, frames) for row, frames in samples if not any(
+        frames[0]["frame_index"] < cut <= frames[-1]["frame_index"]
+        for cut in cuts.get(frames[0]["clip_id"], []))]
+
+
+def causal_windows(samples, predictions, threshold):
+    """Score only the last head of each ordered, consecutive triplet, once."""
+    seen = set()
+    for (_, expected), (frames, heatmaps) in zip(samples, predictions, strict=True):
+        if [f["image"] for f in frames] != [f["image"] for f in expected] or len(frames) != 3:
+            raise ValueError("Predictions do not follow the causal triplets")
+        indices = [f["frame_index"] for f in frames]
+        if len({f.get("clip_id") for f in frames}) != 1:
+            raise ValueError("A causal window crosses a clip")
+        if indices != list(range(indices[0], indices[0] + 3)):
+            raise ValueError("A causal window crosses a frame gap")
+        if len(heatmaps) != 3 or not np.isfinite(heatmaps).all():
+            raise ValueError("Invalid causal heatmaps")
+        key, heatmap = frames[-1]["image"], heatmaps[-1]
+        if key in seen:
+            raise ValueError("Duplicated causal target")
+        seen.add(key)
+        point = center(heatmap > threshold)
+        yield key, {"position_input": point.tolist() if point is not None else None,
+                    "confidence": float(heatmap.max()), "window_count": 1, "future_context_frames": 0}
+
+
 def merge_windows(samples, predictions, threshold):
     """Average heatmaps before decoding; release a frame after its last window.
 

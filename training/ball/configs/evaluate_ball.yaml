@@ -2,6 +2,11 @@ checkpoint: null
 dataset: exports/ball/tracknet-totnet
 output: runs/ball/evaluation
 split: val
+# offline_mean preserves historical reports; causal_last uses only the last head.
+temporal_policy: offline_mean
+# Source frame indices of reviewed cuts, keyed by export clip_id.
+cut_frames: {}
+frozen_recipe: null
 device: cuda:0
 precision: fp32
 batch_size: 2

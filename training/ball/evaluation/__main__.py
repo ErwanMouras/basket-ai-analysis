@@ -10,14 +10,12 @@ from training.ball.export.sources import file_hash
 from training.ball.learning.data import frame_index
 from training.ball.learning.tracking import log_metrics, tracked_run
 
-from .config import load_config
-from .frames import frame_result, merge_windows, report
+from .config import load_config, frozen_payload, require_frozen
+from .frames import causal_windows, frame_result, merge_windows, report
 from .video import write_review, write_videos
 
 
-def evaluate(config):
-    if config["split"] != "val":
-        raise ValueError("Evaluation accepts only val")
+def prepare(config):
     root = Path(config["dataset"])
     print("Verifying export integrity...", flush=True)
     verify_dataset(root)
@@ -27,18 +25,25 @@ def evaluate(config):
         or "sdk" not in manifest["parameters"]["tracknet_layouts"]
     ):
         raise ValueError("V5 evaluation requires the SDK tracknet-totnet export")
+    records = sorted(
+        frame_index(root, config["split"], allow_test=True).values(),
+        key=lambda frame: (frame["clip_id"], frame["frame_index"]),
+    )
+    return root, manifest, records
+
+
+def evaluate(config):
+    root, manifest, records = prepare(config)
+    frozen = frozen_payload(config, manifest, records)
+    require_frozen(config, frozen)
     from .inference import SDKFrames, V5Predictor
 
     predictor = V5Predictor(config, manifest)
-    dataset = SDKFrames(root, predictor.geometry)
-    records = sorted(
-        frame_index(root, "val").values(),
-        key=lambda frame: (frame["clip_id"], frame["frame_index"]),
-    )
+    dataset = SDKFrames(root, predictor.geometry, config["split"], config["cut_frames"])
     sources = {
         source["clip_id"]: source
         for source in manifest["sources"]
-        if source["split"] == "val"
+        if source["split"] == config["split"]
     }
     resolved = {
         **config,
@@ -48,10 +53,12 @@ def evaluate(config):
         "dataset_id": manifest["dataset_id"],
         "export_id": manifest["export_id"],
         "checkpoint_sha256": file_hash(Path(config["checkpoint"])),
-        "fusion": "mean_heatmap",
+        "fusion": "last_head" if config["temporal_policy"] == "causal_last" else "mean_heatmap",
         "decoder": "largest_component_bbox_center",
         "sequence_stride": 1,
-        "temporal_mode": "offline",
+        "temporal_mode": config["temporal_policy"],
+        "coverage_scope": "exported frames only; missing source context restarts windows; cuts must be supplied",
+        "evaluation_identity": frozen,
         "trajectory_filter": "none",
         "annotation_policy": {
             key: manifest["parameters"][key]
@@ -59,15 +66,16 @@ def evaluate(config):
         },
     }
     with tracked_run(resolved, manifest) as (client, run_id, output):
+        write_json(output / "protocol.json", frozen)
         client.set_tag(
             run_id, "training_run_id", predictor.provenance["training_run_id"]
         )
         print(
-            f"Inferring {len(dataset)} windows over {len(records)} val frames...",
+            f"Inferring {len(dataset)} windows over {len(records)} {config['split']} frames...",
             flush=True,
         )
         predictions = dict(
-            merge_windows(
+            (causal_windows if config["temporal_policy"] == "causal_last" else merge_windows)(
                 dataset.samples, predictor.windows(dataset), config["threshold"]
             )
         )
@@ -81,25 +89,28 @@ def evaluate(config):
             )
             for frame in records
         ]
+        verify_dataset(root)
+        if frozen_payload(config, manifest, records) != frozen:
+            raise ValueError("Checkpoint or evaluator changed during evaluation")
         metrics = report(rows)
         write_jsonl(output / "predictions.jsonl", rows)
         write_json(output / "metrics.json", metrics)
         write_review(output, rows)
         values = {
-            f"val/{key}": value
+            f"{config['split']}/{key}": value
             for key, value in metrics["overall"].items()
             if value is not None
         }
         for status, group in metrics["by_status"].items():
             values.update(
                 {
-                    f"val/status/{status}/{key}": value
+                    f"{config['split']}/status/{status}/{key}": value
                     for key, value in group.items()
                     if value is not None
                 }
             )
         log_metrics(client, run_id, values, 0)
-        for name in ("predictions.jsonl", "metrics.json", "review.csv"):
+        for name in ("predictions.jsonl", "metrics.json", "review.csv", "protocol.json"):
             client.log_artifact(run_id, str(output / name), "evaluation")
         if config["videos"]:
             print("Rendering review videos...", flush=True)
@@ -114,8 +125,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--freeze-recipe", type=Path, help="Write the selection/weight/code freeze without inference")
     args = parser.parse_args()
-    evaluate(load_config(args.config, args.checkpoint))
+    config = load_config(args.config, args.checkpoint)
+    if args.freeze_recipe:
+        if args.freeze_recipe.exists():
+            parser.error("Use a new freeze path")
+        _, manifest, records = prepare(config)
+        write_json(args.freeze_recipe, frozen_payload(config, manifest, records))
+    else:
+        evaluate(config)
 
 
 if __name__ == "__main__":
