@@ -32,10 +32,10 @@
   ],
   "artifacts": {
     "statistics.json": {
-      "sha256": "ee001c9aba5a8cd0e146f7599c026ff6d597f829646b710c3d121f2bbe7209d6"
+      "sha256": "3fd430970626edfa5fc2a468755f593bacfd4fc75287cf70dc6ebe2d67292ac7"
     },
     "observations.jsonl": {
-      "sha256": "d92f989191191444bfb646dacb2ddc1e67d34c327c4c681119c30a2251b37594"
+      "sha256": "51b0b2fa3cb52fc60e9cac239cd87cb1b35c96c95e2c98f4561e2c77fa8144a9"
     },
     "tracks.jsonl": {
       "sha256": "b77de995f6b6949e62f01dc13882de93e45859440ec63ebb0f6348fd78ec7f7c"
@@ -46,5 +46,10 @@
     "roster.json": {
       "sha256": "5bf59fa4d4d534571c624dca92b4bcb70e9dd198b537bc4c427e448faab6ac10"
     }
+  },
+  "capabilities": {
+    "players": "ok",
+    "court": "ok",
+    "ball": "ok"
   }
 }

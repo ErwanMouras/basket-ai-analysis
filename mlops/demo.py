@@ -52,6 +52,7 @@ def create_demo(output):
                                 "role": "player", "confidence": 1., "bbox": [x, y, x + 26, y + 55],
                                 "position_m": [(x - 20) / 600 * 28.6512, (y + 55 - 60) / 280 * 15.24] if available else None,
                                 "position_status": "projected" if available else "calibration_unavailable",
+                                "ground_point_px": [x, y + 55],
                                 "ground_point_method": "scripted", "pose": None,
                                 "display_color": team["color"],
                                 "jersey": {"number": team["players"][0]["number"], "status": "confirmed",
@@ -80,7 +81,11 @@ def create_demo(output):
     subprocess.run(["ffmpeg", "-v", "error", "-i", str(temporary), "-c:v", "libx264", "-pix_fmt", "yuv420p",
                     "-movflags", "+faststart", "-y", str(video)], check=True)
     temporary.unlink()
-    stats = {**metric.result(), "status": "completed", "demo": "scripted; no model inference"}
+    source = {"path": "synthetic.mp4", "sha256": file_hash(video), "nominal_fps": 30,
+              "width": 640, "height": 360, "declared_frames": 180, "decoded_frames": 180}
+    capabilities = {"players": "ok", "court": "ok", "ball": "ok"}
+    stats = {**metric.result(), "status": "completed", "source": source, "capabilities": capabilities}
+    stats["limitations"].append("synthetic_scripted_demo_no_model_inference")
     validate_statistics(stats)
     write_json(run / "statistics.json", stats)
     write_jsonl(run / "observations.jsonl", observations)
@@ -88,8 +93,7 @@ def create_demo(output):
     write_jsonl(run / "jersey_reads.jsonl", [])
     write_json(run / "roster.json", roster)
     manifest = {"schema_version": 1, "run_id": "synthetic-demo", "status": "completed", "frames": 180, "segments": 2,
-                "source": {"path": "synthetic.mp4", "sha256": file_hash(video), "nominal_fps": 30,
-                           "width": 640, "height": 360, "declared_frames": 180, "decoded_frames": 180},
+                "source": source, "capabilities": capabilities,
                 "display_colors": palette, "demo": "Scripted synthetic interface demonstration; no learned predictions.",
                 "models": {}, "warnings": ["synthetic_scripted_demo"], "artifacts": {}}
     for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json"):
