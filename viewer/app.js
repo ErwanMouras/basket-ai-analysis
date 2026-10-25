@@ -69,7 +69,11 @@ async function loadRun(name) {
     if (generation !== state.generation) return;
     if (data.video_available) $('videoEmpty').classList.add('hidden');
     displayAt(0, true);
-  } catch (err) { $('videoEmpty').querySelector('strong').textContent = 'Impossible de charger le run'; $('videoEmpty').querySelector('span:last-child').textContent = err.message; toast(err.message); }
+  } catch (err) {
+    if (generation !== state.generation) return;
+    $('videoEmpty').querySelector('strong').textContent = 'Impossible de charger le run';
+    $('videoEmpty').querySelector('span:last-child').textContent = err.message; toast(err.message);
+  }
 }
 async function fetchBatch(index) {
   if (!state.meta || index < 0 || index >= state.meta.timestamps.length) return;
@@ -85,7 +89,10 @@ async function fetchBatch(index) {
     }
     if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true);
     else if (state.current >= start && state.current < start + 35 && state.frame) drawOverlay(state.frame);
-  }).catch(err => { state.batches.delete(start); if (generation === state.generation) toast(err.message); });
+  }).catch(err => {
+    if (generation !== state.generation) return;
+    state.batches.delete(start); toast(err.message);
+  });
   state.batches.set(start, promise);
   return promise;
 }
@@ -224,7 +231,7 @@ function drawOverlay(row) {
     }
     if (on.labels && showBox) {
       const number=personNumber(person,row.segment_id);
-      const base = person.resolved_identity?.player_name || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
+      const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
         && !person.jersey_number_suppressed && person.jersey?.team_group
         ? `${base} · G${person.jersey.team_group.slice(-1)}` : base;
@@ -339,11 +346,18 @@ function finalPlayerStats(teamId, number) {
     record.identity_status==='confirmed' && record.team_id===teamId
       && String(record.jersey_number)===String(number)) : [];
   const measured=records.filter(record=>safeNumber(record.observed_distance_m));
+  const sum = key => records.length && records.every(record=>safeNumber(record[key]))
+    ? records.reduce((total,record)=>total+record[key],0) : null;
+  const tracked=sum('tracked_duration_s'), duration=sum('measured_duration_s');
   return {observed_distance_m:measured.length
-    ? measured.reduce((sum,record)=>sum+record.observed_distance_m,0) : null};
+    ? measured.reduce((sum,record)=>sum+record.observed_distance_m,0) : null,
+    measured_duration_s:duration,
+    coverage_ratio:tracked>0 && duration!=null ? duration/tracked : null};
 }
 const FINAL_PLAYER_METRICS=[
   {key:'observed_distance_m',label:'DISTANCE OBSERVÉE',unit:'m',format:fmtDistance},
+  {key:'measured_duration_s',label:'DURÉE MESURÉE',unit:'s',format:fmtDistance},
+  {key:'coverage_ratio',label:'COUVERTURE',unit:'%',format:value=>(100*value).toLocaleString('fr-FR',{maximumFractionDigits:0})},
 ];
 function renderRosterPanel() {
   const roster=matchRoster();
@@ -370,7 +384,7 @@ function renderRosterPanel() {
     $('finalStatsNote').textContent=!state.meta?.roster
       ? 'Effectif indicatif : aucune statistique attribuée sans identification validée.'
       : stats.observed_distance_m==null ? 'Aucune distance mesurée pour ce joueur.'
-      : 'Distance finale observée sur les séquences analysées.';
+      : 'Bilan de l’extrait. La couverture porte sur les intervalles suivis ; les déplacements hors champ ne sont pas mesurés.';
     return;
   }
   const toggle=$('teamToggle'),heading=$('rosterTeamHeading'),list=$('rosterList');
@@ -429,8 +443,12 @@ function renderMarkers(){
 function seekToFrame(index){
   if(!state.meta)return;
   index=Math.max(0,Math.min(index,state.meta.timestamps.length-1));
-  video.currentTime=state.meta.timestamps[index];updateClock();
-  state.target=index;state.current=-1;state.frame=null;ctx.clearRect(0,0,canvas.width,canvas.height);$('courtPoints').replaceChildren();fetchBatch(index);
+  const timestamp=state.meta.timestamps[index], next=state.meta.timestamps[index+1];
+  // Seek inside the frame: browser timestamp rounding can otherwise select its predecessor.
+  const margin=next==null ? .001 : Math.min(.001,(next-timestamp)/2);
+  video.currentTime=timestamp+margin;updateClock();
+  state.current=-1;
+  displayAt(state.meta.timestamps[index], true);
 }
 function stepFrame(delta){video.pause();seekToFrame((state.current>=0?state.current:nearestFrame(video.currentTime))+delta);}
 function stepMarker(delta){
@@ -482,7 +500,7 @@ document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener
 $('identityMode').addEventListener('change',()=>{document.querySelector('[data-filter="referees"]').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.code==='Space'){e.preventDefault();$('playButton').click();}
-  else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime)+(e.code==='ArrowRight'?30:-30));}
+  else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime+(e.code==='ArrowRight'?1:-1)));}
   else if(e.code==='KeyN'){stepMarker(1);}else if(e.code==='KeyP'){stepMarker(-1);}
 });
 drawCourtLines();init();

@@ -43,7 +43,14 @@ def main():
     result = subprocess.run(["node", "--check", "viewer/app.js"], cwd=ROOT, capture_output=True, text=True)
     (args.output / "javascript.log").write_text(result.stdout + result.stderr)
     report["javascript_returncode"] = result.returncode
-    report["status"] = "passed" if all(s["returncode"] == 0 and s["tests"] > 0 for s in report["suites"]) and result.returncode == 0 else "failed"
+    result = subprocess.run(["node", "--test", "viewer/test_app.js"], cwd=ROOT, capture_output=True, text=True)
+    (args.output / "javascript-tests.log").write_text(result.stdout + result.stderr)
+    found = re.search(r"^# tests (\d+)$", result.stdout, re.MULTILINE)
+    report["javascript_tests"] = {"returncode": result.returncode, "tests": int(found[1]) if found else 0}
+    report["status"] = "passed" if (
+        all(s["returncode"] == 0 and s["tests"] > 0 for s in report["suites"])
+        and report["javascript_returncode"] == 0 and result.returncode == 0
+        and report["javascript_tests"]["tests"] > 0) else "failed"
     write_json(args.output / "summary.json", report)
     raise SystemExit(0 if report["status"] == "passed" else 1)
 
