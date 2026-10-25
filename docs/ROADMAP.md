@@ -85,11 +85,12 @@ Une faiblesse constatée dans la démo pourra justifier une correction ciblée.
   à examiner, pas un extrait déjà validé.
 - [ ] Préparer un roster explicite si des noms sont affichés, puis générer un
   nouveau run avec la recette retenue. Utiliser un dossier de sortie neuf.
-- [ ] Ajouter durée mesurée et couverture à la fiche joueur. Expliquer que la
+- [x] Ajouter durée mesurée et couverture à la fiche joueur. Expliquer que la
   couverture porte sur les intervalles suivis, pas sur toute sa présence réelle.
-- [ ] Remplacer « Terrain en temps réel » par une formulation cohérente avec le
-  traitement batch. Vérifier lecture, synchronisation, sélection et mesures
-  indisponibles dans un navigateur.
+- [x] Remplacer « Terrain en temps réel » par « Terrain projeté ». Lecture,
+  synchronisation, sélection et mesures indisponibles vérifiées dans un navigateur
+  sur le cas synthétique.
+- [ ] Vérifier ce même parcours sur le futur extrait réel de 30 secondes.
 - [ ] Mesurer chargement, traitement et temps total sur cet extrait, avec le
   matériel et la configuration réellement utilisés.
 - [ ] Figer modèles, seuils, configuration, export de référence et code exécuté
@@ -181,7 +182,8 @@ les instructions ont été exécutées depuis des sources propres.
 
 **Répartition :** je gère les branches, commits, push, PR et vérifications CI.
 Les messages expliquent les changements et leur validation, avec des titres
-courts. La PR présente le résultat final et reste ouverte pour revue.
+courts. La PR présente le résultat final ; elle est relue et corrigée avant fusion,
+après réussite des vérifications CI.
 
 ## 6 — Préparer la présentation pour candidater
 

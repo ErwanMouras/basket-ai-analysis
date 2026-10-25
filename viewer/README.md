@@ -26,7 +26,7 @@ Les calques se commandent dans la barre du lecteur, à côté d'« Agrandir la v
 
 La mise en page tient dans la hauteur de la fenêtre : le lecteur occupe environ deux tiers de la largeur, avec la vue tactique et les effectifs à droite.
 
-Le panneau **Effectifs** permet de choisir l'une des deux équipes, puis un joueur. La fiche du joueur présente sa distance finale `observed_distance_m`, issue de `statistics.json` et indépendante de la position de lecture. Une distance absente reste affichée `—`. La flèche revient à la liste de son équipe. Le panneau est conçu pour accueillir d'autres statistiques finales.
+Le panneau **Effectifs** permet de choisir l'une des deux équipes, puis un joueur. La fiche du joueur présente sa distance finale `observed_distance_m`, sa durée mesurée et sa couverture, issues de `statistics.json` et indépendantes de la position de lecture. La couverture rapporte la durée mesurée aux intervalles suivis ; elle ne mesure pas la présence réelle hors champ. Les valeurs absentes restent affichées `—`. La flèche revient à la liste de son équipe. Le panneau est conçu pour accueillir d'autres statistiques finales.
 
 Sur les anciens runs dont `statistics.json` omet les numéros, le viewer relit les numéros confirmés dans `observations.jsonl` par track et segment pour les étiquettes vidéo. Si le run a été produit sans effectif mais qu'un `jersey.json` se trouve à côté de la vidéo, cet effectif est montré comme référence d'affichage, sans attribuer de statistiques. Un numéro unique peut alors suggérer une équipe et sa couleur ; la boîte est pointillée car cette association n'a pas été validée par le pipeline. Un numéro porté par les deux équipes reste ambigu.
 Le bouton « Agrandir la vidéo » replie la vue terrain et le panneau Effectifs pour agrandir le lecteur.
@@ -38,4 +38,5 @@ Raccourcis : espace pour lire/mettre en pause, flèches gauche et droite pour av
 ```bash
 python -m unittest viewer.test_server -v
 node --check viewer/app.js
+node --test viewer/test_app.js
 ```

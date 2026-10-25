@@ -169,8 +169,8 @@ model was reloaded and used for inference.
 | Run diagnostics | `health.json` records integrity, availability, exclusions, timings and resources |
 | Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
 
-Local validation on **25 October 2026**: **329 tests passed**, 28 optional tests
-skipped, and JavaScript syntax valid. Real-training integrations are disabled.
+Local validation on **25 October 2026**: **338 Python tests passed**, 28 optional tests
+skipped, plus **7 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
 The [CI workflow](.github/workflows/players.yml) runs the regression suites and
 builds the viewer container. Run checks in the configured players environment
 with a new output folder:
@@ -182,6 +182,8 @@ make check-poc CHECK_OUTPUT=runs/checks/my-change
 Health reports describe availability and integrity; accuracy requires reviewed
 annotations. The [release guide](docs/EVALUATION_AND_RELEASE.md) documents
 quality policies, registry operations and rollback.
+
+See the [review and validation report](reports/PR_REVIEW_2026-10-25.md) for the fixes, browser checks and CPU container smoke test.
 
 ## Run inference
 
