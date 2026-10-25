@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "statistics v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "metric": {
+      "const": "observed_distance"
+    },
+    "distance_unit": {
+      "const": "m"
+    },
+    "time_basis": {
+      "const": "video"
+    },
+    "scope": {
+      "const": "included_video_intervals"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "partial"
+      ]
+    },
+    "method": {
+      "type": "object"
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "subject_id": {
+            "type": "string"
+          },
+          "player_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "player_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_group": {
+            "anyOf": [
+              {"enum": ["team_1", "team_2"]},
+              {"type": "null"}
+            ]
+          },
+          "jersey_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "identity_status": {
+            "enum": [
+              "confirmed",
+              "anonymous"
+            ]
+          },
+          "track_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "run_id": {
+                  "type": "string"
+                },
+                "segment_id": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "track_id": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "run_id",
+                "segment_id",
+                "track_id"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          },
+          "observed_distance_m": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tracked_duration_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "measured_duration_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "coverage_ratio": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measurement_status": {
+            "enum": [
+              "ok",
+              "partial",
+              "unavailable"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excluded_intervals": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "required": [
+          "subject_id",
+          "player_id",
+          "player_name",
+          "team_id",
+          "jersey_number",
+          "identity_status",
+          "track_refs",
+          "observed_distance_m",
+          "tracked_duration_s",
+          "measured_duration_s",
+          "coverage_ratio",
+          "measurement_status",
+          "warnings",
+          "excluded_intervals"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source": {
+      "type": "object"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "ok",
+          "not_detected",
+          "not_scheduled",
+          "disabled",
+          "unavailable",
+          "error"
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "metric",
+    "distance_unit",
+    "time_basis",
+    "scope",
+    "status",
+    "method",
+    "players",
+    "limitations",
+    "source",
+    "capabilities"
+  ],
+  "additionalProperties": false
+}

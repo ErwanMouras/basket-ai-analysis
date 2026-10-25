@@ -221,18 +221,20 @@ class RegistryAliasTests(unittest.TestCase):
                     tags={"players.smoke": "false", "players.candidate_id": metadata["candidate_id"]})
                 versions.append(str(version.version))
             with patch.dict(os.environ, {"MLFLOW_TRACKING_URI": uri}):
-                one = promote("champion", versions[0], expected_previous=None, reason="fixture validation", mlflow_uri=uri)
-                two = promote("champion", versions[1], expected_previous=versions[0], reason="fixture upgrade", mlflow_uri=uri)
-                back = promote("champion", versions[0], expected_previous=versions[1], reason="fixture rollback", mlflow_uri=uri)
+                with self.assertRaisesRegex(ValueError, "quality_policy"):
+                    promote("champion", versions[0], expected_previous=None, reason="missing quality evidence", mlflow_uri=uri)
+                one = promote("manual-test", versions[0], expected_previous=None, reason="fixture validation", mlflow_uri=uri)
+                two = promote("manual-test", versions[1], expected_previous=versions[0], reason="fixture upgrade", mlflow_uri=uri)
+                back = promote("manual-test", versions[0], expected_previous=versions[1], reason="fixture rollback", mlflow_uri=uri)
                 self.assertEqual(back["previous"], versions[1])
-                self.assertEqual(str(client.get_model_version_by_alias(NAME, "champion").version), versions[0])
+                self.assertEqual(str(client.get_model_version_by_alias(NAME, "manual-test").version), versions[0])
                 self.assertNotEqual(one["audit_run_id"], two["audit_run_id"])
-                repeated = promote("champion", versions[0], expected_previous=versions[0], reason="same target", mlflow_uri=uri)
+                repeated = promote("manual-test", versions[0], expected_previous=versions[0], reason="same target", mlflow_uri=uri)
                 self.assertTrue(repeated["reused"])
                 with self.assertRaisesRegex(ValueError, "Alias changed"):
-                    promote("champion", versions[1], expected_previous=None, reason="stale", mlflow_uri=uri)
+                    promote("manual-test", versions[1], expected_previous=None, reason="stale", mlflow_uri=uri)
                 with self.assertRaisesRegex(ValueError, "Smoke"):
-                    promote("champion", versions[2], expected_previous=versions[0], reason="smoke forbidden", mlflow_uri=uri)
+                    promote("manual-test", versions[2], expected_previous=versions[0], reason="smoke forbidden", mlflow_uri=uri)
             history = client.get_experiment_by_name("players-registry-history")
             self.assertEqual(len(client.search_runs([history.experiment_id])), 3)
 

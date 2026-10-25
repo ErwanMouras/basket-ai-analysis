@@ -47,6 +47,19 @@ class RoleTracker:
 class People:
     def __init__(self, config):
         self.config = config
+        if config["adapter"] == "registry":
+            from training.players.registry import load_candidate
+            self.model, metadata = load_candidate(config["registry_uri"], config["mlflow_uri"], device=config["device"])
+            source_name = getattr(self.model.model, "names", {}).get(self.model.source_class, "")
+            if source_name.lower() == "person":
+                raise ValueError("A registry COCO person checkpoint cannot substantiate player roles")
+            if self.model.family == "rfdetr" and metadata.get("reference", {}).get("kind") != "players-training":
+                raise ValueError("Imported RF-DETR needs an explicit trained-player contract for registry analysis")
+            self.roles = {0: "player", 1: "referee"}
+            self.provenance = {"adapter": "registry", "model_uri": metadata["model_uri"],
+                               "version": metadata["version"], "candidate_id": metadata["candidate_id"],
+                               **self.model.provenance}
+            return
         path = Path(config["weights"]).resolve(strict=True)
         self.roles = {int(k): v for k, v in config["class_roles"].items()}
         if config["adapter"] == "yolo":
@@ -75,6 +88,11 @@ class People:
 
     def predict(self, image):
         cfg = self.config
+        if cfg["adapter"] == "registry":
+            return [{**d, "class_id": 0, "role": self.roles[d["class_id"]],
+                     "source_class_id": self.model.source_class if d["class_id"] == 0 else self.model.referee_source_class}
+                    for d in self.model.predict(
+                image, confidence=cfg["confidence"], max_detections=cfg["max_detections"], square=True)]
         if cfg["adapter"] == "rfdetr":
             role = next(iter(self.roles.values()))
             return [{**d, "role": role} for d in self.model.predict(
