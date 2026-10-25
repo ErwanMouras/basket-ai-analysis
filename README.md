@@ -111,33 +111,59 @@ pipeline. [Protocol and recorded evidence](reports/POC_DELIVERY_2026-10-18.md).
 
 ### Ball experiments and release selection
 
-**TrackNet V5, V5+TOTNet, V3 and YOLO26 S/M/L** each completed 30 training epochs
-at 512 × 288 between 19 and 22 October 2026. Their training metrics use different
-definitions. Selection now requires a common localization protocol, with the
-same source-coordinate tolerance, temporal policy and coverage reporting.
+**TrackNet V5, V5+TOTNet, V3 and YOLO26 S/M/L** were re-evaluated from their
+MLflow checkpoints using a common localization task. The comparison covers
+**12 saved checkpoints**, including the earlier two-epoch V5 baseline.
 
-> **Release model selection — pending.**
->
-> Selected checkpoint: **TBD** · Common evaluation report: **TBD**
->
-> The current default configuration still references the earlier two-epoch V5
-> checkpoint. Completed training runs have not yet replaced it in the demo recipe.
+**Before comparing:**
 
-<details>
-<summary>Historical causal ball baseline</summary>
+1. Verify split identities, data versions and matching input pixels. A shared
+   dataset ID alone does not prove that format-specific exports are equivalent.
+2. Define the same output and scoring rule. Box AP and heatmap training F1
+   measure different things; here every model supplies one source-image point.
+3. Control temporal information and support. Use only past/current frames and
+   score the same targets, then report each model's context coverage separately.
+4. Freeze checkpoints, decoder thresholds, tolerance and timing conditions
+   before inference. Keep unknown positions out of absent-ball negatives.
+5. Select on validation, then confirm on untouched matches. Reusing validation
+   for training and checkpoint choice cannot provide an independent test score.
 
-The two-epoch V5 checkpoint achieved **F1 0.7539** and **96.86% context coverage**
-on 2,928 exported validation frames, using the last head of each causal triplet,
-a 0.5 heatmap threshold and a 15-source-pixel tolerance. Localization error among
-localized pairs was **4.71 px median / 777.61 px P95**: large errors remain.
+The protocol was committed before evaluation: **2,627 common frames from two
+validation matches**, 512 × 288, causal last head, **15 source-pixel tolerance**,
+FP32, batch 1, RTX 5080. YOLO confidence is 0.25; the heatmap threshold is 0.5.
+These are fixed decoder settings, not calibrated probabilities across families.
+YOLO uses one frame, V5 three and V3 eight; temporal models score only their last head.
 
-Unknown-position frames were excluded; reviewed camera cuts and a ball-absent
-benchmark were unavailable. These results evaluate exported-context causality,
-not the full application's camera segmentation or behavior on negative examples.
+| Model | Localization F1 | Error median / P95 (source px) | Context coverage | Adapter median / P95 (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| YOLO26L | 0.9451 | 3.24 / 8.14 | 100.00% | 5.19 / 5.92 |
+| V5 + TOTNet | 0.9219 | 4.37 / 188.86 | 96.86% | 18.14 / 18.65 |
+| YOLO26M | 0.9211 | 3.18 / 9.64 | 100.00% | 4.06 / 4.79 |
+| YOLO26S | 0.9109 | 3.24 / 173.46 | 100.00% | 3.89 / 4.50 |
+| TrackNet V3 | 0.8572 | 3.60 / 10.42 | 89.69% | 83.68 / 85.72 |
+| TrackNet V5 | 0.8148 | 4.45 / 903.85 | 96.86% | 18.18 / 18.60 |
+| V5 (2 epochs, historical) | 0.7528 | 4.71 / 783.07 | 96.86% | 17.90 / 18.51 |
 
-[Metrics](reports/poc-2026-10-18/ball_causal_metrics.json) · [Evaluation guide](training/ball/EVALUATION.md)
+Each row selects its best archived checkpoint on validation. Errors describe
+returned positions; the full report preserves recall, displaced predictions and all
+12 checkpoint outcomes. Latency includes preprocessing and model inference from
+decoded RGB windows, excluding disk access, loading and other pipeline stages.
 
-</details>
+**Development candidate: YOLO26L `best_f1.pt` (epoch 30)** — F1 **0.9451**,
+versus **0.9219** for V5+TOTNet, with about **71% lower adapter latency**.
+The next step is its ball-adapter integration and raw-video validation; the current
+video recipe still uses the historical V5 checkpoint.
+
+![Ball localization quality versus adapter latency](reports/ball-comparison-2026-10-25/quality-latency.png)
+
+**Scope:** validation selection on visible-ball annotations. Independent matches,
+reviewed camera cuts, absent-ball negatives and localizable occlusions remain
+unmeasured. Context coverage refers to the exported frames; raw-video inference
+may have additional usable context. Training initialization and augmentation also
+differ, so the ranking compares complete configurations at the stated settings.
+
+[Protocol, all checkpoints, per-match results and limitations](reports/ball-comparison-2026-10-25/README.md)
+· [Reproduce the comparison](training/ball/EVALUATION.md)
 
 ### Full-pipeline validation to complete
 
@@ -169,7 +195,7 @@ model was reloaded and used for inference.
 | Run diagnostics | `health.json` records integrity, availability, exclusions, timings and resources |
 | Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
 
-Local validation on **25 October 2026**: **338 Python tests passed**, 28 optional tests
+Local validation on **25 October 2026**: **344 Python tests passed**, 28 optional tests
 skipped, plus **7 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
 The [CI workflow](.github/workflows/players.yml) runs the regression suites and
 builds the viewer container. Run checks in the configured players environment
@@ -264,7 +290,8 @@ applies to people; ball positions remain in image coordinates.
 
 The [implementation plan](docs/ROADMAP.md) tracks the remaining work and completion criteria.
 
-- [ ] Select the ball checkpoint using a common causal evaluation.
+- [x] Compare ball checkpoints using a common causal evaluation; select YOLO26L for integration.
+- [ ] Integrate the selected ball checkpoint into the video pipeline and validate on raw footage.
 - [ ] Publish the 30-second real-inference demo and reviewed examples.
 - [ ] Add independent test clips and report tracking, identity and geometry quality.
 - [ ] Publish a consistent source/data release and verify remote CI.

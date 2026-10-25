@@ -53,20 +53,23 @@ def render(results_path, protocol_path, output):
                      f"{latency['median_ms']:.2f} / {latency['p95_ms']:.2f} |")
     (output / "checkpoint-table.md").write_text("\n".join(lines) + "\n")
     fig, ax = plt.subplots(figsize=(9, 5), layout="constrained")
-    for r in selected:
+    for index, r in enumerate(selected):
         c, m = r["candidate"], r["metrics"]
         label = c["candidate_id"].replace("_best_f1", "").replace("_best", "")
         label = label.replace("tracknet_", "TrackNet ").replace("_totnet", " + TOTNet").replace("_2epochs", " (2 epochs)")
-        label = label.replace("yolo26", "YOLO26 ")
+        label = label.upper() if c["model"] == "yolo" else label.replace("TrackNet v", "TrackNet V")
         x, y = m["latency"]["median_ms"], m["common"]["overall"]["f1"]
         ax.scatter([x], [y], s=75, marker="x" if c["epochs"] < 30 else "o")
-        ax.annotate(label, (x, y), xytext=(7, 5), textcoords="offset points", fontsize=9)
+        ax.annotate(label, (x, y), xytext=(7, 7 if index % 2 == 0 else -14),
+                    textcoords="offset points", fontsize=9)
     hardware = selected[0]["metrics"]["latency"]["hardware"].replace("NVIDIA GeForce ", "")
     targets = selected[0]["metrics"]["common"]["overall"]["frames"]
+    values = [r["metrics"]["common"]["overall"]["f1"] for r in selected]
     ax.set(xlabel=f"Adapter latency, median (ms; batch 1, FP32, {hardware})",
-           ylabel="Localization F1 at 15 source pixels", ylim=(0, 1),
+           ylabel="Localization F1 at 15 source pixels", ylim=(max(0, min(values) - 0.08), min(1, max(values) + 0.06)),
            title=f"Ball model selection on validation — {targets:,} common causal frames")
     ax.margins(x=0.28)
+    ax.set_xlim(left=0)
     ax.grid(alpha=0.2)
     fig.savefig(output / "quality-latency.png", dpi=180)
     plt.close(fig)
