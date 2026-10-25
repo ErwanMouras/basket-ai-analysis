@@ -1,0 +1,154 @@
+{
+  "protocol_id": "be34895a8d7752b41f908baf1aeb42122ea53e28e7b4638a43b94283bf68c259",
+  "post_evaluation_full_export_and_checkpoint_verification": "identical frozen protocol reproduced after evaluation",
+  "completed_evaluations": 12,
+  "runs": [
+    {
+      "candidate_id": "tracknet_v5_2epochs_best",
+      "evaluation_run_id": "3077582d1c214252b2f18dd1a90a8df8",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        1842,
+        425,
+        785
+      ],
+      "f1": 0.7527584797711483
+    },
+    {
+      "candidate_id": "tracknet_v5_best",
+      "evaluation_run_id": "8769b4f01609456cad663b0a6b65bf19",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2121,
+        458,
+        506
+      ],
+      "f1": 0.8148290434114484
+    },
+    {
+      "candidate_id": "tracknet_v5_totnet_best",
+      "evaluation_run_id": "abf531c1e28d4c5fa34a8e5097c61388",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2366,
+        150,
+        261
+      ],
+      "f1": 0.9200855531790784
+    },
+    {
+      "candidate_id": "tracknet_v5_totnet_best_f1",
+      "evaluation_run_id": "016ed2916f6845b6950dd98e9e46da8a",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2390,
+        168,
+        237
+      ],
+      "f1": 0.9218900675024108
+    },
+    {
+      "candidate_id": "tracknet_v3_best",
+      "evaluation_run_id": "ee73ee1e620249938d625fe103ac000e",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        1885,
+        118,
+        742
+      ],
+      "f1": 0.8142548596112311
+    },
+    {
+      "candidate_id": "tracknet_v3_best_f1",
+      "evaluation_run_id": "88021fdddf8c4f76a1ee50138ac6807e",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2029,
+        78,
+        598
+      ],
+      "f1": 0.8572032108153781
+    },
+    {
+      "candidate_id": "yolo26s_best",
+      "evaluation_run_id": "629f7e9ee4cc42cba12992047cc42f13",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2274,
+        171,
+        353
+      ],
+      "f1": 0.8966876971608833
+    },
+    {
+      "candidate_id": "yolo26s_best_f1",
+      "evaluation_run_id": "e1516822446b4fe79eb1a4db4184859e",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2317,
+        143,
+        310
+      ],
+      "f1": 0.9109494790642815
+    },
+    {
+      "candidate_id": "yolo26m_best",
+      "evaluation_run_id": "68ffb20d7d454ec1be0b642392d9dcd0",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2336,
+        109,
+        291
+      ],
+      "f1": 0.9211356466876972
+    },
+    {
+      "candidate_id": "yolo26m_best_f1",
+      "evaluation_run_id": "135359e5783e4f67800549bd4485d196",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2336,
+        109,
+        291
+      ],
+      "f1": 0.9211356466876972
+    },
+    {
+      "candidate_id": "yolo26l_best",
+      "evaluation_run_id": "2b69574483b8407ab52b18b92d0f467e",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2406,
+        81,
+        221
+      ],
+      "f1": 0.9409464215877982
+    },
+    {
+      "candidate_id": "yolo26l_best_f1",
+      "evaluation_run_id": "798cb49ed5f64ed1b92b3726fbe5764d",
+      "mlflow_status": "FINISHED",
+      "per_frame_and_mlflow_artifacts_verified": true,
+      "independently_recounted_tp_fp_fn": [
+        2421,
+        75,
+        206
+      ],
+      "f1": 0.945149326566465
+    }
+  ],
+  "same_epoch_yolo26m_predictions_identical": true,
+  "clean_source_check_commit": "1a562f8",
+  "clean_checks": "checks-summary.json"
+}

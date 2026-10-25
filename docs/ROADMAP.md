@@ -32,9 +32,10 @@ Leurs scores restent fermés jusqu'au gel de la recette à la fin de l'étape 2.
   l'état partiellement stagé du viewer, dans un point de reprise local vérifié.
   Copie conservée sous `release/git-backup-2026-10-25/`, hors Git. Préparer ensuite
   des commits cohérents sans perdre ce travail.
-- [ ] Inventorier les checkpoints : fichier, SHA-256, run MLflow, époque et
+- [x] Inventorier les checkpoints : fichier, SHA-256, run MLflow, époque et
   critère de sauvegarde. Distinguer `best.pt`, `best_f1.pt` et `last.pt`.
-- [ ] Conserver les identifiants d'exports propres aux expériences existantes.
+  [Inventaire des 19 fichiers](../reports/ball-comparison-2026-10-25/checkpoint-inventory.json).
+- [x] Conserver les identifiants d'exports propres aux expériences existantes.
   Ne pas remplacer leurs données sous le même identifiant.
 - [ ] Réserver deux nouveaux clips issus de matchs absents du développement pour
   le test. Vérifier leur provenance et noter les inconnues concernant les
@@ -49,34 +50,43 @@ l'évaluation sur validation de l'étape suivante.
 
 ## 1 — Sélectionner le modèle ballon
 
-- [ ] Créer trois recettes dédiées : ancien V5 de deux époques, V5 complet,
-  V5+TOTNet complet. Choisir explicitement les fichiers à évaluer.
-- [ ] Évaluer les trois sur le **même export val figé** avec `causal_last`, un
-  seuil de 0,5 et une tolérance de 15 pixels source. Garder
-  `unknown_position: exclude` à l'export. Identifier les coupes revues ; si elles
-  manquent, limiter explicitement la portée du benchmark.
-- [ ] Rapporter précision, rappel, F1 de localisation, couverture, erreurs
+- [x] Comparer les six campagnes complètes : YOLO26 S/M/L, TrackNet V3, V5 et
+  V5+TOTNet, plus l'ancien V5 de deux époques. Évaluer les 12 checkpoints
+  `best.pt` et `best_f1.pt` archivés, avec leur provenance MLflow.
+- [x] Geler les exports et le protocole avant inférence, vérifier l'équivalence
+  des pixels et annotations entre formats. Comparer les mêmes cibles causales
+  avec une tolérance de 15 pixels source ; seuil heatmap 0,5, confiance YOLO 0,25.
+  Garder `unknown_position: exclude`. Signaler les coupes non revues et
+  l'absence de vrais négatifs et d'occultations localisables dans cette validation.
+- [x] Rapporter précision, rappel, F1 de localisation, couverture, erreurs
   médiane/P95 et coût d'inférence sur le même matériel. Séparer coût du modèle
   et temps de la chaîne complète.
-- [ ] Examiner un échantillon des erreurs importantes et des scènes difficiles.
-- [ ] Choisir le modèle avec le meilleur compromis qualité/coût pour la démo,
+- [x] Examiner un échantillon des erreurs importantes et des scènes difficiles.
+- [x] Choisir le candidat avec le meilleur compromis qualité/coût pour la démo,
   en justifiant les écarts et les limites. Aucun seuil de réussite n'est déduit
-  des futurs résultats test.
+  des futurs résultats test. **YOLO26L `best_f1.pt`** est retenu pour la prochaine
+  intégration : F1 0,9451 et latence médiane d'adaptateur 5,19 ms sur validation.
+- [ ] Ajouter l'adaptateur ballon YOLO au pipeline vidéo et une recette chargeant
+  ce checkpoint. Vérifier le comportement sur vidéo brute, les coupes et la
+  compatibilité avec les sorties du viewer. Le comparateur seul ne clôt pas
+  cette intégration ; la recette actuelle garde son V5 historique.
 
-**Livrables prévus :** recettes sous `configs/portfolio/`, rapport
-`reports/portfolio/model_selection.md`, configuration
-`configs/portfolio/analysis_demo.yaml` et références exactes des poids.
-Ces fichiers restent à produire.
+**Livrables :** protocole, inventaire, métriques par checkpoint, sélection,
+compromis qualité/coût et limites dans
+[`reports/ball-comparison-2026-10-25/`](../reports/ball-comparison-2026-10-25/README.md).
+La configuration de démo doit ensuite charger le candidat compatible retenu.
 
-**Terminé quand :** le même protocole permet de comparer les trois modèles et
+**Terminé quand :** le même protocole permet de comparer les sept campagnes et
 la configuration de démo charge le checkpoint retenu.
 
 **Répartition :** je réalise les évaluations et le rapport ; tu confirmes la
 revue humaine des annotations/coupes lorsque nécessaire.
 
-**Périmètre initial :** E-BARD reste la référence personnes. Les adaptateurs
-ballon YOLO/V3 et de nouveaux entraînements sont reportés après cette version.
-Une faiblesse constatée dans la démo pourra justifier une correction ciblée.
+**Périmètre :** E-BARD reste la référence personnes. Les adaptateurs YOLO/V3
+du comparateur sont distincts du pipeline vidéo, qui prend en charge V5/V5+TOTNet.
+Le choix d'un modèle YOLO/V3 pour la démo nécessiterait cette intégration et une
+validation sur vidéo brute. Aucun nouvel entraînement n'est requis pour comparer
+les campagnes existantes.
 
 ## 2 — Terminer le parcours réel de 30 secondes
 
@@ -206,4 +216,5 @@ mesurée, la reproduction ou la présentation. Reporter les autres extensions :
 nouveaux modèles, statistiques de possession/tirs, service d'upload, orchestration
 cloud et infrastructure supplémentaire.
 
-**Prochaine action : étape 0, puis les trois évaluations causales de l'étape 1.**
+**Prochaine action : intégrer YOLO26L au pipeline vidéo à l'étape 1, puis valider
+le candidat sur l'extrait réel de 30 secondes de l'étape 2.**

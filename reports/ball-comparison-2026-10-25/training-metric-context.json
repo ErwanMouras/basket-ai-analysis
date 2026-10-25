@@ -1,0 +1,58 @@
+[
+  {
+    "training_run_id": "1edd81e040564da2bfa36a757fb855f7",
+    "model": "tracknet_v5",
+    "key": "val/f1",
+    "maximum_logged_training_validation_f1": 0.7502029094087532,
+    "step_zero_based": 1,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "c6bcdc638b0c45c9882d71e03b2ad533",
+    "model": "tracknet_v5",
+    "key": "val/f1",
+    "maximum_logged_training_validation_f1": 0.8943369345838774,
+    "step_zero_based": 15,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "8813c2970cb241bf9147f3e95524baad",
+    "model": "tracknet_v5_totnet",
+    "key": "val/f1",
+    "maximum_logged_training_validation_f1": 0.9180640926180104,
+    "step_zero_based": 27,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "874b776b96d34fcea14e8a0cfb749680",
+    "model": "tracknet_v3",
+    "key": "val/f1",
+    "maximum_logged_training_validation_f1": 0.8619881500987493,
+    "step_zero_based": 16,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "814c488a9bb54f76897ee3a44923d69e",
+    "model": "yolo",
+    "key": "metrics/F1_B",
+    "maximum_logged_training_validation_f1": 0.8626589918776323,
+    "step_zero_based": 29,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "613beb3177c84b32894f2a3991d9c03f",
+    "model": "yolo",
+    "key": "metrics/F1_B",
+    "maximum_logged_training_validation_f1": 0.8724513569449851,
+    "step_zero_based": 19,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  },
+  {
+    "training_run_id": "0873327e0d7f402a95ef68fb02d7e626",
+    "model": "yolo",
+    "key": "metrics/F1_B",
+    "maximum_logged_training_validation_f1": 0.8930356821815498,
+    "step_zero_based": 29,
+    "note": "Different task/window/coordinate definitions; not used for ranking, may not correspond to an archived checkpoint"
+  }
+]
