@@ -26,7 +26,8 @@ DEFAULTS = {
                "variant": "rfdetr_nano"},
     "ball": {"enabled": True, "adapter": "tracknet_v5", "weights": None,
              "reference_root": ".external/tracknet_v5", "device": "cpu",
-             "threshold": 0.5},
+             "threshold": 0.5, "confidence": 0.25, "iou": 0.7,
+             "input_width": 512, "input_height": 288, "checkpoint_sha256": None},
     "court": {**COURT_DEFAULTS, "enabled": True, "overlay": False, "minimap": False},
     "pose": {**POSE_DEFAULTS, "enabled": True}, "jersey": {**JERSEY_DEFAULTS, "enabled": True},
     "tracking": TRACKING_DEFAULTS,
@@ -93,8 +94,19 @@ def load_config(path=None, overrides=None):
     roles = cfg["people"]["class_roles"]
     if not roles or any(not k.isdigit() or v not in ("player", "referee", "unknown") for k, v in roles.items()):
         raise ValueError("class_roles maps model class IDs to player/referee/unknown")
-    if cfg["ball"]["adapter"] != "tracknet_v5":
-        raise ValueError("Supported ball adapter: tracknet_v5 (including TOTNet checkpoints)")
+    if cfg["ball"]["adapter"] not in ("tracknet_v5", "yolo"):
+        raise ValueError("Supported ball adapters: tracknet_v5 or yolo")
+    for key in ("confidence", "iou"):
+        positive(cfg["ball"][key], f"ball.{key}")
+        if cfg["ball"][key] > 1:
+            raise ValueError(f"ball.{key} must be <= 1")
+    for key in ("input_width", "input_height"):
+        value = cfg["ball"][key]
+        if type(value) is not int or value < 32 or value % 32:
+            raise ValueError(f"ball.{key} must be a multiple of 32")
+    digest = cfg["ball"]["checkpoint_sha256"]
+    if digest is not None and (not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+        raise ValueError("Invalid ball.checkpoint_sha256")
     if type(cfg["ball"]["enabled"]) is not bool:
         raise ValueError("ball.enabled must be boolean")
     for name, key in (("people", "confidence"), ("ball", "threshold")):

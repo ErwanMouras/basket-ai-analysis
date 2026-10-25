@@ -20,6 +20,11 @@ python -m viewer.server --runs-root /chemin/vers/runs --video-root /chemin/vers/
 
 `--video-root` délimite les vidéos que le serveur peut lire. Le chemin de la vidéo vient du champ `source.path` dans `run.json`. Il doit exister et se trouver sous ce dossier. Les artefacts du run doivent contenir `run.json`, `observations.jsonl` et `statistics.json`; `tracks.jsonl` fournit les distances progressives.
 
+Le calque **Segmentation** superpose les masques des joueurs et arbitres lorsqu’ils
+sont présents dans le run. Il se coche indépendamment de la pose et des étiquettes,
+et respecte les filtres de personnes. Les anciens runs sans masques restent
+compatibles. Le décodage RLE reste limité aux régions utiles et son cache est borné.
+
 La vue terrain montre seulement les personnes dotées d'une `position_m` valide. Le ballon est affiché sur la vidéo avec une traînée décroissante sur les cinq images précédentes, dans la limite du plan courant. Il n'est pas projeté au sol : les artefacts ne contiennent pas sa projection métrique.
 
 Les calques se commandent dans la barre du lecteur, à côté d'« Agrandir la vidéo ». Le choix « Toutes les détections / Personnes identifiées » agit sur les boîtes et les positions du terrain ; le second mode ne montre que les joueurs reconnus par le run. Les boîtes sont synchronisées sur le temps des images vidéo affichées, préchargées par paquets et effacées si l'observation correspondante manque encore. Les joueurs identifiés prennent la couleur de leur équipe dans le roster, ou celle attribuée par le pipeline. La couleur d'équipe des autres joueurs provient du vote majoritaire sur leur torse quand il est concluant.

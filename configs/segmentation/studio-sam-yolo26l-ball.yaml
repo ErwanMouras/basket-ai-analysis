@@ -1,0 +1,50 @@
+mode: parallel
+workers: 4
+prefetch: 2
+cpu_threads: 4
+gpu_concurrency: 2
+timestamp_policy: source
+required:
+- players
+- referees
+- court
+- ball
+- pose
+- jersey
+people:
+  adapter: yolo
+  weights: models/players/ebard_yolov8n.pt
+  device: cuda:0
+  resolution: 704
+  class_roles:
+    '2': player
+    '3': referee
+ball:
+  enabled: true
+  weights: runs/ball/full-yolo26l-512x288-20261022/training/0873327e0d7f402a95ef68fb02d7e626/yolo/weights/best_f1.pt
+  device: cuda:0
+  adapter: yolo
+  checkpoint_sha256: 9fa0560664f59083998a05126339e1f5d6b2c2ae0e152de6c2b63c642fcde498
+  confidence: 0.25
+  iou: 0.7
+  input_width: 512
+  input_height: 288
+court:
+  enabled: true
+  device: cuda:0
+  detect_every: 5
+  footpoint: ankles
+pose:
+  enabled: true
+  device: cuda:0
+jersey:
+  enabled: true
+  device: cpu
+  mask_policy: background_neutral
+include_intervals: []
+exclude_intervals: []
+segmentation:
+  strategy: box_prompt
+  weights: models/segmentation/sam2.1_t.pt
+  resolution: 1024
+  segment_referees: true

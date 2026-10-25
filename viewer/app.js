@@ -6,6 +6,8 @@ const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(),
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
+const maskCache = new Map();
+let maskCachePixels = 0;
 const filters = () => Object.fromEntries([...document.querySelectorAll('[data-filter]')].map(input => [input.dataset.filter, input.checked]));
 const params = (values) => new URLSearchParams(values).toString();
 let toastTimer;
@@ -41,6 +43,7 @@ async function loadRun(name) {
   if (!name) return;
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
   $('runMeta').textContent='Chargement du match…';
   renderRosterPanel();
@@ -203,10 +206,51 @@ function personColor(person, segment) {
     ||palette.teams?.[candidates[0].team_id]||C.player;
   return person.display_color || C.player;
 }
+function maskSurface(mask, color, width, height) {
+  if (mask?.encoding !== 'roi_rle_c') return null;
+  const roi = mask.roi, counts = mask.counts;
+  if (!Array.isArray(roi) || roi.length !== 4 || !roi.every(Number.isInteger)) return null;
+  const [a,b,c,d] = roi, w = c-a, h = d-b, pixels = w*h;
+  if (!(a>=0 && b>=0 && w>0 && h>0 && c<=width && d<=height && pixels<=8388608)) return null;
+  const cached = maskCache.get(mask);
+  if (cached?.color === color) return cached.surface;
+  if (!Array.isArray(counts) || !counts.length || !counts.every(n=>Number.isInteger(n) && n>=0)
+      || counts.reduce((sum,n)=>sum+n,0) !== pixels) return null;
+  if (cached) { maskCache.delete(mask); maskCachePixels -= cached.pixels; }
+  while (maskCache.size && (maskCachePixels + pixels > 8388608 || maskCache.size >= 64)) {
+    const key = maskCache.keys().next().value;
+    maskCachePixels -= maskCache.get(key).pixels; maskCache.delete(key);
+  }
+  const surface = document.createElement('canvas'); surface.width=w; surface.height=h;
+  const paint=surface.getContext('2d'); paint.fillStyle=color;
+  let offset=0;
+  counts.forEach((count,index)=>{
+    const end=offset+count;
+    if (index%2) {
+      while (offset<end) {
+        const x=offset%w, y=Math.floor(offset/w), length=Math.min(w-x,end-offset);
+        paint.fillRect(x,y,length,1); offset+=length;
+      }
+    } else offset=end;
+  });
+  maskCache.set(mask,{surface,color,pixels}); maskCachePixels+=pixels;
+  return surface;
+}
+function drawSegmentation(row, on) {
+  for (const person of row.persons || []) {
+    if (!visiblePerson(person,row.segment_id,on) || person.segmentation?.status !== 'ok') continue;
+    const mask=person.segmentation.mask;
+    const surface=maskSurface(mask,personColor(person,row.segment_id),row.width,row.height);
+    if (!surface) continue;
+    ctx.save(); ctx.globalAlpha=.38;
+    ctx.drawImage(surface,mask.roi[0],mask.roi[1]); ctx.restore();
+  }
+}
 function drawOverlay(row) {
   resizeCanvasOnly(row);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const on = filters();
+  if (on.segmentation) drawSegmentation(row,on);
   for (const person of row.persons || []) {
     const role = person.role;
     if (!visiblePerson(person, row.segment_id, on)) continue;

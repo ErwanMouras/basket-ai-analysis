@@ -91,6 +91,15 @@ Installation, contrats des masques, politiques OCR et reproduction :
 [guide segmentation](../training/segmentation/README.md). Mesures et limites :
 [rapport comparatif](../reports/segmentation-comparison-2026-10-25/README.md).
 
+Le profil [`studio-sam-yolo26l-ball.yaml`](../configs/segmentation/studio-sam-yolo26l-ball.yaml)
+active toutes les capacités avec E-BARD + SAM et le YOLO26L fine-tuné balle
+`best_f1.pt` sélectionné lors de la comparaison. Son SHA-256 est vérifié au
+chargement. L'adaptateur `ball.adapter: yolo` étire l'image à 512×288 comme
+pendant l'évaluation, conserve le centre de la boîte balle la plus confiante,
+puis revient aux pixels source. Il utilise uniquement la frame courante,
+y compris la première frame et les débuts de plan. TrackNet conserve son
+contexte de trois frames dans les anciens profils.
+
 ### Baseline joueurs/arbitres provisoire
 
 Checkpoint **E-BARD YOLOv8n**, auteur Gabriele Giudici, fiche modèle indiquant

@@ -7,6 +7,8 @@ const path = require('node:path');
 async function app() {
   const elements = new Map();
   const events = new Map();
+  const drawCalls = [];
+  const inputs = [];
   function element() {
     const classes = new Set();
     const children = new Map();
@@ -21,13 +23,13 @@ async function app() {
       replaceChildren() {}, append() {}, add() {}, addEventListener() {}, setAttribute() {}, removeAttribute() {},
       pause() { this.paused = true; }, load() {}, requestVideoFrameCallback() {},
       getBoundingClientRect: () => ({ width: 100, height: 50, left: 0, top: 0 }),
-      getContext: () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {} }),
+      getContext: () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : (...args) => drawCalls.push([name,...args]) }),
     };
   }
   const byId = id => { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); };
   const context = vm.createContext({
     document: {
-      getElementById: byId, querySelectorAll: () => [], querySelector: byId,
+      getElementById: byId, querySelectorAll: () => inputs, querySelector: byId,
       createElement: element, createElementNS: element,
       addEventListener: (name, handler) => events.set(name, handler),
     },
@@ -38,7 +40,7 @@ async function app() {
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8'), context);
   await new Promise(setImmediate);
-  return { context, byId, events, run: source => vm.runInContext(source, context),
+  return { context, byId, events, drawCalls, inputs, run: source => vm.runInContext(source, context),
     json: source => JSON.parse(vm.runInContext(`JSON.stringify(${source})`, context)) };
 }
 
@@ -117,4 +119,24 @@ test('a failed old batch cannot evict the current run batch', async () => {
   reject(new Error('Old batch failed'));
   await pending;
   assert.equal(ui.run('state.batches.get(0)'), 'current batch');
+});
+
+
+test('ROI RLE foreground spans rows in source order and malformed masks are ignored', async () => {
+  const ui=await app(); ui.drawCalls.length=0;
+  assert.equal(ui.run("maskSurface({encoding:'roi_rle_c',roi:[2,3,6,6],counts:[2,5,5]},'#ff0000',10,10).width"),4);
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='fillRect'),[['fillRect',2,0,2,1],['fillRect',0,1,3,1]]);
+  assert.equal(ui.run("maskSurface({encoding:'roi_rle_c',roi:[0,0,4,3],counts:[1,99]},'#ff0000',10,10)"),null);
+});
+
+test('segmentation toggle controls only masks and supports old observations', async () => {
+  const ui=await app();
+  ui.inputs.push({dataset:{filter:'players'},checked:true},{dataset:{filter:'segmentation'},checked:false});
+  ui.run("state.meta={run:{source:{width:10,height:10}}};state.frame={width:10,height:10,segment_id:0,persons:[{role:'player',bbox:[1,1,5,5],track_id:1,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[1,1,5,5],counts:[0,16]}}}]}");
+  ui.drawCalls.length=0;ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
+  ui.inputs[1].checked=true;ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
+  ui.drawCalls.length=0;ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
 });

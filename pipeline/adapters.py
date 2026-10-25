@@ -169,6 +169,7 @@ def _ball_predict(images):
 
 
 class Ball:
+    context_frames = 3
     def __init__(self, config, cpu_threads):
         self.pool = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"),
                                         initializer=_ball_init, initargs=(config, cpu_threads))
@@ -195,3 +196,60 @@ class Ball:
 
     def resources(self):
         return self.pool.submit(_ball_resources).result()
+
+
+class YoloBall:
+    """Single-frame trained ball checkpoint, using the comparison's exact geometry."""
+    context_frames = 1
+
+    def __init__(self, config, cpu_threads):
+        import torch
+        from ultralytics import YOLO
+        self.config = config
+        path = Path(config["weights"]).resolve(strict=True)
+        digest = file_hash(path)
+        if config.get("checkpoint_sha256") and digest != config["checkpoint_sha256"]:
+            raise ValueError("Ball checkpoint SHA-256 mismatch")
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        state = payload.get("ball_training")
+        if not state or not state.get("run_id"):
+            raise ValueError("Expected a fine-tuned ball checkpoint with training provenance")
+        self.provenance = {"adapter": "yolo", "checkpoint_sha256": digest,
+            "weights": str(path), "training_run_id": state["run_id"],
+            "checkpoint_epoch_zero_based": payload.get("epoch"),
+            "training_contract": state["contract"], "precision": "fp32",
+            "geometry": {"input_width": config["input_width"], "input_height": config["input_height"]},
+            "preprocessing": "opencv_linear_stretch_Bgr_then_native_YOLO_rectangular",
+            "decoding": "highest_confidence_class_0_box_center",
+            "temporal_policy": "single_current_frame_no_future_context"}
+        del payload, state
+        self.model = YOLO(str(path), task="detect")
+        if self.model.names != {0: "ball"}:
+            raise ValueError("Expected a single ball class checkpoint")
+        self.model.model.float().to(config["device"]).eval()
+
+    def predict(self, frames):
+        cfg = self.config
+        frame = frames[-1]
+        h, w = frame.image.shape[:2]
+        image = cv2.resize(frame.image, (cfg["input_width"], cfg["input_height"]))
+        boxes = self.model.predict(image, imgsz=[cfg["input_height"], cfg["input_width"]],
+            rect=True, conf=cfg["confidence"], iou=cfg["iou"], device=cfg["device"],
+            half=False, augment=False, verbose=False, classes=[0], max_det=100)[0].boxes
+        point = score = None
+        if len(boxes):
+            index = int(boxes.conf.argmax())
+            x, y = boxes.xywh[index, :2].detach().cpu().tolist()
+            point = [x * w / cfg["input_width"], y * h / cfg["input_height"]]
+            score = float(boxes.conf[index])
+            if not np.isfinite([*point, score]).all():
+                raise ValueError("Invalid YOLO ball output")
+        return {"position_px": point, "confidence": score,
+                "status": "ok" if point is not None else "not_detected",
+                "context_frames": 1, "future_context_frames": 0, "source_frames": [frame.index]}
+
+    def close(self):
+        pass
+
+    def resources(self):
+        return {"scope": "shared_main_process; included in main CUDA/RSS peaks"}

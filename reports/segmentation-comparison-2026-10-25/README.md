@@ -7,6 +7,10 @@ sans promotion ni changement du profil courant. Parmi les modèles directs,
 détections**, L si le coût de perception prime. Aucun gain de précision OCR
 n'est démontré par cette expérience.
 
+Les mesures ci-dessous correspondent aux sources du commit `5632ff6`. Les ajouts
+ultérieurs du studio et de l’adaptateur balle YOLO sont évalués dans leurs propres
+runs ; ils ne modifient pas les prédictions archivées de cette comparaison.
+
 ## Ce qui a été testé
 
 | Configuration | Joueurs | Arbitres | Entrée OCR comparée |
