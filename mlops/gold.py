@@ -15,6 +15,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from pipeline.contracts import finite_point
+from pipeline.distance import identity as accepted_identity
 from training.common.files import write_json
 from training.common.provenance import file_hash, object_hash
 
@@ -66,6 +67,7 @@ def prepare(gold_path, run, iou_threshold):
             raise ValueError(f"Analysis artifact changed: {name}")
     payload = {"schema_version": 1, "gold_sha256": file_hash(gold_path), "analysis_sha256": hashes,
                "iou_threshold": iou_threshold, "evaluator_sha256": file_hash(Path(__file__)),
+               "identity_policy_sha256": file_hash(Path(__file__).resolve().parents[1] / "pipeline/distance.py"),
                "coordinates": "source pixels / ground meters", "scope": "gold frames only; segment-scoped identities"}
     return gold, manifest, {**payload, "recipe_id": object_hash(payload)}
 
@@ -73,16 +75,6 @@ def prepare(gold_path, run, iou_threshold):
 def box_iou(a, b):
     area = max(0., min(a[2], b[2]) - max(a[0], b[0])) * max(0., min(a[3], b[3]) - max(a[1], b[1]))
     return area / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - area)
-
-
-def accepted_identity(person):
-    resolved = person.get("resolved_identity") or {}
-    if resolved.get("team_id") and resolved.get("number") is not None:
-        return resolved["team_id"], resolved["number"]
-    jersey = person.get("jersey") or {}
-    if jersey.get("identity_status") == "unique_number" and jersey.get("status") == "confirmed":
-        return jersey.get("team_id"), jersey.get("number")
-    return None
 
 
 def evaluate(gold_path, run, iou_threshold=.5, frozen_recipe=None):
@@ -192,6 +184,8 @@ def evaluate(gold_path, run, iou_threshold=.5, frozen_recipe=None):
         left, right = linear_sum_assignment(matrix, maximize=True)
         idtp = int(matrix[left, right].sum())
     denominator = counts["gt_observations"] + counts["predicted_observations"]
+    if prepare(gold_path, run, iou_threshold)[2] != protocol:
+        raise ValueError("Gold or analysis artifacts changed during evaluation")
     def divide(a, b):
         return a / b if b else None
     return {"schema_version": 1, "protocol": protocol, "split": gold["split"], "counts": dict(counts),

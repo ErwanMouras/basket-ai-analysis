@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from mlops.gold import evaluate, prepare
 from training.common.files import write_json, write_jsonl
@@ -39,6 +40,32 @@ class GoldTests(unittest.TestCase):
         self.assertEqual(result["identity"]["accepted_precision"], 1.)
         self.assertAlmostEqual(result["distance"]["interval_coverage"], 2 / 3)
         self.assertAlmostEqual(result["distance"]["trajectories"][0]["absolute_error_m"], 0.)
+
+    def test_final_abstentions_override_stale_causal_identity(self):
+        for frame in self.predictions:
+            frame["persons"][0]["majority_jersey_number"] = "00"
+        self.save()
+        result = evaluate(self.gold, self.run)
+        self.assertEqual(result["identity"]["accepted_identity_coverage"], 0.)
+        for frame in self.predictions:
+            person = frame["persons"][0]
+            person["resolved_identity"] = {"team_id": "a", "number": "00"}
+            person["jersey_number_suppressed"] = True
+        self.save()
+        self.assertEqual(evaluate(self.gold, self.run)["identity"]["accepted_identity_coverage"], 0.)
+
+    def test_gold_changes_during_evaluation_are_rejected(self):
+        from mlops.gold import box_iou
+
+        def change_gold(a, b):
+            document = json.loads(self.gold.read_text())
+            document["reviewer"] = "changed during evaluation"
+            write_json(self.gold, document)
+            return box_iou(a, b)
+
+        with patch("mlops.gold.box_iou", side_effect=change_gold):
+            with self.assertRaisesRegex(ValueError, "changed during evaluation"):
+                evaluate(self.gold, self.run)
 
     def test_numbers_preserve_zeros_and_false_person_identity_is_penalized(self):
         for frame in self.predictions:

@@ -16,7 +16,10 @@ from .video import write_review, write_videos
 
 
 def prepare(config):
-    root = Path(config["dataset"])
+    root = Path(config["dataset"]).resolve(strict=True)
+    output = Path(config["output"]).resolve()
+    if output.is_relative_to(root) or root.is_relative_to(output):
+        raise ValueError("Dataset and output must be disjoint")
     print("Verifying export integrity...", flush=True)
     verify_dataset(root)
     manifest = json.loads((root / "manifest.json").read_text())
@@ -29,6 +32,8 @@ def prepare(config):
         frame_index(root, config["split"], allow_test=True).values(),
         key=lambda frame: (frame["clip_id"], frame["frame_index"]),
     )
+    if not records:
+        raise ValueError("Evaluation selection is empty")
     return root, manifest, records
 
 
@@ -89,9 +94,9 @@ def evaluate(config):
             )
             for frame in records
         ]
-        verify_dataset(root)
-        if frozen_payload(config, manifest, records) != frozen:
-            raise ValueError("Checkpoint or evaluator changed during evaluation")
+        _, current_manifest, current_records = prepare(config)
+        if frozen_payload(config, current_manifest, current_records) != frozen:
+            raise ValueError("Checkpoint, dataset or evaluator changed during evaluation")
         metrics = report(rows)
         write_jsonl(output / "predictions.jsonl", rows)
         write_json(output / "metrics.json", metrics)

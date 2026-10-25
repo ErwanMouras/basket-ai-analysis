@@ -26,3 +26,28 @@ class HealthTests(unittest.TestCase):
                 stream.write("{}\n")
             with self.assertRaisesRegex(ValueError, "integrity"):
                 build_health(root)
+
+    def test_named_availability_uses_resolved_identities_and_excludes_suppression(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            person = {"observation_id": "a", "track_id": 1, "role": "player",
+                      "bbox": [1, 1, 10, 20], "position_m": None, "confidence": .9,
+                      "jersey": {"status": "ambiguous", "team_id": "home", "player_name": "Uncertain"}}
+            rows = []
+            for i in range(4):
+                current = {**person, "observation_id": str(i)}
+                if i:
+                    current["resolved_identity"] = {"team_id": "home", "number": "00", "player_name": "Known"}
+                if i == 3:
+                    current["jersey_number_suppressed"] = True
+                rows.append({"schema_version": 1, "artifact_type": "video_observation",
+                    "frame_index": i, "segment_id": 0, "timestamp_s": i / 10,
+                    "width": 100, "height": 80, "coordinate_space": "source_pixels",
+                    "distance_unit": "m", "persons": [current], "ball": {"position_px": None},
+                    "court": None, "stages": {}})
+            write_jsonl(root / "observations.jsonl", rows)
+            write_json(root / "statistics.json", {"schema_version": 1, "metric": "observed_distance", "players": []})
+            write_json(root / "run.json", {"status": "completed", "run_id": "fixture", "frames": 4})
+            report = build_health(root)
+            self.assertEqual(report["counts"]["named_player_observations"], 2)
+            self.assertEqual(report["ratios"]["named_identity_availability"], .5)

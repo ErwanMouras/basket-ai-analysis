@@ -1,7 +1,11 @@
 import json
 import tempfile
 import unittest
+import sys
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 
@@ -11,6 +15,67 @@ from training.ball.learning.data import frame_index
 
 
 class PolicyTests(unittest.TestCase):
+    def test_prepare_rejects_overlapping_output_and_empty_selection(self):
+        from training.ball.evaluation.__main__ import prepare
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "dataset"
+            root.mkdir()
+            config = {"dataset": str(root), "output": str(root / "results"), "split": "val"}
+            with self.assertRaisesRegex(ValueError, "disjoint"):
+                prepare(config)
+            (root / "manifest.json").write_text(json.dumps({
+                "format": "tracknet-totnet", "parameters": {"tracknet_layouts": ["sdk"]}}))
+            config["output"] = str(Path(temp) / "results")
+            with patch("training.ball.evaluation.__main__.verify_dataset"), patch(
+                    "training.ball.evaluation.__main__.frame_index", return_value={}):
+                with self.assertRaisesRegex(ValueError, "selection is empty"):
+                    prepare(config)
+
+    def test_evaluation_rejects_an_export_replaced_during_inference(self):
+        from training.ball.evaluation.__main__ import evaluate
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "dataset"
+            root.mkdir()
+            output = Path(temp) / "results"
+            output.mkdir()
+            weights = Path(temp) / "weights.pt"
+            weights.write_bytes(b"fixture weights")
+            manifest = {"format": "tracknet-totnet", "parameters": {
+                "tracknet_layouts": ["sdk"], "unknown_position": "exclude", "occluded_position": "include"},
+                "sources": [{"clip_id": "a", "split": "val"}], "dataset_id": "original", "export_id": "original"}
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest))
+            record = {"clip_id": "a", "frame_index": 0, "image": "a.jpg"}
+            config = {"checkpoint": str(weights), "dataset": str(root), "output": str(output),
+                      "split": "val", "threshold": .5, "temporal_policy": "causal_last", "cut_frames": {}}
+
+            class Predictor:
+                geometry = {}
+                provenance = {"training_run_id": "fixture"}
+
+                def windows(self, dataset):
+                    manifest_path.write_text(json.dumps({**manifest, "export_id": "replacement"}))
+                    yield from ()
+
+            class Dataset:
+                samples = []
+
+                def __len__(self):
+                    return 0
+
+            inference = SimpleNamespace(V5Predictor=lambda *args: Predictor(),
+                                        SDKFrames=lambda *args: Dataset())
+            with patch.dict(sys.modules, {"training.ball.evaluation.inference": inference}), patch(
+                    "training.ball.evaluation.__main__.verify_dataset"), patch(
+                    "training.ball.evaluation.__main__.frame_index", return_value={"a.jpg": record}), patch(
+                    "training.ball.evaluation.__main__.tracked_run", return_value=nullcontext((MagicMock(), "run", output))), patch(
+                    "training.ball.evaluation.__main__.frame_result", return_value={}):
+                with self.assertRaisesRegex(ValueError, "dataset.*changed"):
+                    evaluate(config)
+            self.assertFalse((output / "metrics.json").exists())
+
     def test_cut_resets_causal_context_and_smoke_is_forbidden_on_test(self):
         frames = [{"frame_index": i, "image": str(i), "clip_id": "a"} for i in range(6)]
         samples = [({}, frames[i:i + 3]) for i in range(4)]

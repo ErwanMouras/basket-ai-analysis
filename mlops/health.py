@@ -6,6 +6,7 @@ from collections import Counter
 from pathlib import Path
 
 from pipeline.contracts import validate_frame, validate_statistics
+from pipeline.distance import identity
 from training.common.files import write_json
 from training.common.provenance import file_hash
 
@@ -42,7 +43,9 @@ def build_health(run):
                 counts["player_observations"] += 1
                 counts["projected_player_observations"] += person["position_m"] is not None
                 jersey = person.get("jersey") or {}
-                counts["named_player_observations"] += bool(jersey.get("team_id") and jersey.get("player_name"))
+                resolved = person.get("resolved_identity") or {}
+                named = identity(person) is not None and bool(resolved.get("player_name") or jersey.get("player_name"))
+                counts["named_player_observations"] += named
                 if person["track_id"] is not None:
                     tracks.add((row["segment_id"], person["track_id"]))
     if counts["frames"] != manifest["frames"]:

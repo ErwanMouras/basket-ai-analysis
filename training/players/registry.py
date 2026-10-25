@@ -220,7 +220,12 @@ def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///
                     raise ValueError("Champion promotion requires quality_policy and baseline_evaluation")
                 from mlops.quality import decide, read_result
                 candidate_path = client.download_artifacts(metadata["evaluation_run_id"], "evaluation/result.json", temp)
-                decision = decide(read_result(baseline_evaluation), read_result(candidate_path), read_yaml(Path(quality_policy)))
+                candidate = read_result(candidate_path)
+                if (candidate.get("run_id") != metadata["evaluation_run_id"]
+                        or any(candidate.get(key) != metadata.get(key)
+                               for key in ("model", "comparison_id", "metrics", "reference"))):
+                    raise ValueError("Candidate evaluation differs from the registered provenance")
+                decision = decide(read_result(baseline_evaluation), candidate, read_yaml(Path(quality_policy)))
                 if not decision["accepted"]:
                     failed = [c["name"] for c in decision["checks"] if not c["passed"]]
                     raise ValueError(f"Quality policy rejected promotion: {', '.join(failed)}")
