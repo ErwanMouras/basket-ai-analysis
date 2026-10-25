@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "match": {
+    "match_id": "SYNTHETIC DEMO — scripted outputs"
+  },
+  "teams": [
+    {
+      "team_id": "blue",
+      "name": "Example Blue",
+      "color": "#45C7F5",
+      "players": [
+        {
+          "number": "7",
+          "name": "Example A"
+        }
+      ]
+    },
+    {
+      "team_id": "pink",
+      "name": "Example Pink",
+      "color": "#F279C8",
+      "players": [
+        {
+          "number": "12",
+          "name": "Example B"
+        }
+      ]
+    }
+  ]
+}

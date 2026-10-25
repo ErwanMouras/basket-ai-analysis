@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "run_id": "synthetic-demo",
+  "metric": "observed_distance",
+  "distance_unit": "m",
+  "time_basis": "video",
+  "scope": "included_video_intervals",
+  "method": {
+    "smoothing_tau_s": 0.0,
+    "deadband_m": 0.0,
+    "max_speed_m_s": 12.0,
+    "max_gap_s": 0.2
+  },
+  "players": [
+    {
+      "subject_id": "roster:blue:7",
+      "player_id": "roster:blue:7",
+      "player_name": "Example A",
+      "team_id": "blue",
+      "jersey_number": "7",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 1
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 1
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.4,
+      "warnings": [
+        "calibration_unavailable",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 3.867911999999999,
+      "coverage_ratio": 0.9101123595505618,
+      "measurement_status": "partial"
+    },
+    {
+      "subject_id": "roster:pink:12",
+      "player_id": "roster:pink:12",
+      "player_name": "Example B",
+      "team_id": "pink",
+      "jersey_number": "12",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 2
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 2
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.4,
+      "warnings": [
+        "calibration_unavailable",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 2.707538399999997,
+      "coverage_ratio": 0.9101123595505618,
+      "measurement_status": "partial"
+    }
+  ],
+  "limitations": [
+    "no_offscreen_extrapolation",
+    "no_automatic_replay_exclusion",
+    "ground_contact_approximation",
+    "metric_accuracy_not_validated"
+  ],
+  "status": "completed",
+  "demo": "scripted; no model inference"
+}

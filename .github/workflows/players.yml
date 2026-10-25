@@ -1,0 +1,83 @@
+name: POC validation
+
+on:
+  push:
+    paths: ['training/**', 'pipeline/**', 'viewer/**', 'mlops/**', 'scripts/**', 'configs/**', 'deploy/**', 'examples/**', '.dockerignore', 'compose.yaml', 'Makefile', '.github/workflows/players.yml']
+  pull_request:
+    paths: ['training/**', 'pipeline/**', 'viewer/**', 'mlops/**', 'scripts/**', 'configs/**', 'deploy/**', 'examples/**', '.dockerignore', 'compose.yaml', 'Makefile', '.github/workflows/players.yml']
+  workflow_dispatch:
+    inputs:
+      gpu_smoke:
+        description: 'Also run short YOLO26 and RF-DETR tests on a trusted GPU runner'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  cpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated CPU environment (dependencies only)
+        run: |
+          python -m pip install uv==0.11.7
+          uv venv --python 3.12 .venv-players-cpu
+          uv pip sync --python .venv-players-cpu/bin/python --torch-backend cpu training/players/requirements-cpu.lock
+          uv pip check --python .venv-players-cpu/bin/python
+          .venv-players-cpu/bin/python -c 'import torch; assert torch.version.cuda is None'
+      - name: All offline regression suites (no training or annotation)
+        run: .venv-players-cpu/bin/python -m mlops.checks --output runs/ci-poc
+      - name: Viewer container build
+        run: docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
+      - name: Verify the public scripted sample
+        run: .venv-players-cpu/bin/python -m mlops.demo --output examples/demo --ensure
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: poc-checks
+          path: runs/ci-poc
+      - name: Show validation result and diagnostic logs
+        if: always()
+        run: |
+          if test -f runs/ci-poc/summary.json; then cat runs/ci-poc/summary.json; fi
+          find runs/ci-poc -name '*.log' -type f -exec tail -n 25 {} + 2>/dev/null || true
+
+  gpu-smoke:
+    if: github.event_name == 'workflow_dispatch' && inputs.gpu_smoke
+    runs-on: [self-hosted, linux, x64, gpu]
+    timeout-minutes: 30
+    # One runner and sequential families; never launch from a pull request.
+    concurrency:
+      group: players-gpu-smoke
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated CUDA environment (dependencies only)
+        run: |
+          python -m pip install uv==0.11.7
+          uv venv --python 3.12 .venv-players-ci-gpu
+          uv pip sync --python .venv-players-ci-gpu/bin/python --torch-backend cu130 training/players/requirements-cu130.lock
+          uv pip check --python .venv-players-ci-gpu/bin/python
+      - name: Explicit sequential GPU smokes without downloaded weights
+        run: make smoke-players-gpu PLAYERS_PYTHON=.venv-players-ci-gpu/bin/python VALIDATION_OUTPUT="runs/players/ci-gpu-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Show validation result
+        if: always()
+        run: |
+          cat "runs/players/ci-gpu-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/summary.json" || true
+          find "runs/players/ci-gpu-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" -name '*.log' -type f -exec tail -n 25 {} + 2>/dev/null || true

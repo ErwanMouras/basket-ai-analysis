@@ -1,0 +1,25 @@
+# Dedicated Python 3.12 environment; do not install into either ball environment.
+torch==2.11.0
+torchvision==0.26.0
+ultralytics==8.4.39
+lap==0.5.12
+rfdetr[train]==1.10.1
+pytorch-lightning==2.6.6
+transformers==5.17.0
+torchmetrics==1.8.2
+numpy==2.2.6
+opencv-python==4.11.0.86
+# RF-DETR/supervision requires headless OpenCV; keep its ABI at the same version.
+opencv-python-headless==4.11.0.86
+PyYAML==6.0.3
+mlflow==3.11.1
+# Common evaluation and portable plots (already present in the cu130 lock).
+pycocotools==2.0.11
+matplotlib==3.11.2
+psutil==7.2.2
+# Pose runtime is platform-specific: add exactly one of onnxruntime==1.27.0
+# (CPU lock) or onnxruntime-gpu==1.27.0 (CUDA 13 lock), never both.
+flatbuffers==25.12.19
+
+# PARSeq inference-only jersey reader (upstream-compatible ViT).
+timm==0.9.16

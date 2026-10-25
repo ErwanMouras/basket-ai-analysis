@@ -1,0 +1,12 @@
+# Inference profile for the selected YOLO/TrackNet/RTMPose/PARSeq pipeline.
+# RF-DETR training and experiment-server dependencies are deliberately separate.
+torch==2.11.0
+torchvision==0.26.0
+ultralytics==8.4.39
+numpy==2.2.6
+opencv-python==4.11.0.86
+opencv-python-headless==4.11.0.86
+PyYAML==6.0.3
+lap==0.5.12
+onnxruntime==1.27.0
+timm==0.9.16

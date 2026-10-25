@@ -13,6 +13,11 @@ BALL_EXPORT = cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.ball.export --source "
 help:
 	@echo 'make analyze-video VIDEO=... OUTPUT=runs/analysis/example [ROSTER=jersey.json]'
 	@echo 'make view-analysis  # Open the local run visualizer on port 8765'
+	@echo 'make demo  # Verified synthetic sample and Docker viewer on port 8766'
+	@echo 'make demo-native  # Same sample, local Python viewer'
+	@echo 'make check-poc CHECK_OUTPUT=runs/checks/new  # Offline suites; no training'
+	@echo 'make bundle-models | verify-model-bundle  # Portable local inference assets'
+	@echo 'make infer-container VIDEO=... OUTPUT=... [MAX_FRAMES=...]  # CPU image, no network'
 	@echo 'make annotate-ball VIDEO="/path/to/clip.mp4"'
 	@echo 'make export-ball  # Export all ball formats'
 	@echo 'make export-ball-yolo | export-ball-coco | export-ball-tracknet-totnet'
@@ -232,3 +237,39 @@ VIEWER_PORT ?= 8765
 .PHONY: view-analysis
 view-analysis:
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m viewer.server --port "$(VIEWER_PORT)"
+
+CHECK_OUTPUT ?= runs/poc-checks
+MODEL_BUNDLE ?= release/models
+.PHONY: check-poc demo-data demo demo-native bundle-models verify-model-bundle runtime-image infer-container
+check-poc:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m mlops.checks --output "$(CHECK_OUTPUT)"
+
+demo-data:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m mlops.demo --output release/demo --ensure
+
+demo:
+	cd "$(ROOT_DIR)" && docker compose up -d --build viewer
+
+demo-native:
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m viewer.server --port 8766 --runs-root examples/demo/runs --video-root examples/demo/videos
+
+bundle-models:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m mlops.assets create --config "$(ANALYSIS_CONFIG)" --output "$(MODEL_BUNDLE)"
+
+verify-model-bundle:
+	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m mlops.assets verify --bundle "$(MODEL_BUNDLE)"
+
+runtime-image:
+	cd "$(ROOT_DIR)" && docker build -f deploy/Dockerfile.runtime -t vyneros-runtime:poc .
+
+infer-container: verify-model-bundle
+	@test -n "$(VIDEO)" -a -n "$(OUTPUT)" || { echo 'VIDEO and a new OUTPUT directory are required' >&2; exit 2; }
+	mkdir -p "$(dir $(abspath $(OUTPUT)))"
+	docker run --rm --network none --read-only --tmpfs /tmp \
+	  -v "$(abspath $(MODEL_BUNDLE))/models:/app/models:ro" \
+	  -v "$(abspath $(MODEL_BUNDLE))/.external:/app/.external:ro" \
+	  -v "$(abspath $(MODEL_BUNDLE))/analysis.yaml:/app/configs/release.yaml:ro" \
+	  -v "$(abspath $(VIDEO)):/data/input.mp4:ro" \
+	  -v "$(dir $(abspath $(OUTPUT))):/output" \
+	  vyneros-runtime:poc analyze --video /data/input.mp4 --config configs/release.yaml \
+	  --output "/output/$(notdir $(OUTPUT))" $(if $(MAX_FRAMES),--max-frames "$(MAX_FRAMES)",)

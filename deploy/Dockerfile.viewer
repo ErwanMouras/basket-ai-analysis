@@ -1,0 +1,8 @@
+FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+WORKDIR /app
+COPY viewer /app/viewer
+COPY training/jersey/__init__.py training/jersey/display.py /app/training/jersey/
+USER 1000:1000
+EXPOSE 8765
+HEALTHCHECK --interval=15s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/runs', timeout=2)"
+CMD ["python", "-m", "viewer.server", "--host", "0.0.0.0", "--runs-root", "/data/runs", "--video-root", "/data/videos"]
