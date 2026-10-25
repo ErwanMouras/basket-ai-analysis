@@ -25,7 +25,7 @@ help:
 	@echo 'make evaluate-ball CHECKPOINT=runs/ball/<run>/best.pt [CONFIG=evaluation.yaml]'
 	@echo 'make test-players  # Player contracts and shared infrastructure (CPU)'
 	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
-	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
+	@echo 'make annotate-players MEDIA=... [CHECKPOINT=... PLAYER_CLASS=2 REFEREE_CLASS=3]  # Preannotate then review'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export  # Paired YOLO/COCO exports'
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
@@ -101,21 +101,25 @@ PLAYER_STEP ?= 30
 PLAYER_START ?= 0
 PLAYER_STOP ?=
 PLAYER_CLASS ?= 0
+REFEREE_CLASS ?=
 PLAYER_DEVICE ?= cpu
+PREANNOTATION_PYTHON ?= $(PLAYERS_PYTHON)
 MATCH_ID ?=
 VENUE_ID ?=
 PLAYER_SPLIT ?=
 CACHE ?=
 CACHE_VIDEO_SHA256 ?=
 PLAYERS_ANNOTATION_ARGS = "$(MEDIA)" --root "$(PLAYERS_ROOT)" --step "$(PLAYER_STEP)" --start "$(PLAYER_START)" $(if $(PLAYER_STOP),--stop "$(PLAYER_STOP)",) $(if $(MATCH_ID),--match-id "$(MATCH_ID)",) $(if $(VENUE_ID),--venue-id "$(VENUE_ID)",) $(if $(PLAYER_SPLIT),--split "$(PLAYER_SPLIT)",)
+PLAYERS_PREANNOTATION_ARGS = --player-class "$(PLAYER_CLASS)" $(if $(REFEREE_CLASS),--referee-class "$(REFEREE_CLASS)",) --device "$(PLAYER_DEVICE)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",)
 .PHONY: annotate-players preannotate-players
 annotate-players:
 	@test -n "$(MEDIA)" || { echo 'MEDIA (or VIDEO) is required' >&2; exit 2; }
+	$(if $(CHECKPOINT),cd "$(ROOT_DIR)" && "$(PREANNOTATION_PYTHON)" -m training.players.annotator.preannotate $(PLAYERS_ANNOTATION_ARGS) $(PLAYERS_PREANNOTATION_ARGS),)
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator $(PLAYERS_ANNOTATION_ARGS)
 
 preannotate-players:
 	@test -n "$(MEDIA)" || { echo 'MEDIA (or VIDEO) is required' >&2; exit 2; }
-	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator.preannotate $(PLAYERS_ANNOTATION_ARGS) --player-class "$(PLAYER_CLASS)" --device "$(PLAYER_DEVICE)" $(if $(CHECKPOINT),--checkpoint "$(CHECKPOINT)",) $(if $(CACHE),--cache "$(CACHE)",) $(if $(CACHE_VIDEO_SHA256),--cache-video-sha256 "$(CACHE_VIDEO_SHA256)",)
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m training.players.annotator.preannotate $(PLAYERS_ANNOTATION_ARGS) $(PLAYERS_PREANNOTATION_ARGS) $(if $(CACHE),--cache "$(CACHE)",) $(if $(CACHE_VIDEO_SHA256),--cache-video-sha256 "$(CACHE_VIDEO_SHA256)",)
 
 PLAYERS_OUTPUT ?= exports/players
 PLAYERS_EXPORT_CONFIG ?= training/players/configs/players_export.yaml

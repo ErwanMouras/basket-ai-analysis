@@ -1,5 +1,6 @@
 """Editing, cache import and detector proposal safety on synthetic local media."""
 
+import csv
 import json
 import os
 import tempfile
@@ -227,6 +228,106 @@ class AnnotationTests(MediaFixture):
         self.assertEqual(seen[0]["classes"], [0])
         self.assertEqual(self.store.document["provenance"][-1]["kind"], "model")
         self.assertEqual(verified_frames(self.store.document), [])
+
+    def test_multiclass_preannotation_maps_roles_and_preserves_reviewed_work(self):
+        weights = self.root / "weights.pt"
+        weights.write_bytes(b"mock checkpoint")
+        self.store.verify(0)
+        self.store.add_box(1, [1, 2, 20, 40])
+        protected = [self.store.frame(i) for i in (0, 1)]
+        calls = []
+
+        class FakeModel:
+            task = "detect"
+            names = {0: "ball", 1: "hoop", 2: "player", 3: "referee"}
+
+            def predict(inner, image, **kwargs):
+                calls.append(kwargs)
+                data = SimpleNamespace(cpu=lambda: SimpleNamespace(numpy=lambda: np.array([
+                    [1, 2, 20, 40, 0.8, 2], [30, 2, 50, 40, 0.7, 3],
+                    [60, 2, 70, 20, 0.6, 0],
+                ])))
+                return [SimpleNamespace(boxes=SimpleNamespace(data=data))]
+
+        result = preannotate_model(self.store, self.reader, weights, range(4),
+                                  player_class=2, referee_class=3, model_factory=lambda _: FakeModel())
+        self.assertEqual(result, {"added": 2})
+        self.assertEqual(calls[0]["classes"], [2, 3])
+        self.assertEqual([self.store.frame(i) for i in (0, 1)], protected)
+        self.assertEqual([b["class_id"] for b in self.store.frame(2)["boxes"]], [0, 1])
+        self.assertEqual(self.store.frame(2)["review_status"], "proposed")
+        self.assertEqual([f["frame_index"] for f in verified_frames(self.store.document)], [0])
+        self.assertEqual(preannotate_model(
+            self.store, self.reader, weights, range(4), player_class=2, referee_class=3,
+            model_factory=lambda _: self.fail("Existing proposals must not trigger model inference")), {"added": 0})
+
+    def test_multiclass_preannotation_rejects_invalid_mapping_before_saving(self):
+        weights = self.root / "weights.pt"
+        weights.write_bytes(b"mock checkpoint")
+        for referee_class in (2, -1, True):
+            with self.assertRaises(ValueError):
+                preannotate_model(self.store, self.reader, weights, [0],
+                                  player_class=2, referee_class=referee_class)
+        model = SimpleNamespace(task="detect", names={2: "player"})
+        with self.assertRaisesRegex(ValueError, "every explicitly selected class"):
+            preannotate_model(self.store, self.reader, weights, [0], player_class=2,
+                              referee_class=3, model_factory=lambda _: model)
+        self.assertFalse(self.store.path.exists())
+
+    def test_cache_can_propose_players_and_referees_together(self):
+        path, document = self.cache()
+        document["frames"][0]["detections"] = [
+            [1, 2, 20, 40, 0.9, 2], [30, 2, 50, 40, 0.8, 3], [60, 2, 70, 20, 0.6, 0],
+        ]
+        path.write_text(json.dumps(document))
+        self.assertEqual(preannotate_cache(self.store, path, [0], player_class=2,
+                                          referee_class=3)["added"], 1)
+        self.assertEqual([b["class_id"] for b in self.store.frame(0)["boxes"]], [0, 1])
+        self.assertEqual(self.store.frame(0)["review_status"], "proposed")
+
+    def test_preannotation_plan_filters_phases_deduplicates_and_confines_sources(self):
+        from scripts.preannotate_players_plan import plan_indices
+
+        video = self.media.with_name("video.mp4")
+        video.write_bytes(b"source placeholder; inference is not used by this test")
+        plan = self.root / "plan.csv"
+        with plan.open("w", newline="") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(["phase", "clip", "frame_index"])
+            writer.writerows([(1, "train/game", 0), (1, "train/game", 2),
+                              (1, "train/game", 2), (2, "train/game", 1)])
+        self.assertEqual(plan_indices(plan, self.root, {1}), {video.resolve(): {0, 2}})
+        with tempfile.TemporaryDirectory() as external:
+            Path(external, "video.mp4").write_bytes(b"outside")
+            with plan.open("w", newline="") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(["phase", "clip", "frame_index"])
+                writer.writerow([1, external, 0])
+            with self.assertRaisesRegex(ValueError, "within the dataset root"):
+                plan_indices(plan, self.root, {1})
+
+    def test_editor_command_preannotates_before_opening_review(self):
+        from training.players.annotator.__main__ import main
+
+        weights = self.root / "weights.pt"
+        weights.write_bytes(b"mock checkpoint")
+        argv = ["annotator", str(self.media), "--root", str(self.root), "--match-id", "game",
+                "--checkpoint", str(weights), "--player-class", "2", "--referee-class", "3",
+                "--device", "cpu", "--step", "2", "--stop", "4"]
+        events = []
+
+        def preannotate(store, reader, checkpoint, indices, **kwargs):
+            events.append("preannotate")
+            self.assertEqual(list(indices), [0, 2])
+            self.assertEqual(kwargs["referee_class"], 3)
+            return {"added": 2}
+
+        with patch("sys.argv", argv), patch(
+            "training.players.annotator.preannotate.preannotate_model", side_effect=preannotate
+        ), patch.dict("sys.modules", {"training.players.annotator.app": SimpleNamespace(
+            run=lambda *a, **k: events.append("review"))}):
+            main()
+        self.assertEqual(events, ["preannotate", "review"])
 
 
 @unittest.skipUnless(

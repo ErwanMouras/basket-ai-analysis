@@ -16,8 +16,36 @@ def main():
     parser.add_argument("--step", type=int, default=30)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--stop", type=int)
+    parser.add_argument("--checkpoint", type=Path, help="Preannotate selected frames before opening the editor")
+    parser.add_argument("--player-class", type=int, default=0)
+    parser.add_argument("--referee-class", type=int)
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--confidence", type=float, default=0.25)
+    parser.add_argument("--iou", type=float, default=0.45)
+    parser.add_argument("--imgsz", type=int, default=640)
     args = parser.parse_args()
     try:
+        if args.checkpoint:
+            import json
+
+            from .media import MediaReader, selected_frames
+            from .model import Store
+            from .preannotate import preannotate_model
+
+            reader = MediaReader(args.media)
+            try:
+                store = Store(reader, args.root, match_id=args.match_id,
+                              venue_id=args.venue_id, split=args.split)
+                report = preannotate_model(
+                    store, reader, args.checkpoint,
+                    selected_frames(reader.frame_count, start=args.start, stop=args.stop, step=args.step),
+                    player_class=args.player_class, referee_class=args.referee_class,
+                    device=args.device, confidence=args.confidence, iou=args.iou, imgsz=args.imgsz,
+                )
+                print(json.dumps({"sidecar": str(store.path), **report}), flush=True)
+            finally:
+                reader.close()
+
         from .app import run
 
         run(

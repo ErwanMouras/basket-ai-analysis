@@ -12,7 +12,17 @@ from .media import MediaReader, selected_frames
 from .model import Store
 
 
-def proposal(index, rows, player_class):
+def class_mapping(player_class, referee_class=None):
+    selected = [player_class] + ([] if referee_class is None else [referee_class])
+    if any(type(value) is not int or value < 0 for value in selected):
+        raise ValueError("Source classes must be nonnegative integers")
+    if len(set(selected)) != len(selected):
+        raise ValueError("Player and referee source classes must be different")
+    return {source: target for target, source in enumerate(selected)}
+
+
+def proposal(index, rows, player_class, referee_class=None):
+    mapping = class_mapping(player_class, referee_class)
     boxes = []
     for number, row in enumerate(rows):
         if not isinstance(row, (list, tuple)) or len(row) != 6:
@@ -24,11 +34,11 @@ def proposal(index, rows, player_class):
         class_id = row[5]
         if int(class_id) != class_id or class_id < 0 or not 0 <= row[4] <= 1:
             raise ValueError("Invalid detection class or confidence")
-        if class_id == player_class:
+        if class_id in mapping:
             boxes.append(
                 {
                     "object_id": f"proposal-{index}-{number}",
-                    "class_id": 0,
+                    "class_id": mapping[class_id],
                     "bbox": list(row[:4]),
                     "confidence": row[4],
                     "occluded": None,
@@ -45,10 +55,9 @@ def _validate_frames(store, frames, provenance):
 
 
 def preannotate_cache(
-    store, cache, indices, *, player_class=0, cache_video_sha256=None
+    store, cache, indices, *, player_class=0, referee_class=None, cache_video_sha256=None
 ):
-    if type(player_class) is not int or player_class < 0:
-        raise ValueError("player_class must be a nonnegative integer")
+    class_mapping(player_class, referee_class)
     cache = Path(cache).resolve(strict=True)
     digest = file_hash(cache)
     payload = json.loads(cache.read_text(encoding="utf-8"))
@@ -110,7 +119,7 @@ def preannotate_cache(
             raise ValueError(
                 "NBA cache must contain a contiguous prefix of indexed frames"
             )
-        proposals.append(proposal(index, frame["detections"], player_class))
+        proposals.append(proposal(index, frame["detections"], player_class, referee_class))
     reference = json.dumps(
         {
             "cache": str(cache),
@@ -119,6 +128,7 @@ def preannotate_cache(
             "binding": "embedded" if embedded else "operator_asserted",
             "model": meta.get("players_model"),
             "player_class": player_class,
+            "referee_class": referee_class,
         },
         sort_keys=True,
     )
@@ -143,27 +153,28 @@ def preannotate_model(
     indices,
     *,
     player_class=0,
+    referee_class=None,
     device="cpu",
     confidence=0.25,
     iou=0.45,
     imgsz=640,
     model_factory=None,
 ):
+    mapping = class_mapping(player_class, referee_class)
     checkpoint = Path(checkpoint).expanduser().resolve(strict=True)
     if checkpoint.suffix != ".pt" or not checkpoint.is_file():
         raise ValueError("Provide a local Ultralytics detection .pt checkpoint")
-    if (
-        type(player_class) is not int
-        or player_class < 0
-        or type(imgsz) is not int
-        or imgsz < 32
-    ):
+    if type(imgsz) is not int or imgsz < 32:
         raise ValueError("Invalid class or input size")
     if any(
         type(v) not in (int, float) or not math.isfinite(v) or not 0 < v <= 1
         for v in (confidence, iou)
     ):
         raise ValueError("confidence and iou must be in (0, 1]")
+    indices = list(indices)
+    indices = [index for index in indices if store.frame(index)["review_status"] == "unannotated"]
+    if not indices:
+        return {"added": 0}
     digest = file_hash(checkpoint)
     if model_factory is None:
         from ultralytics import YOLO
@@ -172,20 +183,20 @@ def preannotate_model(
     model = model_factory(str(checkpoint))
     if file_hash(checkpoint) != digest:
         raise ValueError("Checkpoint changed while loading")
-    if model.task != "detect" or player_class not in model.names:
-        raise ValueError("Checkpoint must detect the explicitly selected class")
+    if model.task != "detect" or any(source not in model.names for source in mapping):
+        raise ValueError("Checkpoint must detect every explicitly selected class")
     settings = {
         "device": device,
         "conf": confidence,
         "iou": iou,
         "imgsz": imgsz,
-        "classes": [player_class],
+        "classes": list(mapping),
     }
     provenance = [
         {
             "kind": "model",
             "reference": json.dumps(
-                {"checkpoint": str(checkpoint), **settings}, sort_keys=True
+                {"checkpoint": str(checkpoint), "class_mapping": mapping, **settings}, sort_keys=True
             ),
             "sha256": digest,
         }
@@ -197,7 +208,7 @@ def preannotate_model(
         frame = reader.read(index)
         result = model.predict(frame, **settings, verbose=False)[0]
         proposed = proposal(
-            index, result.boxes.data.cpu().numpy().tolist(), player_class
+            index, result.boxes.data.cpu().numpy().tolist(), player_class, referee_class
         )
         # Each successful frame is persisted; an interruption loses no earlier work.
         count += store.add_proposals([proposed], provenance)
@@ -216,6 +227,7 @@ def main():
     parser.add_argument("--venue-id")
     parser.add_argument("--split", choices=("train", "val", "test"))
     parser.add_argument("--player-class", type=int, default=0)
+    parser.add_argument("--referee-class", type=int, help="Optional source class mapped to referee")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--stop", type=int)
     parser.add_argument("--step", type=int, default=30)
@@ -237,14 +249,14 @@ def main():
         indices = selected_frames(
             reader.frame_count, start=args.start, stop=args.stop, step=args.step
         )
-        if args.player_class < 0:
-            raise ValueError("player-class must be nonnegative")
+        class_mapping(args.player_class, args.referee_class)
         if args.cache:
             report = preannotate_cache(
                 store,
                 args.cache,
                 indices,
                 player_class=args.player_class,
+                referee_class=args.referee_class,
                 cache_video_sha256=args.cache_video_sha256,
             )
         else:
@@ -254,6 +266,7 @@ def main():
                 args.checkpoint,
                 indices,
                 player_class=args.player_class,
+                referee_class=args.referee_class,
                 device=args.device,
                 confidence=args.confidence,
                 iou=args.iou,

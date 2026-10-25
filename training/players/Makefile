@@ -7,7 +7,7 @@ help:
 	@echo 'make test-players  # CPU contracts; no model or GPU required'
 	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
 	@echo 'See README.md, TRAINING.md and EVALUATION.md.'
-	@echo 'make annotate-players MEDIA=... [PLAYERS_ROOT=datas]'
+	@echo 'make annotate-players MEDIA=... [CHECKPOINT=... PLAYER_CLASS=2 REFEREE_CLASS=3]  # Preannotate then review'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export'
 	@echo 'make train-players-yolo | train-players-rfdetr CONFIG=... [RESUME=...]'
