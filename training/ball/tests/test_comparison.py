@@ -69,6 +69,38 @@ class ComparisonProtocolTests(unittest.TestCase):
 
 
 class CausalDecoderTests(unittest.TestCase):
+    def test_yolo_selects_one_highest_confidence_center_and_preserves_rgb(self):
+        from types import SimpleNamespace
+        import torch
+        from training.ball.comparison.worker import Predictor
+
+        class Boxes:
+            conf = torch.tensor([0.4, 0.8])
+            xywh = torch.tensor([[1., 2., 3., 4.], [10., 12., 4., 6.]])
+
+            def __len__(self):
+                return 2
+
+        class DetectionAdapter:
+            def predict(self, image, **kwargs):
+                self.image, self.kwargs = image, kwargs
+                return [SimpleNamespace(boxes=Boxes())]
+
+        adapter = DetectionAdapter()
+        predictor = Predictor.__new__(Predictor)
+        predictor.length, predictor.yolo, predictor.device = 1, True, torch.device("cpu")
+        predictor.geometry = {"input_width": 32, "input_height": 16}
+        predictor.protocol = {"thresholds": {"yolo": 0.25}, "yolo_iou": 0.7}
+        predictor.model = adapter
+        image = np.full((32, 64, 3), [10, 20, 30], np.uint8)
+        result = predictor.predict([image])
+        self.assertEqual(result["position_input"], [10, 12])
+        self.assertEqual(adapter.image[0, 0].tolist(), [30, 20, 10])
+        self.assertEqual(adapter.image.shape, (16, 32, 3))
+        self.assertEqual(adapter.kwargs["imgsz"], [16, 32])
+        self.assertEqual(adapter.kwargs["conf"], 0.25)
+        self.assertEqual(adapter.kwargs["classes"], [0])
+
     def test_v3_decodes_only_last_head_and_preserves_rgb_time_order(self):
         import torch
         from training.ball.comparison.worker import Predictor
