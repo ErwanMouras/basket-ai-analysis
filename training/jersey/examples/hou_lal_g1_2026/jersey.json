@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "match": {
+    "match_id": "hou_lal_g1",
+    "nba_game_id": "0042500171",
+    "date": "2026-04-18",
+    "competition": "NBA 2026 Western Conference First Round",
+    "game": 1,
+    "home_team_id": "los_angeles_lakers",
+    "away_team_id": "houston_rockets"
+  },
+  "sources": [
+    "https://statsdmz.nba.com/pdfs/20260418/20260418_HOULAL.pdf",
+    "https://www.nba.com/gamenotes/rockets.pdf",
+    "https://lalweb.blob.core.windows.net/public/lakers/media-relations/2025-26-Lakers-Media-Guide.pdf",
+    "https://www.nba.com/stats/player/203500/traditional",
+    "https://api-hub-uat.nba.com/team/1610612745/rockets"
+  ],
+  "notes": "Game sheet, including reserves and the four separately listed inactive players. played: entered the game; dnp: did not play; dnd: did not dress; inactive: inactive list. DNP reserves remain eligible. DND and inactive players are retained for completeness but excluded from recognition (eligible=false). Sources checked 2026-09-27.",
+  "teams": [
+    {
+      "team_id": "houston_rockets",
+      "name": "Houston Rockets",
+      "players": [
+        {
+          "number": "1",
+          "name": "Amen Thompson",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "10",
+          "name": "Jabari Smith Jr.",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "28",
+          "name": "Alperen Sengun",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "20",
+          "name": "Josh Okogie",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "15",
+          "name": "Reed Sheppard",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "30",
+          "name": "Clint Capela",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "0",
+          "name": "Aaron Holiday",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "8",
+          "name": "Jae'Sean Tate",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "17",
+          "name": "Tari Eason",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "4",
+          "name": "JD Davison",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "7",
+          "name": "Kevin Durant",
+          "status": "dnd",
+          "eligible": false
+        },
+        {
+          "number": "2",
+          "name": "Dorian Finney-Smith",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "32",
+          "name": "Jeff Green",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "12",
+          "name": "Steven Adams",
+          "status": "inactive",
+          "eligible": false
+        },
+        {
+          "number": "5",
+          "name": "Fred VanVleet",
+          "status": "inactive",
+          "eligible": false
+        }
+      ],
+      "color": "#CE1141",
+      "uniform_color": "#202020"
+    },
+    {
+      "team_id": "los_angeles_lakers",
+      "name": "Los Angeles Lakers",
+      "players": [
+        {
+          "number": "23",
+          "name": "LeBron James",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "28",
+          "name": "Rui Hachimura",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "5",
+          "name": "Deandre Ayton",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "36",
+          "name": "Marcus Smart",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "10",
+          "name": "Luke Kennard",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "12",
+          "name": "Jake LaRavia",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "2",
+          "name": "Jarred Vanderbilt",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "11",
+          "name": "Jaxson Hayes",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "9",
+          "name": "Bronny James",
+          "status": "played",
+          "eligible": true
+        },
+        {
+          "number": "14",
+          "name": "Maxi Kleber",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "4",
+          "name": "Dalton Knecht",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "20",
+          "name": "Nick Smith Jr.",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "1",
+          "name": "Adou Thiero",
+          "status": "dnp",
+          "eligible": true
+        },
+        {
+          "number": "77",
+          "name": "Luka Dončić",
+          "status": "inactive",
+          "eligible": false
+        },
+        {
+          "number": "15",
+          "name": "Austin Reaves",
+          "status": "inactive",
+          "eligible": false
+        }
+      ],
+      "color": "#FDB927",
+      "uniform_color": "#FDB927"
+    }
+  ]
+}

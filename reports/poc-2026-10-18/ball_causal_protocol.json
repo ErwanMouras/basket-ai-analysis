@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "recipe": {
+    "split": "val",
+    "temporal_policy": "causal_last",
+    "cut_frames": {},
+    "device": "cuda:0",
+    "precision": "fp32",
+    "batch_size": 2,
+    "workers": 0,
+    "prefetch_factor": 2,
+    "pin_memory": true,
+    "cpu_threads": 4,
+    "seed": 53,
+    "deterministic": true,
+    "threshold": 0.5,
+    "tolerance_px": 15.0,
+    "tolerance_space": "source",
+    "unknown_position": "ignore",
+    "video_max_width": 1280,
+    "experiment": "ball-evaluation"
+  },
+  "checkpoint_sha256": "f35ebc50ec8d98567e14327c8539b12d36c9d65a3e4d525d4d4a932dd4299800",
+  "dataset_id": "6c7036e1533857a4d7f6bc54adcd701e32d68e144c4aa47991d5349c56adbf2c",
+  "export_id": "c090462cb87236a5a766dbe9d93f134a8b4d05bf88cd14097ff97d9cfa684c2a",
+  "selection_id": "4f41fe8b95da67d46f78a753ad830cee98810abed002b7dfa2ea7063c95a891c",
+  "evaluator_id": "440c9a67814372c00317fc9f1725d6dbfe95b17ad290c6b847631ee9a90710bc",
+  "recipe_id": "96e9fb8d4b2c8d1dcc0e5b10fcd72ec2a157a595629604d95b5cfefc6e4d0435"
+}

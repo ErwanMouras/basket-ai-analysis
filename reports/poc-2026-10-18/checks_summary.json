@@ -1,0 +1,57 @@
+{
+  "training_executed": false,
+  "annotation_sources_modified": false,
+  "suites": [
+    {
+      "name": "players",
+      "returncode": 0,
+      "tests": 153,
+      "skipped": 10,
+      "seconds": 17.243395638000038
+    },
+    {
+      "name": "ball",
+      "returncode": 0,
+      "tests": 74,
+      "skipped": 16,
+      "seconds": 2.843538580999848
+    },
+    {
+      "name": "court",
+      "returncode": 0,
+      "tests": 21,
+      "skipped": 0,
+      "seconds": 1.1924554810000245
+    },
+    {
+      "name": "jersey",
+      "returncode": 0,
+      "tests": 31,
+      "skipped": 1,
+      "seconds": 0.6422791460001918
+    },
+    {
+      "name": "analysis",
+      "returncode": 0,
+      "tests": 58,
+      "skipped": 0,
+      "seconds": 1.3658911820000412
+    },
+    {
+      "name": "mlops",
+      "returncode": 0,
+      "tests": 10,
+      "skipped": 0,
+      "seconds": 0.48901551000017207
+    },
+    {
+      "name": "viewer",
+      "returncode": 0,
+      "tests": 8,
+      "skipped": 0,
+      "seconds": 4.081031951999876
+    }
+  ],
+  "status": "passed",
+  "javascript_returncode": 0
+}
