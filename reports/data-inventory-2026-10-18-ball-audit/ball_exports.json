@@ -1,0 +1,258 @@
+[
+  {
+    "format": "yolo",
+    "manifest": "exports/ball/yolo/manifest.json",
+    "dataset_id": "6c7036e1533857a4d7f6bc54adcd701e32d68e144c4aa47991d5349c56adbf2c",
+    "export_id": "9466eddaf96299d0d62f5c47d3c24e4cff7d86ea3228f2835286cd2d55de87dd",
+    "frame_counts": {
+      "train": 9913,
+      "val": 2928
+    },
+    "status_counts": {
+      "visible": 12839,
+      "occluded_with_position": 2
+    },
+    "parameters": {
+      "image_format": "jpg",
+      "jpeg_quality": 95,
+      "resize_width": null,
+      "resize_height": null,
+      "resize_mode": "letterbox",
+      "unknown_position": "exclude",
+      "occluded_position": "include",
+      "splits": [
+        "train",
+        "val"
+      ]
+    },
+    "source_comparisons": [
+      {
+        "sidecar": "train/HOU_LAL/G1/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/MIN_DEN/G3/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c04806e99d0a77841b4ae6179a8e6c8f44cf66a3d141130495cda81887e08cff",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "a15b29779849ccbfe61e1a8dfb0d23c8066407cf8267e3210aeddb157920a2ad",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "590ceec26a52605b5923b86d615ce41d244358d1afc7151136b69baeebc9f114",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/PHI_BOS/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "ee453f5f5d5eecb043d5247fd0c292b34ff11a39bf9f29af1d4c0bb9950b3714",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/TOR_CLE/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c0702b8b222a813ff62e49da1f9d2404cd8259e1a98daaba20c58af0797287b7",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/PHX_OKC/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "9368301bb884c5d4db1ed2dcb2358436cbd0be308c49ce78940fcf6c5e1e3ea8",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/POR_SAS/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "1799d308513e6c42ffcd46d3af8ad60d875f80e39d4ca2e2bd006f8a8414513e",
+        "video_hash_matches": true
+      }
+    ],
+    "all_annotation_hashes_match": true,
+    "report": {
+      "frames": 12841,
+      "boxes": 12841
+    },
+    "scope": "Manifest/source annotation hashes and JSONL counts checked; exported image bytes and full export integrity were not re-audited."
+  },
+  {
+    "format": "coco",
+    "manifest": "exports/ball/coco/manifest.json",
+    "dataset_id": "6c7036e1533857a4d7f6bc54adcd701e32d68e144c4aa47991d5349c56adbf2c",
+    "export_id": "e54c80ae3999751fa80fd1d9f1a12ff9bf519fa30a231d5051707478740b797e",
+    "frame_counts": {
+      "train": 9913,
+      "val": 2928
+    },
+    "status_counts": {
+      "visible": 12839,
+      "occluded_with_position": 2
+    },
+    "parameters": {
+      "image_format": "jpg",
+      "jpeg_quality": 95,
+      "resize_width": null,
+      "resize_height": null,
+      "resize_mode": "letterbox",
+      "unknown_position": "exclude",
+      "occluded_position": "include",
+      "splits": [
+        "train",
+        "val"
+      ]
+    },
+    "source_comparisons": [
+      {
+        "sidecar": "train/HOU_LAL/G1/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/MIN_DEN/G3/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c04806e99d0a77841b4ae6179a8e6c8f44cf66a3d141130495cda81887e08cff",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "a15b29779849ccbfe61e1a8dfb0d23c8066407cf8267e3210aeddb157920a2ad",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "590ceec26a52605b5923b86d615ce41d244358d1afc7151136b69baeebc9f114",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/PHI_BOS/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "ee453f5f5d5eecb043d5247fd0c292b34ff11a39bf9f29af1d4c0bb9950b3714",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/TOR_CLE/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c0702b8b222a813ff62e49da1f9d2404cd8259e1a98daaba20c58af0797287b7",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/PHX_OKC/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "9368301bb884c5d4db1ed2dcb2358436cbd0be308c49ce78940fcf6c5e1e3ea8",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/POR_SAS/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "1799d308513e6c42ffcd46d3af8ad60d875f80e39d4ca2e2bd006f8a8414513e",
+        "video_hash_matches": true
+      }
+    ],
+    "all_annotation_hashes_match": true,
+    "report": {
+      "frames": 12841,
+      "boxes": 12841
+    },
+    "scope": "Manifest/source annotation hashes and JSONL counts checked; exported image bytes and full export integrity were not re-audited."
+  },
+  {
+    "format": "tracknet-totnet",
+    "manifest": "exports/ball/tracknet-totnet/manifest.json",
+    "dataset_id": "6c7036e1533857a4d7f6bc54adcd701e32d68e144c4aa47991d5349c56adbf2c",
+    "export_id": "c090462cb87236a5a766dbe9d93f134a8b4d05bf88cd14097ff97d9cfa684c2a",
+    "frame_counts": {
+      "train": 9913,
+      "val": 2928
+    },
+    "status_counts": {
+      "visible": 12839,
+      "occluded_with_position": 2
+    },
+    "parameters": {
+      "image_format": "jpg",
+      "jpeg_quality": 95,
+      "resize_width": null,
+      "resize_height": null,
+      "resize_mode": "letterbox",
+      "unknown_position": "exclude",
+      "occluded_position": "include",
+      "splits": [
+        "train",
+        "val"
+      ],
+      "tracknet_layouts": [
+        "sdk"
+      ],
+      "heatmap_radius": 40,
+      "heatmap_variance": 10.0
+    },
+    "source_comparisons": [
+      {
+        "sidecar": "train/HOU_LAL/G1/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/MIN_DEN/G3/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c04806e99d0a77841b4ae6179a8e6c8f44cf66a3d141130495cda81887e08cff",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "a15b29779849ccbfe61e1a8dfb0d23c8066407cf8267e3210aeddb157920a2ad",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/ORL_DET/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "590ceec26a52605b5923b86d615ce41d244358d1afc7151136b69baeebc9f114",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/PHI_BOS/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "ee453f5f5d5eecb043d5247fd0c292b34ff11a39bf9f29af1d4c0bb9950b3714",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "train/TOR_CLE/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "c0702b8b222a813ff62e49da1f9d2404cd8259e1a98daaba20c58af0797287b7",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/PHX_OKC/G4/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "9368301bb884c5d4db1ed2dcb2358436cbd0be308c49ce78940fcf6c5e1e3ea8",
+        "video_hash_matches": true
+      },
+      {
+        "sidecar": "val/POR_SAS/G5/video.mp4.ballann.json",
+        "annotation_hash_matches": true,
+        "recorded_video_hash": "1799d308513e6c42ffcd46d3af8ad60d875f80e39d4ca2e2bd006f8a8414513e",
+        "video_hash_matches": true
+      }
+    ],
+    "all_annotation_hashes_match": true,
+    "report": {
+      "sdk_triplets": {
+        "train": 9467,
+        "val": 2836
+      }
+    },
+    "scope": "Manifest/source annotation hashes and JSONL counts checked; exported image bytes and full export integrity were not re-audited."
+  }
+]

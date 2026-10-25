@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "observation v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "artifact_type": {
+      "const": "video_observation"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "frame_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp_s": {
+      "type": "number",
+      "minimum": 0
+    },
+    "segment_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scene_cut": {
+      "type": "boolean"
+    },
+    "included": {
+      "type": "boolean"
+    },
+    "width": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "height": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "coordinate_space": {
+      "const": "source_pixels"
+    },
+    "distance_unit": {
+      "const": "m"
+    },
+    "persons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "observation_id": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "player",
+              "referee",
+              "unknown"
+            ]
+          },
+          "bbox": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "display_color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "track_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position_m": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ground_point_px": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ground_point_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "role",
+          "bbox",
+          "confidence",
+          "track_id",
+          "position_m",
+          "ground_point_px",
+          "ground_point_method",
+          "position_status"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "ball": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ok",
+            "not_detected",
+            "not_scheduled",
+            "disabled",
+            "unavailable",
+            "error"
+          ]
+        },
+        "position_px": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "position_px",
+        "confidence"
+      ],
+      "additionalProperties": true
+    },
+    "court": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "ok",
+              "not_detected",
+              "not_scheduled",
+              "disabled",
+              "unavailable",
+              "error"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_type",
+    "run_id",
+    "frame_index",
+    "timestamp_s",
+    "segment_id",
+    "scene_cut",
+    "included",
+    "width",
+    "height",
+    "coordinate_space",
+    "distance_unit",
+    "persons",
+    "ball",
+    "court",
+    "stages"
+  ],
+  "additionalProperties": false
+}

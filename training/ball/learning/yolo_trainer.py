@@ -19,7 +19,18 @@ class BallDetectionTrainer(DetectionTrainer):
         self.ball_config = config
         self.tracking = tracking
         self.epoch_start = time.monotonic()
+        self.best_f1 = float("-inf")
+        self.f1_improved = False
         super().__init__(overrides=overrides)
+
+    def build_dataset(self, dataset_path, mode="train", batch=None):
+        dataset = super().build_dataset(dataset_path, mode, batch)
+        width, height = self.ball_config["input_width"], self.ball_config["input_height"]
+        if self.ball_config["yolo"].get("rect") and width != height:
+            # Native rectangular validation adds stride padding. Pin both splits
+            # to the requested shape so a 512x288 comparison really uses 512x288.
+            dataset.batch_shapes[:] = (height, width)
+        return dataset
 
     def check_resume(self, overrides):
         super().check_resume(overrides)
@@ -60,6 +71,11 @@ class BallDetectionTrainer(DetectionTrainer):
             client.log_artifact(run_id, str(path), "provenance")
             client.log_param(run_id, "effective_amp", self.amp)
             client.log_param(run_id, "effective_workers", self.args.workers)
+            client.log_param(run_id, "effective_rect", self.args.rect)
+            if self.args.rect:
+                for split, loader in (("train", self.train_loader), ("val", self.test_loader)):
+                    shapes = sorted({tuple(map(int, shape)) for shape in loader.dataset.batch_shapes})
+                    client.log_param(run_id, f"effective_{split}_shapes", shapes)
             client.log_param(
                 run_id,
                 "parameter_count",
@@ -80,12 +96,21 @@ class BallDetectionTrainer(DetectionTrainer):
                 **self.metrics,
                 **self.lr,
                 "epoch_seconds": time.monotonic() - self.epoch_start,
+                "train/samples": len(self.train_loader.dataset),
+                "val/samples": len(self.test_loader.dataset),
             }
+            precision = float(self.metrics.get("metrics/precision(B)", 0))
+            recall = float(self.metrics.get("metrics/recall(B)", 0))
+            metrics["metrics/F1_B"] = 2 * precision * recall / max(precision + recall, 1e-12)
             metrics = {
                 key.replace("(", "_").replace(")", ""): value
                 for key, value in metrics.items()
             }
             log_metrics(client, run_id, metrics, self.epoch)
+            if self.f1_improved:
+                client.log_artifact(run_id, str(self.last.parent / "best_f1.pt"), "checkpoints")
+                client.set_tag(run_id, "checkpoint.best_f1.epoch", str(self.epoch + 1))
+                client.set_tag(run_id, "checkpoint.best_f1.score", str(self.best_f1))
 
     def save_model(self):
         if super().save_model() is False:
@@ -93,6 +118,11 @@ class BallDetectionTrainer(DetectionTrainer):
         payload = torch.load(self.last, map_location="cpu", weights_only=False)
         payload["optimizer"] = deepcopy(self.optimizer.state_dict())
         payload["ema"] = deepcopy(self.ema.ema).float()
+        precision = float(self.metrics.get("metrics/precision(B)", 0))
+        recall = float(self.metrics.get("metrics/recall(B)", 0))
+        f1 = 2 * precision * recall / max(precision + recall, 1e-12)
+        self.f1_improved = f1 > self.best_f1
+        self.best_f1 = max(self.best_f1, f1)
         payload["ball_training"] = {
             "model": deepcopy(unwrap_model(self.model).state_dict()),
             "scheduler": self.scheduler.state_dict(),
@@ -101,16 +131,20 @@ class BallDetectionTrainer(DetectionTrainer):
             "contract": resume_contract(self.ball_config),
             "run_id": self.tracking[1],
             "loader_generator": self.train_loader.generator.get_state(),
+            "best_f1": self.best_f1,
         }
         save_checkpoint(self.last, payload)
         if self.best_fitness == self.fitness:
             save_checkpoint(self.best, payload)
+        if self.f1_improved:
+            save_checkpoint(self.last.parent / "best_f1.pt", payload)
 
     def resume_training(self, checkpoint):
         super().resume_training(checkpoint)
         if not self.resume:
             return
         state = checkpoint["ball_training"]
+        self.best_f1 = state.get("best_f1", float("-inf"))
         unwrap_model(self.model).load_state_dict(state["model"])
         self.scheduler.load_state_dict(state["scheduler"])
         vars(self.stopper).update(state["stopper"])

@@ -193,7 +193,8 @@ def load_candidate(model_uri, mlflow_uri="sqlite:///mlflow.db", *, device="cpu")
         return detector, {**metadata, "version": str(version.version), "model_uri": f"models:/{NAME}/{version.version}"}
 
 
-def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///mlflow.db"):
+def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///mlflow.db",
+            quality_policy=None, baseline_evaluation=None):
     from mlflow.exceptions import MlflowException
     if not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9_-]*", alias) or not isinstance(reason, str) or not reason.strip():
         raise ValueError("An explicit alias and reason are required")
@@ -202,6 +203,7 @@ def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///
         target = client.get_model_version(NAME, str(version))
         if target.status != "READY" or target.tags.get("players.smoke") != "false":
             raise ValueError("Only a ready, evaluated non-smoke candidate can be promoted")
+        decision = None
         # Validate actual packaged provenance too; mutable version tags alone are insufficient.
         with tempfile.TemporaryDirectory() as temp:
             path = Path(client.download_artifacts(target.run_id, "model/data/bundle/candidate.json", temp))
@@ -213,6 +215,20 @@ def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///
             evaluation = client.get_run(metadata["evaluation_run_id"])
             if evaluation.info.status != "FINISHED":
                 raise ValueError("The candidate evaluation is no longer finished")
+            if alias == "champion" or quality_policy is not None or baseline_evaluation is not None:
+                if quality_policy is None or baseline_evaluation is None:
+                    raise ValueError("Champion promotion requires quality_policy and baseline_evaluation")
+                from mlops.quality import decide, read_result
+                candidate_path = client.download_artifacts(metadata["evaluation_run_id"], "evaluation/result.json", temp)
+                candidate = read_result(candidate_path)
+                if (candidate.get("run_id") != metadata["evaluation_run_id"]
+                        or any(candidate.get(key) != metadata.get(key)
+                               for key in ("model", "comparison_id", "metrics", "reference"))):
+                    raise ValueError("Candidate evaluation differs from the registered provenance")
+                decision = decide(read_result(baseline_evaluation), candidate, read_yaml(Path(quality_policy)))
+                if not decision["accepted"]:
+                    failed = [c["name"] for c in decision["checks"] if not c["passed"]]
+                    raise ValueError(f"Quality policy rejected promotion: {', '.join(failed)}")
         try:
             previous = str(client.get_model_version_by_alias(NAME, alias).version)
         except MlflowException as exc:
@@ -227,6 +243,8 @@ def promote(alias, version, *, expected_previous, reason, mlflow_uri="sqlite:///
         audit = {"alias": alias, "previous": previous, "version": str(version), "reason": reason,
                  "actor": getpass.getuser(), "time": time.time(), "state": "INTENT",
                  "candidate_id": metadata["candidate_id"]}
+        if decision is not None:
+            audit["quality_decision"] = decision
         run_id = client.create_run(experiment(client, "players-registry-history"), tags={
             "mlflow.runName": f"alias-{alias}", "alias": alias, "previous_version": previous or "none",
             "target_version": str(version), "actor": audit["actor"], "reason": reason}).info.run_id
@@ -263,9 +281,10 @@ def main():
             raise ValueError("Unknown candidate settings; registration never promotes an alias")
         result = register_candidate(ROOT / config["evaluation"], ROOT / config["weights"], mlflow_uri=uri)
     elif action == "promote":
-        if set(config) - {"action", "alias", "version", "expected_previous", "reason", "mlflow_uri"} or "expected_previous" not in config:
+        if set(config) - {"action", "alias", "version", "expected_previous", "reason", "mlflow_uri", "quality_policy", "baseline_evaluation"} or "expected_previous" not in config:
             raise ValueError("Promotion requires an explicit expected_previous and known settings")
-        result = promote(config["alias"], config["version"], expected_previous=config["expected_previous"], reason=config["reason"], mlflow_uri=uri)
+        result = promote(config["alias"], config["version"], expected_previous=config["expected_previous"], reason=config["reason"], mlflow_uri=uri,
+                         quality_policy=config.get("quality_policy"), baseline_evaluation=config.get("baseline_evaluation"))
     else:
         raise ValueError("action must be register or promote; rollback promotes an earlier version explicitly")
     print(json.dumps(result, indent=2))

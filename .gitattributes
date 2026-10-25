@@ -1,0 +1,3 @@
+# Preserve generated evidence without rewriting CSV line endings or SVG paths.
+reports/**/*.csv whitespace=cr-at-eol
+reports/**/*.svg -whitespace

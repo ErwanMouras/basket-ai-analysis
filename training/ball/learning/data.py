@@ -12,8 +12,8 @@ def rows(path):
         return list(csv.DictReader(handle))
 
 
-def frame_index(root, split):
-    if split not in ("train", "val"):
+def frame_index(root, split, *, allow_test=False):
+    if split not in (("train", "val", "test") if allow_test else ("train", "val")):
         raise ValueError("Training readers accept only train and val")
     result = {}
     with (root / "frames.jsonl").open() as handle:
@@ -41,8 +41,8 @@ def checked_path(root, relative):
     return path
 
 
-def sdk_samples(root, split, stride):
-    records = frame_index(root, split)
+def sdk_samples(root, split, stride, *, allow_test=False):
+    records = frame_index(root, split, allow_test=allow_test)
     samples, offsets = [], {}
     for row in rows(root / f"labels_context_{split}.csv"):
         paths = [row[key] for key in ("path_prev", "path", "path_next")]

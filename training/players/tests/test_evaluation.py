@@ -14,7 +14,7 @@ from unittest.mock import patch
 import numpy as np
 
 from training.common.files import write_json
-from training.common.provenance import object_hash
+from training.common.provenance import file_hash, object_hash
 from training.players.evaluation.config import DEFAULTS, frozen_payload, require_frozen, validate_config
 from training.players.evaluation.metrics import (AREA_RANGES, coco_metrics, evaluate, match_frame,
                                                 normalize_predictions, operating_metrics)
@@ -51,16 +51,21 @@ class MatchingTests(unittest.TestCase):
             before = verify_export(root)
             weights = base / "unloadable.pt"
             weights.write_bytes(b"freeze hashes weights but does not deserialize them")
+            referee_weights = base / "unloadable-referee.pt"
+            referee_weights.write_bytes(b"referee weights are hashed without deserialization too")
             config = {**DEFAULTS, "weights": str(weights), "dataset": str(root), "split": "test",
-                      "output": str(base / "runs")}
+                      "referee_weights": str(referee_weights), "output": str(base / "runs")}
             recipe = base / "recipe.json"
             frozen = base / "frozen.json"
             write_json(recipe, config)
             command = [sys.executable, "-m", "training.players.evaluation", "evaluate", "--config", str(recipe)]
             result = subprocess.run(command + ["--freeze-recipe", str(frozen)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(frozen.read_text())
+            self.assertEqual(payload["checkpoint_sha256"], file_hash(weights))
+            self.assertEqual(payload["referee_checkpoint_sha256"], file_hash(referee_weights))
             config["frozen_recipe"] = str(frozen)
-            require_frozen(config, json.loads(frozen.read_text()))
+            require_frozen(config, payload)
             self.assertEqual(verify_export(root), before)
             self.assertFalse((base / "runs").exists())
             result = subprocess.run(command, capture_output=True, text=True)

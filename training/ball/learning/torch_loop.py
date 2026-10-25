@@ -238,6 +238,11 @@ def resume_training(model, optimizer, scheduler, scaler, config, tracking):
         if not previous_best.is_file():
             raise ValueError("Resume requires best.pt beside the checkpoint")
         shutil.copy2(previous_best, output / "best.pt")
+        previous_f1 = Path(config["resume"]).parent / "best_f1.pt"
+        if previous_f1.is_file():
+            shutil.copy2(previous_f1, output / "best_f1.pt")
+        elif "best_val_f1" in checkpoint:
+            raise ValueError("Resume requires best_f1.pt beside the checkpoint")
         client.set_tag(run_id, "resumed_from_run", checkpoint["run_id"])
     if start_epoch >= config["epochs"]:
         raise ValueError("Checkpoint already reached the configured epoch budget")
@@ -251,6 +256,11 @@ def fit(model, train, val, loss_fn, config, device, tracking, mixup_alpha=0):
     start_epoch, best = resume_training(
         model, optimizer, scheduler, scaler, config, tracking
     )
+    best_f1 = float("-inf")
+    if (output / "best_f1.pt").is_file():
+        best_f1 = torch.load(
+            output / "best_f1.pt", map_location="cpu", weights_only=False
+        )["best_val_f1"]
     client.log_param(
         run_id,
         "parameter_count",
@@ -284,6 +294,8 @@ def fit(model, train, val, loss_fn, config, device, tracking, mixup_alpha=0):
             )
             improved = metrics["val/loss"] < best
             best = min(best, metrics["val/loss"])
+            improved_f1 = metrics["val/f1"] > best_f1
+            best_f1 = max(best_f1, metrics["val/f1"])
             if scheduler:
                 scheduler.step()
             payload = {
@@ -293,6 +305,8 @@ def fit(model, train, val, loss_fn, config, device, tracking, mixup_alpha=0):
                 "scaler": scaler.state_dict(),
                 "epoch": epoch,
                 "best_val_loss": best,
+                "best_val_f1": best_f1,
+                "metrics": dict(metrics),
                 "rng": rng_state(),
                 "contract": resume_contract(config),
                 "config": config,
@@ -301,6 +315,12 @@ def fit(model, train, val, loss_fn, config, device, tracking, mixup_alpha=0):
             save_checkpoint(output / "last.pt", payload)
             if improved:
                 save_checkpoint(output / "best.pt", payload)
+                client.log_artifact(run_id, str(output / "best.pt"), "checkpoints")
+            if improved_f1:
+                save_checkpoint(output / "best_f1.pt", payload)
+                client.log_artifact(run_id, str(output / "best_f1.pt"), "checkpoints")
+                client.set_tag(run_id, "checkpoint.best_f1.epoch", str(epoch + 1))
+                client.set_tag(run_id, "checkpoint.best_f1.score", str(best_f1))
             metrics.update(
                 learning_rate=learning_rate, epoch_seconds=time.monotonic() - start
             )
@@ -310,7 +330,7 @@ def fit(model, train, val, loss_fn, config, device, tracking, mixup_alpha=0):
                 flush=True,
             )
     finally:
-        for name in ("best.pt", "last.pt"):
+        for name in ("best.pt", "best_f1.pt", "last.pt"):
             if (output / name).exists():
                 client.log_artifact(run_id, str(output / name), "checkpoints")
     return output

@@ -1,0 +1,15 @@
+schema_version: 1
+description: "Provisional project selection policy on the same validation protocol; not a production-accuracy guarantee."
+rules:
+  - name: sufficient_reviewed_images
+    path: [metrics, global, images]
+    min: 100
+  - name: detection_ap_regression
+    path: [metrics, global, ap50_95]
+    max_drop: 0.01
+  - name: detection_recall_regression
+    path: [metrics, global, recall]
+    max_drop: 0.02
+  - name: adapter_p95_budget
+    path: [performance, adapter, p95_ms]
+    max_ratio: 1.25

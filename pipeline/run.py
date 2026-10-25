@@ -50,6 +50,8 @@ class Models:
         for name in config["required"]:
             section = "people" if name in ("players", "referees") else name
             c = config[section]
+            if section == "people" and c["adapter"] == "registry":
+                continue
             if not c.get("enabled", True) or not c.get("weights") or not Path(c["weights"]).is_file():
                 raise ValueError(f"Required capability {name} has no enabled local checkpoint")
         self.people = People(config["people"])
@@ -141,7 +143,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 "warnings": [], "artifacts": {}, "display_colors": palette}
     root = Path(__file__).resolve().parents[1]
     manifest["code_sha256"] = {str(path.relative_to(root)): file_hash(path)
-                               for folder in ("pipeline", "training/players", "training/court", "training/jersey", "training/ball", "training/common")
+                               for folder in ("pipeline", "mlops", "training/players", "training/court", "training/jersey", "training/ball", "training/common")
                                for path in sorted((root / folder).rglob("*.py")) if "tests" not in path.parts}
     write_json(output / "run.json", manifest)
     if roster:
@@ -332,6 +334,10 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
         manifest["timings"]["total_s"] = time.perf_counter() - started
         write_json(output / "run.json", manifest)
         write_json(output / "progress.json", {"run_id": run_id, "status": stats["status"], "frames": frames_done})
+        from mlops.health import build_health
+        write_json(output / "health.json", build_health(output))
+        manifest["artifacts"]["health.json"] = {"sha256": file_hash(output / "health.json")}
+        write_json(output / "run.json", manifest)
         return stats
     except BaseException as exc:
         manifest.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",

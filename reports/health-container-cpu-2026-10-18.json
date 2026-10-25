@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "run_id": "eb32544860d54707b02fee643cc76a95",
+  "status": "completed",
+  "counts": {
+    "frames": 3,
+    "included_frames": 3,
+    "calibrated_frames": 3,
+    "cuts": 0,
+    "ball_localized_frames": 0,
+    "player_observations": 31,
+    "projected_player_observations": 23,
+    "named_player_observations": 0
+  },
+  "player_track_fragments": 10,
+  "ratios": {
+    "calibration_availability": 1.0,
+    "ball_localization_availability": 0.0,
+    "player_projection_availability": 0.7419354838709677,
+    "named_identity_availability": 0.0
+  },
+  "exclusion_counts": {
+    "outside_calibrated_support": 4,
+    "ground_point_method_change": 1,
+    "implausible_speed": 1
+  },
+  "stage_status_counts": {
+    "players:ok": 3,
+    "referees:ok": 3,
+    "court:ok": 3,
+    "pose:ok": 3,
+    "jersey:ok": 3,
+    "ball:unavailable": 2,
+    "ball:not_detected": 1
+  },
+  "timings": {
+    "load_s": 7.494467233000023,
+    "processing_s": 0.9823149649998868,
+    "total_s": 8.489931121999916,
+    "fps": 3.054010278668966,
+    "stages": {
+      "people": {
+        "calls": 3,
+        "seconds": 0.056121156000017436,
+        "wait_seconds": 8.664999995744438e-06
+      },
+      "court": {
+        "calls": 1,
+        "seconds": 0.23378590599986637,
+        "wait_seconds": 8.095000112007256e-06
+      },
+      "pose": {
+        "calls": 3,
+        "seconds": 0.19372378299999582,
+        "wait_seconds": 1.5438999980688095e-05
+      },
+      "jersey": {
+        "calls": 3,
+        "seconds": 0.0052842309999050485,
+        "wait_seconds": 2.6749000198833528e-05
+      },
+      "ball": {
+        "calls": 1,
+        "seconds": 0.3888235500000974,
+        "wait_seconds": 8.987000001070555e-06
+      }
+    },
+    "finalization_s": 0.013148282999964067
+  },
+  "resources": {
+    "main_peak_rss_mb": 1539.77734375,
+    "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+    "ball_worker": {
+      "peak_rss_mb": 1101.91015625,
+      "peak_torch_cuda_allocated_mb": null
+    }
+  },
+  "models": {
+    "people": {
+      "adapter": "yolo",
+      "checkpoint_sha256": "dfe3534d51bb21024d1a400c37f0c1fbf0c8b96ea9a56a5f3cb5454813bfd641",
+      "weights": "/app/models/people/weights.pt",
+      "class_names": {
+        "0": "basketball",
+        "1": "hoop",
+        "2": "player",
+        "3": "referee"
+      },
+      "class_roles": {
+        "2": "player",
+        "3": "referee"
+      }
+    },
+    "tracking": {
+      "association": "independent_per_role",
+      "roles": [
+        "player",
+        "referee"
+      ],
+      "backend": {
+        "backend": "ultralytics.botsort",
+        "ultralytics_version": "8.4.39",
+        "lap_version": "0.5.12",
+        "with_reid": false,
+        "gmc_method": "sparseOptFlow",
+        "fps": 30.0,
+        "track_buffer_frames": 30,
+        "id_scope": "tracking_run_id",
+        "bbox_source": "current_detection",
+        "unconfirmed_track_id": null,
+        "config": {
+          "enabled": true,
+          "tracker": "botsort",
+          "track_high_thresh": 0.25,
+          "track_low_thresh": 0.1,
+          "new_track_thresh": 0.25,
+          "track_buffer_seconds": 1.0,
+          "match_thresh": 0.8,
+          "fuse_score": false,
+          "gmc_method": "sparseOptFlow",
+          "reset_frames": []
+        }
+      }
+    },
+    "court": {
+      "model": "basketball_analysis_yolov8x_pose18",
+      "checkpoint_sha256": "f6263105e5c2338fafcfd5a6fefd7d1d441e87364635e918dfdbb849f2df1377",
+      "source": "https://github.com/abdullahtarek/basketball_analysis/tree/197eef8ad7dc0b4daeeaa2086275aeaca8fbb8eb",
+      "ultralytics_version": "8.4.39",
+      "device": "cpu",
+      "resolution": 640
+    },
+    "pose": {
+      "model": "rtmpose-m",
+      "format": "coco17",
+      "checkpoint_sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+      "model_url": "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip",
+      "onnxruntime_version": "1.27.0",
+      "device": "cpu",
+      "providers": [
+        "CPUExecutionProvider"
+      ],
+      "precision": "fp32",
+      "cuda_tf32": false,
+      "input_size": [
+        192,
+        256
+      ],
+      "channel_order": "BGR",
+      "padding": 1.25,
+      "simcc_split_ratio": 2.0,
+      "score_reduction": "mean_xy_maxima",
+      "keypoint_names": [
+        "nose",
+        "left_eye",
+        "right_eye",
+        "left_ear",
+        "right_ear",
+        "left_shoulder",
+        "right_shoulder",
+        "left_elbow",
+        "right_elbow",
+        "left_wrist",
+        "right_wrist",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_ankle",
+        "right_ankle"
+      ],
+      "skeleton": [
+        [
+          5,
+          7
+        ],
+        [
+          7,
+          9
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          6,
+          12
+        ],
+        [
+          11,
+          12
+        ],
+        [
+          11,
+          13
+        ],
+        [
+          13,
+          15
+        ],
+        [
+          12,
+          14
+        ],
+        [
+          14,
+          16
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "batch_size_effective": 16,
+      "config": {
+        "enabled": true,
+        "weights": "/app/models/pose/weights.onnx",
+        "device": "cpu",
+        "cpu_threads": 4,
+        "batch_size": 16,
+        "min_detection_confidence": 0.25,
+        "keypoint_min_confidence": 0.3,
+        "min_bbox_area": 256.0,
+        "max_players": 32
+      }
+    },
+    "jersey": {
+      "reader": {
+        "model": "PARSeq generic",
+        "checkpoint_sha256": "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00",
+        "model_url": "https://github.com/baudm/parseq/releases/download/v1.0.0/parseq-bb5792a6.pt",
+        "device": "cpu",
+        "precision": "fp32",
+        "input_size": [
+          128,
+          32
+        ],
+        "alphabet": "0123456789",
+        "max_decode_length": 2,
+        "refine_iters": 0,
+        "decoding": "digit-constrained autoregressive; confidence from full vocabulary",
+        "timm_version": "0.9.16",
+        "weights_only": true
+      },
+      "roster": {
+        "mode": "unrestricted",
+        "sha256": null
+      },
+      "config": {
+        "enabled": true,
+        "weights": "/app/models/jersey/weights.pt",
+        "device": "cpu",
+        "cpu_threads": 2,
+        "batch_size": 4,
+        "crops_per_video_second": 8.0,
+        "max_duty_cycle": 0.15,
+        "min_batch_interval_seconds": 0.1,
+        "gpu_reserve_mb": 1024,
+        "sample_interval_seconds": 0.1,
+        "selection_window_seconds": 0.3,
+        "read_interval_seconds": 0.75,
+        "confirmed_interval_seconds": 3.0,
+        "evidence_ttl_seconds": 12.0,
+        "state_ttl_seconds": 10.0,
+        "max_tracks": 64,
+        "max_evidence": 8,
+        "min_votes": 2,
+        "min_agreement": 0.75,
+        "min_ocr_confidence": 0.9,
+        "min_detection_confidence": 0.4,
+        "min_crop_width": 20,
+        "min_crop_height": 24,
+        "min_sharpness": 25.0,
+        "min_contrast": 12.0,
+        "max_overlap": 0.4
+      },
+      "fusion": "causal weighted agreement with consecutive confirmation",
+      "budget": "source-time token bucket and wall-time duty cooldown",
+      "team_colors": "two anonymous groups from repeated dominant torso colors"
+    },
+    "ball": {
+      "adapter": "tracknet_v5",
+      "geometry": {
+        "version": 5,
+        "input_width": 512,
+        "input_height": 288,
+        "sequence_length": 3,
+        "sequence_stride": 1,
+        "occlusion_augmentation": false,
+        "ball_present_weight": 1.0
+      },
+      "checkpoint_sha256": "f35ebc50ec8d98567e14327c8539b12d36c9d65a3e4d525d4d4a932dd4299800",
+      "training_run_id": "1edd81e040564da2bfa36a757fb855f7",
+      "reference": {
+        "url": "https://github.com/codelancera-offical/TrackNetV5-SDK.git",
+        "revision": "779d78f487b63cd76076f8deab27f42dcd4d8930"
+      },
+      "temporal_policy": "causal_triplet_last_head_no_overlap_fusion"
+    }
+  },
+  "warnings": [],
+  "interpretation": "Availability and integrity only. Track fragments are not unique players. These ratios do not measure accuracy or model drift without reviewed ground truth."
+}

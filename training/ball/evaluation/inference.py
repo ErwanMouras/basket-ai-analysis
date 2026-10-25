@@ -12,17 +12,21 @@ from training.ball.learning.data import checked_path, sdk_samples
 from training.ball.learning.references import activate_reference
 from training.ball.learning.torch_data import image_tensor, sdk_resize_triplet
 from training.ball.learning.torch_loop import loader, seed_everything
+from .config import validate_checkpoint_for_split
+from .frames import cut_safe_samples
 
 
 class SDKFrames(Dataset):
-    def __init__(self, root, geometry):
+    def __init__(self, root, geometry, split="val", cut_frames=None):
         self.root = Path(root)
         self.geometry = geometry
         # Dense inference covers all valid windows, independent of training stride.
         self.samples = sorted(
-            sdk_samples(self.root, "val", 1),
+            sdk_samples(self.root, split, 1, allow_test=True),
             key=lambda sample: (sample[1][0]["clip_id"], sample[1][0]["frame_index"]),
         )
+        cuts = cut_frames or {}
+        self.samples = cut_safe_samples(self.samples, cuts)
         for _, frames in self.samples:
             for frame in frames:
                 checked_path(self.root, frame["image"])
@@ -52,13 +56,11 @@ class V5Predictor:
             config["checkpoint"], map_location="cpu", weights_only=False
         )
         trained = checkpoint["config"]
+        validate_checkpoint_for_split(trained, config["split"])
         if trained["model"] not in ("tracknet_v5", "tracknet_v5_totnet"):
             raise ValueError(
                 "This inference adapter supports V5 and V5 + TOTNet checkpoints"
             )
-        for key in ("dataset_id", "export_id"):
-            if trained[key] != manifest[key]:
-                raise ValueError(f"Checkpoint {key} differs from evaluation export")
         reference_config = {**trained, "reference_root": config["reference_root"]}
         activate_reference(reference_config)
         if reference_config["reference"] != trained["reference"]:
@@ -78,6 +80,8 @@ class V5Predictor:
             "reference": trained["reference"],
             "training_run_id": checkpoint["run_id"],
             "checkpoint_epoch": checkpoint["epoch"],
+            "training_dataset_id": trained["dataset_id"],
+            "training_export_id": trained["export_id"],
         }
 
     def predict(self, images):

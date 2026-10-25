@@ -1,0 +1,9 @@
+checkpoint: runs/ball/1edd81e040564da2bfa36a757fb855f7/best.pt
+dataset: exports/ball/tracknet-totnet
+output: runs/ball/evaluation-causal
+temporal_policy: causal_last
+# Supply reviewed source cuts by clip_id for a camera-segment benchmark.
+cut_frames: {}
+workers: 0
+videos: false
+mlflow_uri: sqlite:///runs/ball/causal-evaluation.db

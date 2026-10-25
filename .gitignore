@@ -21,8 +21,11 @@ htmlcov/
 *.pth
 *.onnx
 *.engine
+!/examples/demo/videos/synthetic.mp4
 /datas
 /exports/
+
+# Guides and release documentation are part of the project sources.
 
 # Training environments, pinned checkouts, checkpoints and local MLflow
 .venv-ball-*/
@@ -32,3 +35,4 @@ htmlcov/
 /mlruns/
 /mlartifacts/
 /mlflow.db*
+/release/

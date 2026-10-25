@@ -25,6 +25,8 @@ input_height: 960
 sequence_length: 1
 sequence_stride: 1
 yolo:
+  # Set true with explicit non-square dimensions for a fixed rectangular input.
+  rect: false
   # Disable optional implicit Albumentations defaults, even when the package is installed.
   augmentations: []
   pretrained: true

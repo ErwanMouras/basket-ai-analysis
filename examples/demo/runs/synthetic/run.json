@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "run_id": "synthetic-demo",
+  "status": "completed",
+  "frames": 180,
+  "segments": 2,
+  "source": {
+    "path": "synthetic.mp4",
+    "sha256": "46d172f58d5db5f0fbab856252143568d169d720d9bbb3232e617593d129da25",
+    "nominal_fps": 30,
+    "width": 640,
+    "height": 360,
+    "declared_frames": 180,
+    "decoded_frames": 180
+  },
+  "display_colors": {
+    "teams": {
+      "blue": "#45C7F5",
+      "pink": "#F279C8"
+    },
+    "groups": {
+      "team_1": "#A5B4FC",
+      "team_2": "#FACC65"
+    },
+    "referee": "#FFBD78",
+    "unassigned": "#C9F579"
+  },
+  "demo": "Scripted synthetic interface demonstration; no learned predictions.",
+  "models": {},
+  "warnings": [
+    "synthetic_scripted_demo"
+  ],
+  "artifacts": {
+    "statistics.json": {
+      "sha256": "3fd430970626edfa5fc2a468755f593bacfd4fc75287cf70dc6ebe2d67292ac7"
+    },
+    "observations.jsonl": {
+      "sha256": "51b0b2fa3cb52fc60e9cac239cd87cb1b35c96c95e2c98f4561e2c77fa8144a9"
+    },
+    "tracks.jsonl": {
+      "sha256": "b77de995f6b6949e62f01dc13882de93e45859440ec63ebb0f6348fd78ec7f7c"
+    },
+    "jersey_reads.jsonl": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "roster.json": {
+      "sha256": "5bf59fa4d4d534571c624dca92b4bcb70e9dd198b537bc4c427e448faab6ac10"
+    }
+  },
+  "capabilities": {
+    "players": "ok",
+    "court": "ok",
+    "ball": "ok"
+  }
+}

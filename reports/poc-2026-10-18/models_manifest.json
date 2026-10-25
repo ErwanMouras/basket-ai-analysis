@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "artifacts": [
+    {
+      "role": "people",
+      "path": "models/people/weights.pt",
+      "sha256": "dfe3534d51bb21024d1a400c37f0c1fbf0c8b96ea9a56a5f3cb5454813bfd641",
+      "bytes": 6151282,
+      "origin": "models/players/ebard_yolov8n.pt"
+    },
+    {
+      "role": "ball",
+      "path": "models/ball/weights.pt",
+      "sha256": "f35ebc50ec8d98567e14327c8539b12d36c9d65a3e4d525d4d4a932dd4299800",
+      "bytes": 177431909,
+      "origin": "runs/ball/1edd81e040564da2bfa36a757fb855f7/best.pt"
+    },
+    {
+      "role": "court",
+      "path": "models/court/weights.pt",
+      "sha256": "f6263105e5c2338fafcfd5a6fefd7d1d441e87364635e918dfdbb849f2df1377",
+      "bytes": 417722481,
+      "origin": "models/court/court_keypoints.pt"
+    },
+    {
+      "role": "pose",
+      "path": "models/pose/weights.onnx",
+      "sha256": "5c0a4bf67953e6d2ac43ce15e77dc9d5d354ae18430a47d2c5963a7bc5683e3c",
+      "bytes": 54330655,
+      "origin": "models/players/rtmpose-m.onnx"
+    },
+    {
+      "role": "jersey",
+      "path": "models/jersey/weights.pt",
+      "sha256": "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00",
+      "bytes": 95392675,
+      "origin": "models/jersey/parseq.pt"
+    },
+    {
+      "role": "configuration",
+      "path": "analysis.yaml",
+      "sha256": "d1bd3ea857adcbeba203a04b689c38a7721a7d02159885edbc531c308befd876"
+    }
+  ],
+  "tracknet_reference": {
+    "url": "https://github.com/codelancera-offical/TrackNetV5-SDK.git",
+    "revision": "779d78f487b63cd76076f8deab27f42dcd4d8930"
+  },
+  "scope": "Provisional local inference bundle. Redistribution rights are not granted by this manifest.",
+  "source_config_sha256": "c238386644b59b8085f2fe8f81b4663c79ac56bff60c1016ae439b996d0a80ba",
+  "bundle_id": "a821baa63789fe1eac8257c9daa5733aa2c51780878e082e04c010be50fe8957"
+}

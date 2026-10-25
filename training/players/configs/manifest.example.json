@@ -5,7 +5,8 @@
   "export_id": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "format": "yolo",
   "classes": {
-    "0": "player"
+    "0": "player",
+    "1": "referee"
   },
   "splits": [
     "train"

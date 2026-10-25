@@ -1,5 +1,7 @@
 action: promote
 alias: champion
+quality_policy: configs/quality_gates.yaml
+baseline_evaluation: runs/players/evaluation/REPLACE_BASELINE_RUN_ID
 version: "REPLACE_VERSION"
 # null creates an alias; otherwise specify its exact current version.
 expected_previous: null

@@ -1,0 +1,5 @@
+clip,role,start_frame_inclusive,stop_frame_exclusive,start_s,stop_s,condition
+train/HOU_LAL/G1,developpement,450,600,15.0,20.0,candidat a revoir visuellement; segmenter si coupe; exclure si reference impossible
+val/POR_SAS/G5,validation,750,900,25.0,30.0,candidat a revoir visuellement; segmenter si coupe; exclure si reference impossible
+val/PHX_OKC/G4,validation,900,1050,30.0,35.0,candidat a revoir visuellement; segmenter si coupe; exclure si reference impossible
+val/PHX_OKC/G4,validation,1200,1350,40.0,45.0,candidat a revoir visuellement; segmenter si coupe; exclure si reference impossible

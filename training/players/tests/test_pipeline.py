@@ -198,6 +198,54 @@ class VideoTests(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec("mlflow"), "Dedicated players environment required for local registry")
 class RegistryAliasTests(unittest.TestCase):
+    def test_champion_rejects_changed_evaluation_provenance(self):
+        from copy import deepcopy
+        from mlflow import MlflowClient
+        from mlflow.exceptions import MlflowException
+        from training.players.registry import NAME, promote
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            uri = f"sqlite:///{root / 'mlflow.db'}"
+            client = MlflowClient(tracking_uri=uri, registry_uri=uri)
+            exp = client.create_experiment("players-evaluation", artifact_location=str(root / "artifacts"))
+            evaluation = client.create_run(exp)
+            result = {"run_id": evaluation.info.run_id, "status": "FINISHED", "purpose": "evaluation",
+                      "model": {"checkpoint_sha256": "original"}, "reference": {"smoke": False},
+                      "metrics": {"ap": .8}, "comparison": {"dataset_id": "d", "selection_id": "s"}}
+            result["comparison_id"] = object_hash(result["comparison"])
+            client.set_terminated(evaluation.info.run_id)
+            packaged = client.create_run(exp)
+            metadata = {key: result[key] for key in ("model", "comparison_id", "metrics", "reference")}
+            metadata.update(smoke=False, evaluation_run_id=evaluation.info.run_id)
+            metadata["candidate_id"] = object_hash(metadata)
+            write_json(root / "candidate.json", metadata)
+            client.log_artifact(packaged.info.run_id, str(root / "candidate.json"), "model/data/bundle")
+            client.set_terminated(packaged.info.run_id)
+            client.create_registered_model(NAME)
+            version = client.create_model_version(NAME, source=f"runs:/{packaged.info.run_id}/model",
+                run_id=packaged.info.run_id, tags={"players.smoke": "false", "players.candidate_id": metadata["candidate_id"]})
+            write_json(root / "baseline.json", result)
+            write_json(root / "policy.json", {"schema_version": 1, "description": "fixture", "rules": [
+                {"name": "ap", "path": ["metrics", "ap"], "min": .5}]})
+            with patch.dict(os.environ, {"MLFLOW_TRACKING_URI": uri}):
+                for key, value in (("model", {"checkpoint_sha256": "other"}), ("metrics", {"ap": .99}),
+                                   ("comparison_id", "other"), ("run_id", "other"), ("reference", {"smoke": True})):
+                    changed = deepcopy(result)
+                    changed[key] = value
+                    write_json(root / "result.json", changed)
+                    client.log_artifact(evaluation.info.run_id, str(root / "result.json"), "evaluation")
+                    with self.subTest(field=key), self.assertRaisesRegex(ValueError, "registered provenance"):
+                        promote("champion", version.version, expected_previous=None, reason="fixture", mlflow_uri=uri,
+                                quality_policy=root / "policy.json", baseline_evaluation=root / "baseline.json")
+                    with self.assertRaises(MlflowException):
+                        client.get_model_version_by_alias(NAME, "champion")
+                write_json(root / "result.json", result)
+                client.log_artifact(evaluation.info.run_id, str(root / "result.json"), "evaluation")
+                accepted = promote("champion", version.version, expected_previous=None, reason="fixture", mlflow_uri=uri,
+                                   quality_policy=root / "policy.json", baseline_evaluation=root / "baseline.json")
+                self.assertTrue(accepted["quality_decision"]["accepted"])
+
     def test_explicit_promotion_rollback_stale_alias_and_smoke_guard(self):
         from mlflow import MlflowClient
         from training.players.registry import NAME, promote
@@ -221,18 +269,20 @@ class RegistryAliasTests(unittest.TestCase):
                     tags={"players.smoke": "false", "players.candidate_id": metadata["candidate_id"]})
                 versions.append(str(version.version))
             with patch.dict(os.environ, {"MLFLOW_TRACKING_URI": uri}):
-                one = promote("champion", versions[0], expected_previous=None, reason="fixture validation", mlflow_uri=uri)
-                two = promote("champion", versions[1], expected_previous=versions[0], reason="fixture upgrade", mlflow_uri=uri)
-                back = promote("champion", versions[0], expected_previous=versions[1], reason="fixture rollback", mlflow_uri=uri)
+                with self.assertRaisesRegex(ValueError, "quality_policy"):
+                    promote("champion", versions[0], expected_previous=None, reason="missing quality evidence", mlflow_uri=uri)
+                one = promote("manual-test", versions[0], expected_previous=None, reason="fixture validation", mlflow_uri=uri)
+                two = promote("manual-test", versions[1], expected_previous=versions[0], reason="fixture upgrade", mlflow_uri=uri)
+                back = promote("manual-test", versions[0], expected_previous=versions[1], reason="fixture rollback", mlflow_uri=uri)
                 self.assertEqual(back["previous"], versions[1])
-                self.assertEqual(str(client.get_model_version_by_alias(NAME, "champion").version), versions[0])
+                self.assertEqual(str(client.get_model_version_by_alias(NAME, "manual-test").version), versions[0])
                 self.assertNotEqual(one["audit_run_id"], two["audit_run_id"])
-                repeated = promote("champion", versions[0], expected_previous=versions[0], reason="same target", mlflow_uri=uri)
+                repeated = promote("manual-test", versions[0], expected_previous=versions[0], reason="same target", mlflow_uri=uri)
                 self.assertTrue(repeated["reused"])
                 with self.assertRaisesRegex(ValueError, "Alias changed"):
-                    promote("champion", versions[1], expected_previous=None, reason="stale", mlflow_uri=uri)
+                    promote("manual-test", versions[1], expected_previous=None, reason="stale", mlflow_uri=uri)
                 with self.assertRaisesRegex(ValueError, "Smoke"):
-                    promote("champion", versions[2], expected_previous=versions[0], reason="smoke forbidden", mlflow_uri=uri)
+                    promote("manual-test", versions[2], expected_previous=versions[0], reason="smoke forbidden", mlflow_uri=uri)
             history = client.get_experiment_by_name("players-registry-history")
             self.assertEqual(len(client.search_runs([history.experiment_id])), 3)
 

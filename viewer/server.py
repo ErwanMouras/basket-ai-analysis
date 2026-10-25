@@ -42,6 +42,10 @@ class ViewerServer(ThreadingHTTPServer):
         self.video_root = video_root.resolve()
         self.indices: dict[Path, RunIndex] = {}
 
+    def source_path(self, source):
+        path = Path(source.get('path', ''))
+        return (path if path.is_absolute() else self.video_root / path).resolve()
+
     def run_path(self, name: str) -> Path:
         path = (self.runs_root / name).resolve()
         if (not name or not path.is_relative_to(self.runs_root)
@@ -172,7 +176,7 @@ class Handler(BaseHTTPRequestHandler):
                                      'frames': frames, 'fps': fps, 'duration_s': (frames - 1) / fps if fps and frames else 0,
                                      'match': match.get('match_id') or source_match, 'date': match.get('date'),
                                      'roster': roster is not None,
-                                     'video_available': Path(source.get('path', '')).resolve().is_relative_to(self.server.video_root) and Path(source.get('path', '')).is_file()})
+                                     'video_available': self.server.source_path(source).is_relative_to(self.server.video_root) and self.server.source_path(source).is_file()})
                     except (OSError, ValueError, KeyError):
                         continue
                 runs.sort(key=lambda x: x['name'])
@@ -181,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
                 name = query.get('name', [''])[0]
                 path = self.server.run_path(name)
                 manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
-                source = Path(manifest['source']['path']).resolve()
+                source = self.server.source_path(manifest['source'])
                 if parsed.path == '/api/video':
                     if not source.is_relative_to(self.server.video_root) or not source.is_file():
                         raise FileNotFoundError('Vidéo source inaccessible dans le dossier autorisé')

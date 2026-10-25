@@ -53,7 +53,7 @@ def train(config):
             data=str(data_path),
             epochs=config["epochs"],
             batch=config["batch_size"],
-            imgsz=config["input_width"],
+            imgsz=max(config["input_width"], config["input_height"]),
             optimizer=config["optimizer"],
             lr0=config["learning_rate"],
             weight_decay=config["weight_decay"],
@@ -76,13 +76,18 @@ def train(config):
         trainer = BallDetectionTrainer(config, tracking, overrides)
         if previous:
             shutil.copy2(Path(config["resume"]).parent / "best.pt", trainer.best)
+            previous_f1 = Path(config["resume"]).parent / "best_f1.pt"
+            if previous_f1.is_file():
+                shutil.copy2(previous_f1, trainer.last.parent / "best_f1.pt")
+            elif "best_f1" in previous["ball_training"]:
+                raise ValueError("Resume requires best_f1.pt beside the checkpoint")
             client.set_tag(
                 run_id, "resumed_from_run", previous["ball_training"]["run_id"]
             )
         try:
             trainer.train()
         finally:
-            for path in (trainer.best, trainer.last):
+            for path in (trainer.best, trainer.last.parent / "best_f1.pt", trainer.last):
                 if path.is_file():
                     client.log_artifact(run_id, str(path), "checkpoints")
             if trainer.csv.is_file():

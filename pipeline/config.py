@@ -19,6 +19,7 @@ DEFAULTS = {
     "include_intervals": [], "exclude_intervals": [],
     "required": ["players", "court"],
     "people": {"adapter": "yolo", "weights": "models/players/ebard_yolov8n.pt",
+               "registry_uri": None, "mlflow_uri": "sqlite:///mlflow.db",
                "device": "cpu", "resolution": 640, "confidence": 0.1,
                "max_detections": 100, "class_roles": {"2": "player", "3": "referee"},
                "variant": "rfdetr_nano"},
@@ -79,8 +80,11 @@ def load_config(path=None, overrides=None):
     cfg["tracking"]["enabled"] = True
     for key, value in cfg["distance"].items():
         positive(value, key, zero=key in ("smoothing_tau_s", "deadband_m"))
-    if cfg["people"]["adapter"] not in ("yolo", "rfdetr"):
-        raise ValueError("people.adapter must be yolo or rfdetr")
+    if cfg["people"]["adapter"] not in ("yolo", "rfdetr", "registry"):
+        raise ValueError("people.adapter must be yolo, rfdetr or registry")
+    if cfg["people"]["adapter"] == "registry":
+        if not isinstance(cfg["people"]["registry_uri"], str) or not cfg["people"]["registry_uri"].startswith("models:/players-detector"):
+            raise ValueError("Registry adapter requires an explicit players-detector model URI")
     roles = cfg["people"]["class_roles"]
     if not roles or any(not k.isdigit() or v not in ("player", "referee", "unknown") for k, v in roles.items()):
         raise ValueError("class_roles maps model class IDs to player/referee/unknown")
