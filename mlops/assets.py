@@ -23,6 +23,9 @@ def verify(root):
         if not path.is_relative_to(root) or file_hash(path) != artifact["sha256"]:
             raise ValueError(f"Model bundle integrity mismatch: {artifact['path']}")
     reference = root / ".external" / "tracknet_v5"
+    needs_reference = any(artifact.get("role") == "ball" for artifact in manifest["artifacts"])
+    if needs_reference and not reference.is_dir():
+        raise ValueError("Model bundle is missing its TrackNet reference")
     if reference.exists():
         actual = subprocess.check_output(["git", "-C", str(reference), "rev-parse", "HEAD"], text=True).strip()
         dirty = subprocess.check_output(["git", "-C", str(reference), "status", "--porcelain", "--untracked-files=no"], text=True).strip()
@@ -36,8 +39,8 @@ def create(config_path, output):
     if output.exists():
         raise FileExistsError("Use a new model bundle directory")
     config = load_config(config_path)
-    if config["people"]["adapter"] == "registry":
-        raise ValueError("Create the offline bundle from a local-checkpoint config; registry inference uses the players environment")
+    if config["people"]["adapter"] != "yolo":
+        raise ValueError("The portable CPU runtime requires a local YOLO people checkpoint; use the players environment for RF-DETR or registry inference")
     sources = []
     for section in ("people", "ball", "court", "pose", "jersey"):
         if section != "people" and not config[section]["enabled"]:

@@ -10,7 +10,7 @@ from pathlib import Path
 from training.common.files import write_json
 from training.common.provenance import ROOT, file_hash, git_state, object_hash
 
-ROOT_FILES = {"README.md", "Makefile", "requirements.txt", ".gitignore", ".dockerignore", ".dvcignore", "datas.dvc", "compose.yaml"}
+ROOT_FILES = {"README.md", "Makefile", "requirements.txt", ".gitignore", ".gitattributes", ".dockerignore", ".dvcignore", "datas.dvc", "compose.yaml"}
 FOLDERS = {"pipeline", "training", "viewer", "mlops", "scripts", "configs", "deploy", "docs", "examples", "imagesReadMe", "reports", ".github"}
 SUFFIXES = {".py", ".md", ".yaml", ".yml", ".json", ".jsonl", ".in", ".lock", ".txt", ".html", ".js", ".css", ".gif", ".png", ".svg", ".csv"}
 

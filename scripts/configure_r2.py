@@ -64,7 +64,7 @@ def main():
         os.umask(previous_umask)
 
     print("R2 configuré. Clés enregistrées uniquement dans .dvc/config.local.")
-    print("Aucune donnée envoyée. Lance make data-push pour transférer le dataset.")
+    print("Aucune donnée envoyée. Lance .venv/bin/dvc push pour transférer le dataset.")
 
 
 if __name__ == "__main__":
