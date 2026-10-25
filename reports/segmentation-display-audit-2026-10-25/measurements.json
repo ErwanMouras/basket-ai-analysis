@@ -1,0 +1,221 @@
+{
+  "run": "hou-lal-sam-yolo26l-ball",
+  "baseline_commit": "4028c73",
+  "environment": "Chromium headless / Playwright; SAM 2.1 Tiny, CUDA, FP32, imgsz 1024",
+  "mask_rendering": {
+    "checked_masks": 91,
+    "matching_masks": 91
+  },
+  "paused_seeks": [
+    {
+      "requested_time_s": 0.019,
+      "visible_source_index": 0,
+      "overlay_before": 0,
+      "overlay_after": 0,
+      "source_matching_mean_color_error": 2.4230889917695473
+    },
+    {
+      "requested_time_s": 0.19,
+      "visible_source_index": 5,
+      "overlay_before": 6,
+      "overlay_after": 5,
+      "source_matching_mean_color_error": 2.435676440329218
+    },
+    {
+      "requested_time_s": 0.219,
+      "visible_source_index": 6,
+      "overlay_before": 7,
+      "overlay_after": 6,
+      "source_matching_mean_color_error": 2.424079218106996
+    },
+    {
+      "requested_time_s": 1.018999,
+      "visible_source_index": 30,
+      "overlay_before": 31,
+      "overlay_after": 30,
+      "source_matching_mean_color_error": 2.436656378600823
+    },
+    {
+      "requested_time_s": 3.019,
+      "visible_source_index": 90,
+      "overlay_before": 91,
+      "overlay_after": 90,
+      "source_matching_mean_color_error": 2.5116152263374487
+    },
+    {
+      "requested_time_s": 10.019,
+      "visible_source_index": 300,
+      "overlay_before": 301,
+      "overlay_after": 300,
+      "source_matching_mean_color_error": 2.529259259259259
+    },
+    {
+      "requested_time_s": 30.019,
+      "visible_source_index": 900,
+      "overlay_before": 901,
+      "overlay_after": 900,
+      "source_matching_mean_color_error": 2.47198816872428
+    },
+    {
+      "requested_time_s": 50.019,
+      "visible_source_index": 1500,
+      "overlay_before": 1501,
+      "overlay_after": 1500,
+      "source_matching_mean_color_error": 2.580537551440329
+    },
+    {
+      "requested_time_s": 51.6,
+      "visible_source_index": 1548,
+      "overlay_before": 1548,
+      "overlay_after": 1548,
+      "source_matching_mean_color_error": 2.5718029835390945
+    },
+    {
+      "requested_time_s": 51.601,
+      "visible_source_index": 1548,
+      "overlay_before": 1548,
+      "overlay_after": 1548,
+      "source_matching_mean_color_error": 2.5718029835390945
+    },
+    {
+      "requested_time_s": 51.619,
+      "visible_source_index": 1548,
+      "overlay_before": 1549,
+      "overlay_after": 1548,
+      "source_matching_mean_color_error": 2.5718029835390945
+    }
+  ],
+  "playback": {
+    "playback": {
+      "samples": 120,
+      "visible": 120,
+      "wrong": []
+    },
+    "steps": [
+      {
+        "time": 51.619,
+        "index": 1548
+      },
+      {
+        "time": 51.634333,
+        "index": 1549
+      },
+      {
+        "time": 0.19,
+        "index": 5
+      },
+      {
+        "time": 0.201,
+        "index": 6
+      },
+      {
+        "time": 30.019,
+        "index": 900
+      },
+      {
+        "time": 30.034333,
+        "index": 901
+      }
+    ],
+    "delayed": {
+      "during": {
+        "current": -1,
+        "frame": null,
+        "target": -1
+      },
+      "after": {
+        "current": 900,
+        "time": 30
+      }
+    },
+    "errors": [],
+    "fallback": [
+      {
+        "time": 0.19,
+        "index": 5
+      },
+      {
+        "time": 51.619,
+        "index": 1548
+      }
+    ]
+  },
+  "independent_sam_at_51_6": [
+    {
+      "prompt": 0,
+      "track": 183,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 17367,
+      "outside_bbox_pixels": 0
+    },
+    {
+      "prompt": 1,
+      "track": 207,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 13676,
+      "outside_bbox_pixels": 10
+    },
+    {
+      "prompt": 2,
+      "track": 180,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 18570,
+      "outside_bbox_pixels": 0
+    },
+    {
+      "prompt": 3,
+      "track": 198,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 11875,
+      "outside_bbox_pixels": 6
+    },
+    {
+      "prompt": 4,
+      "track": 214,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 9945,
+      "outside_bbox_pixels": 0
+    },
+    {
+      "prompt": 5,
+      "track": 185,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 14726,
+      "outside_bbox_pixels": 0
+    },
+    {
+      "prompt": 6,
+      "track": 191,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 8193,
+      "outside_bbox_pixels": 31
+    },
+    {
+      "prompt": 7,
+      "track": 215,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 14091,
+      "outside_bbox_pixels": 82
+    },
+    {
+      "prompt": 8,
+      "track": null,
+      "iou": 1.0,
+      "different_pixels": 0,
+      "full_sam_pixels": 8468,
+      "outside_bbox_pixels": 4
+    }
+  ],
+  "sha256": {
+    "runs/analysis/hou-lal-sam-yolo26l-ball/observations.jsonl": "53462a1d409f2825b7c1ff31db00f8ae9c39be43c6853813c01439813ad17881",
+    "models/segmentation/sam2.1_t.pt": "3c1e81ca9b037dd39d70a014ddb9a813d6c4c4e12555420db7eaff31689bd4e3"
+  }
+}

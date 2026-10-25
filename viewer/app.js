@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
-  target: -1, current: -1, generation: 0, loaded: false, selected: null, teamId: null };
+  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
@@ -39,6 +39,18 @@ function nearestFrame(time) {
   if (lo >= a.length) return a.length - 1;
   return lo > 0 && time - a[lo - 1] <= a[lo] - time ? lo - 1 : lo;
 }
+// currentTime can lie inside a frame; its nearest timestamp may belong to the next image.
+function frameAtTime(time) {
+  const a = state.meta?.timestamps || [];
+  if (!a.length) return -1;
+  let lo = 0, hi = a.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (a[mid] <= time + 1e-6) lo = mid + 1; else hi = mid; }
+  return Math.max(0, lo - 1);
+}
+function clearPresentation() {
+  state.presentedTime = null; state.target = -1; state.current = -1; state.frame = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
+}
 function duration() { const a = state.meta?.timestamps || []; return a.length ? a[a.length - 1] : 0; }
 async function init() {
   try {
@@ -57,6 +69,7 @@ async function loadRun(name) {
   if (!name) return;
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  state.presentedTime = null;
   maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
   $('runMeta').textContent='Chargement du match…';
@@ -85,7 +98,8 @@ async function loadRun(name) {
     await fetchBatch(0);
     if (generation !== state.generation) return;
     if (data.video_available) $('videoEmpty').classList.add('hidden');
-    displayAt(0, true);
+    if (!data.video_available || !video.requestVideoFrameCallback) displayAt(0, true);
+    else if (state.presentedTime !== null) displayAt(state.presentedTime, true, true);
   } catch (err) {
     if (generation !== state.generation) return;
     $('videoEmpty').querySelector('strong').textContent = 'Impossible de charger le run';
@@ -104,7 +118,7 @@ async function fetchBatch(index) {
       const oldest=state.cache.keys().next().value;
       state.cache.delete(oldest);state.batches.delete(Math.floor(oldest/30)*30);
     }
-    if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true);
+    if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true, true);
     else if (state.current >= start && state.current < start + 35 && state.frame) drawOverlay(state.frame);
   }).catch(err => {
     if (generation !== state.generation) return;
@@ -119,11 +133,11 @@ async function fetchOne(index) {
     const data = await json(`/api/frame?${params({ name: state.name, index })}`);
     if (generation !== state.generation) return;
     state.cache.set(index, data);
-    if (state.target === index) displayAt(state.meta.timestamps[index], true);
+    if (state.target === index) displayAt(state.meta.timestamps[index], true, true);
   } catch (err) { if (generation === state.generation) toast(err.message); }
 }
-function displayAt(time, force = false) {
-  const index = nearestFrame(time);
+function displayAt(time, force = false, presented = false) {
+  const index = presented ? nearestFrame(time) : frameAtTime(time);
   if (index < 0) return;
   state.target = index;
   const data = state.cache.get(index);
@@ -148,11 +162,14 @@ function updateClock(time = video.currentTime || 0) {
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
 }
 function videoFrameLoop(_now, metadata) {
-  if (state.loaded) { updateClock(metadata.mediaTime); displayAt(metadata.mediaTime); }
+  if (state.loaded) {
+    state.presentedTime = metadata.mediaTime;
+    updateClock(metadata.mediaTime); displayAt(metadata.mediaTime, false, true);
+  }
   video.requestVideoFrameCallback(videoFrameLoop);
 }
 if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(videoFrameLoop);
-else { const fallback = () => { if (state.loaded && !video.paused) { updateClock(); displayAt(video.currentTime); } requestAnimationFrame(fallback); }; requestAnimationFrame(fallback); }
+else { const fallback = () => { if (state.loaded && !video.paused && !video.seeking) { updateClock(); displayAt(video.currentTime); } requestAnimationFrame(fallback); }; requestAnimationFrame(fallback); }
 function resizeOverlay() {
   const stage = $('videoStage').getBoundingClientRect();
   const w = video.videoWidth || state.meta?.run.source?.width || 1920;
@@ -505,9 +522,9 @@ function seekToFrame(index){
   const timestamp=state.meta.timestamps[index], next=state.meta.timestamps[index+1];
   // Seek inside the frame: browser timestamp rounding can otherwise select its predecessor.
   const margin=next==null ? .001 : Math.min(.001,(next-timestamp)/2);
+  clearPresentation();
   video.currentTime=timestamp+margin;updateClock();
-  state.current=-1;
-  displayAt(state.meta.timestamps[index], true);
+  fetchBatch(index);
 }
 function stepFrame(delta){video.pause();seekToFrame((state.current>=0?state.current:nearestFrame(video.currentTime))+delta);}
 function stepMarker(delta){
@@ -532,13 +549,20 @@ function backToRoster(){
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
 $('rosterBack').addEventListener('click',backToRoster);
 $('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast('Vidéo source indisponible.');if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
-video.addEventListener('play',()=>{updateClock();displayAt(video.currentTime);});
+video.addEventListener('play',()=>updateClock());
 video.addEventListener('pause',()=>updateClock());
 video.addEventListener('timeupdate',()=>updateClock());
-video.addEventListener('seeked',()=>{updateClock();displayAt(video.currentTime,true);});
+video.addEventListener('seeking',clearPresentation);
+video.addEventListener('seeked',()=>{
+  updateClock();
+  // A seek may finish before or after the presentation callback. Never overwrite its PTS
+  // with the requested currentTime, nor paint a requested mask over the previous image.
+  if (!video.requestVideoFrameCallback) displayAt(video.currentTime,true);
+  else if (state.presentedTime !== null) displayAt(state.presentedTime,true,true);
+});
 video.addEventListener('loadedmetadata',resizeOverlay);
 video.addEventListener('error',()=>{if(state.loaded)toast('La vidéo ne peut pas être lue par ce navigateur.');});
-$('seek').addEventListener('input',e=>{video.currentTime=Number(e.target.value);updateClock();ctx.clearRect(0,0,canvas.width,canvas.height);});
+$('seek').addEventListener('input',e=>{clearPresentation();video.currentTime=Number(e.target.value);updateClock();});
 $('prevFrame').addEventListener('click',()=>stepFrame(-1));
 $('nextFrame').addEventListener('click',()=>stepFrame(1));
 $('prevMarker').addEventListener('click',()=>stepMarker(-1));

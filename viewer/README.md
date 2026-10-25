@@ -33,6 +33,14 @@ La vue terrain montre seulement les personnes dotées d'une `position_m` valide.
 
 Les calques se commandent dans la barre du lecteur, à côté d'« Agrandir la vidéo ». Le choix « Toutes les détections / Personnes identifiées » agit sur les personnes visibles dans la vidéo et sur le terrain ; le second mode ne montre que les joueurs reconnus par le run. Les calques sont synchronisés sur le temps des images vidéo affichées, préchargées par paquets et effacées si l'observation correspondante manque encore. Les joueurs identifiés prennent la couleur de leur équipe dans le roster, ou celle attribuée par le pipeline. La couleur d'équipe des autres joueurs provient du vote majoritaire sur leur torse quand il est concluant.
 
+Quand le navigateur fournit `requestVideoFrameCallback`, son `mediaTime` désigne
+l’image présentée et commande les calques, y compris après une recherche en pause.
+La destination de recherche ne dessine aucun masque avant cette présentation.
+Sans cette API, le studio utilise le dernier timestamp inférieur ou égal au temps
+vidéo et attend la fin de recherche. Les masques stockés restent découpés aux bbox
+du pipeline ; une silhouette tronquée ou une mauvaise catégorie peut donc venir
+des prédictions. Voir l’[audit du décalage à 51,60 s](../reports/segmentation-display-audit-2026-10-25/README.md).
+
 La mise en page tient dans la hauteur de la fenêtre : le lecteur occupe environ deux tiers de la largeur, avec la vue tactique et les effectifs à droite.
 
 Le panneau **Effectifs** permet de choisir l'une des deux équipes, puis un joueur. La fiche du joueur présente sa distance finale `observed_distance_m`, sa durée mesurée et sa couverture, issues de `statistics.json` et indépendantes de la position de lecture. La couverture rapporte la durée mesurée aux intervalles suivis ; elle ne mesure pas la présence réelle hors champ. Les valeurs absentes restent affichées `—`. La flèche revient à la liste de son équipe. Le panneau est conçu pour accueillir d'autres statistiques finales.
