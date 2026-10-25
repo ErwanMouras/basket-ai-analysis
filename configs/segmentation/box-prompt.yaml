@@ -1,0 +1,16 @@
+# Opt-in experiment. Existing detector boxes/roles stay unchanged.
+mode: sequential
+required: [players, referees, pose, jersey]
+people:
+  device: cuda:0
+  resolution: 640
+  confidence: 0.25
+segmentation:
+  strategy: box_prompt
+  weights: models/segmentation/sam2.1_t.pt
+  resolution: 1024
+  segment_referees: true
+ball: {enabled: false}
+court: {enabled: false}
+pose: {device: cuda:0}
+jersey: {mask_policy: background_neutral}

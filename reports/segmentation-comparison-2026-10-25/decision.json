@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "protocol_id": "4fb978b760e0fc3400b9ca0c965b9338fb2f3c705f2a054e9f0275f8a96fb60f",
+  "production_recommendation": "keep_current_bbox",
+  "direct_segmentation_quality_candidate": "direct_x",
+  "direct_segmentation_lower_latency_candidate": "direct_l",
+  "bbox_plus_segmentation_status": "implemented_and_tested_no_demonstrated_ocr_benefit_at_measured_cost",
+  "jersey_accuracy_decision": null,
+  "mask_accuracy_decision": null,
+  "missing_evidence": [
+    "reviewed_source_aligned_jersey_numbers",
+    "reviewed_person_masks_and_digit_regions",
+    "reviewed_identity_trajectories"
+  ],
+  "selection_scope": "development_screening_on_all_verified_local_train_and_val_annotations_no_fine_tuning",
+  "biases": [
+    "train_bbox_proposals_from_baseline_ebard_then_verified",
+    "val_bbox_proposals_from_Joueurs_26X_then_verified",
+    "correlated_frames_and_only_four_sources",
+    "upstream_pretraining_overlap_unknown",
+    "different_architectures_training_and_input_resolutions"
+  ],
+  "production_profile_changed": false,
+  "model_promoted": false,
+  "training_executed": false,
+  "merge_authorized": false,
+  "merge_requires_user_review": true
+}

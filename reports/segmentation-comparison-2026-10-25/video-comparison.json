@@ -1,0 +1,293 @@
+{
+  "status": "passed",
+  "scope": "One fresh process per configuration; same 150 decoded source frames / five video seconds HOU_LAL G1, sequential people+tracking+pose+budgeted temporal OCR plus existing multi-crop track-vote postpass with roster with roster; ball and court disabled; loading separate; includes output publication and identity finalization; single short run not a representative full-match benchmark",
+  "bbox_role_score_and_track_ids_identical_baseline_vs_sam": true,
+  "recipes": {
+    "baseline": {
+      "recipe": "baseline",
+      "status": "partial",
+      "frames": 150,
+      "masks": 0,
+      "player_observations": 1353,
+      "referee_observations": 381,
+      "referee_masks": 0,
+      "recompute": "passed",
+      "timings": {
+        "load_s": 1.4200679429998218,
+        "processing_s": 24.664346436000187,
+        "total_s": 26.095802385999832,
+        "fps": 6.081653142086074,
+        "stages": {
+          "people": {
+            "calls": 150,
+            "seconds": 0.8289156709993222,
+            "wait_seconds": 0.0004064800007199665
+          },
+          "pose": {
+            "calls": 150,
+            "seconds": 3.381590802002165,
+            "wait_seconds": 0.0007908049979050702
+          },
+          "jersey": {
+            "calls": 150,
+            "seconds": 1.0672780069996861,
+            "wait_seconds": 0.0009684769986506581
+          }
+        },
+        "finalization_s": 0.01138764600000286
+      },
+      "resources": {
+        "main_peak_rss_mb": 2700.0625,
+        "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+        "main_peak_torch_cuda_allocated_mb": {
+          "0": 32.30126953125
+        }
+      },
+      "observation_bytes": 3393962,
+      "ocr_log_rows": 259,
+      "ocr_status_counts": {
+        "rejected": 219,
+        "vote": 40
+      },
+      "ocr_executed_reads": 259,
+      "evidence_sha256": {
+        "run.json": "0f045995eead3bbe761cf12a40a5be392069c1c08ffed5095658d885f61c8be4",
+        "observations.jsonl": "7666adf6ff9c358623fed231391e20817d3b89e327c533c442231f9775f51860",
+        "tracks.jsonl": "a5266080dc989e3404f13070787c42634670bb8fd3c08358f988f89d44fa7fd7",
+        "jersey_reads.jsonl": "9582fa7f56e30986c930428bf0420a09b062c2882a1b16eb97b969b83a4dec26",
+        "recomputed.json": "256f575a520e0dfa7ebf9d2ade82848e07dcd0f86004dc2ab7871d2835739b81"
+      },
+      "ocr_by_decoder": {
+        "digits_only_v2": {
+          "rejected": 39
+        },
+        "digits_only_v4": {
+          "vote": 40,
+          "rejected": 180
+        }
+      },
+      "postpass_number_majority_tracks": 11,
+      "postpass_number_majority_episodes": 11,
+      "resolved_player_tracks": 12,
+      "temporal_confirmed_observations": 0,
+      "source_timestamp_first_s": 0.0,
+      "source_timestamp_last_s": 4.966666666666667,
+      "majority_accuracy": null
+    },
+    "box-prompt": {
+      "recipe": "box-prompt",
+      "status": "partial",
+      "frames": 150,
+      "masks": 1734,
+      "player_observations": 1353,
+      "referee_observations": 381,
+      "referee_masks": 381,
+      "recompute": "passed",
+      "timings": {
+        "load_s": 1.51410037200003,
+        "processing_s": 31.56131910499994,
+        "total_s": 33.08396932100004,
+        "fps": 4.752653065639358,
+        "stages": {
+          "people": {
+            "calls": 150,
+            "seconds": 7.3999486910011,
+            "wait_seconds": 0.00042821199826903467
+          },
+          "pose": {
+            "calls": 150,
+            "seconds": 3.3814721820021987,
+            "wait_seconds": 0.001010050998047518
+          },
+          "jersey": {
+            "calls": 150,
+            "seconds": 1.0738346809982886,
+            "wait_seconds": 0.0010548690024734242
+          }
+        },
+        "finalization_s": 0.008549422999976741
+      },
+      "resources": {
+        "main_peak_rss_mb": 3131.32421875,
+        "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+        "main_peak_torch_cuda_allocated_mb": {
+          "0": 825.7333984375
+        }
+      },
+      "observation_bytes": 6917745,
+      "ocr_log_rows": 259,
+      "ocr_status_counts": {
+        "rejected": 219,
+        "vote": 40
+      },
+      "ocr_executed_reads": 259,
+      "evidence_sha256": {
+        "run.json": "794167a78b86090c1a133fd00c112c7d21d639fda045b6b79ee92515a2c762ca",
+        "observations.jsonl": "d0556735e0b2e492bc4e3180eea6ea3dc950442554e46762a7596e1c36a1e83a",
+        "tracks.jsonl": "5b7a26d9da6be01399756cd17b55c7e23e3f4cfe2654d16a5b3ca21e71ee1cdf",
+        "jersey_reads.jsonl": "e2d2f797f345ccd22157993830942d64460b656d243d196b04a766e68553828e",
+        "recomputed.json": "43d02e2d41a8c6469fc1430dd6c16f8c821df642a2d90650bee69a91f88a7c4c"
+      },
+      "ocr_by_decoder": {
+        "digits_only_v2": {
+          "rejected": 39
+        },
+        "digits_only_v4": {
+          "vote": 40,
+          "rejected": 180
+        }
+      },
+      "postpass_number_majority_tracks": 11,
+      "postpass_number_majority_episodes": 11,
+      "resolved_player_tracks": 12,
+      "temporal_confirmed_observations": 0,
+      "source_timestamp_first_s": 0.0,
+      "source_timestamp_last_s": 4.966666666666667,
+      "majority_accuracy": null
+    },
+    "direct-l": {
+      "recipe": "direct-l",
+      "status": "partial",
+      "frames": 150,
+      "masks": 1874,
+      "player_observations": 1874,
+      "referee_observations": 381,
+      "referee_masks": 0,
+      "recompute": "passed",
+      "timings": {
+        "load_s": 1.43928070700008,
+        "processing_s": 39.99177022699996,
+        "total_s": 41.44032780700013,
+        "fps": 3.7507716999916476,
+        "stages": {
+          "people": {
+            "calls": 150,
+            "seconds": 2.6615591420002147,
+            "wait_seconds": 0.0004179570003088884
+          },
+          "pose": {
+            "calls": 150,
+            "seconds": 4.779811225000685,
+            "wait_seconds": 0.0009794999996302067
+          },
+          "jersey": {
+            "calls": 150,
+            "seconds": 1.0841710349991445,
+            "wait_seconds": 0.0010286690028351586
+          }
+        },
+        "finalization_s": 0.00927656199996818
+      },
+      "resources": {
+        "main_peak_rss_mb": 2935.80078125,
+        "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+        "main_peak_torch_cuda_allocated_mb": {
+          "0": 575.044921875
+        }
+      },
+      "observation_bytes": 7975981,
+      "ocr_log_rows": 486,
+      "ocr_status_counts": {
+        "rejected": 426,
+        "vote": 60
+      },
+      "ocr_executed_reads": 486,
+      "evidence_sha256": {
+        "run.json": "96e4572db76fb1ff670606c37b1b4054cefb1b1ee13715b27d17a963d67e2f63",
+        "observations.jsonl": "cdc151859dc3da6e63521e1d574e0ed1bff23929f82acc02fa3ac11db2cc4e85",
+        "tracks.jsonl": "6d05b4be04a151feba000af86d1fa354dfba43c40fdfa7e1584d9328823537b0",
+        "jersey_reads.jsonl": "1539a5f3e8b5716b6521addbd4b20e99512e7c7f15f10b884ab741452b3e649a",
+        "recomputed.json": "c96e529d94fb09cdc8da9cd53ec253537b5c22ed9043f88bd4c061bfefe2f646"
+      },
+      "ocr_by_decoder": {
+        "digits_only_v2": {
+          "rejected": 38
+        },
+        "digits_only_v4": {
+          "vote": 60,
+          "rejected": 388
+        }
+      },
+      "postpass_number_majority_tracks": 11,
+      "postpass_number_majority_episodes": 17,
+      "resolved_player_tracks": 11,
+      "temporal_confirmed_observations": 0,
+      "source_timestamp_first_s": 0.0,
+      "source_timestamp_last_s": 4.966666666666667,
+      "majority_accuracy": null
+    },
+    "direct-x": {
+      "recipe": "direct-x",
+      "status": "partial",
+      "frames": 150,
+      "masks": 1312,
+      "player_observations": 1312,
+      "referee_observations": 381,
+      "referee_masks": 0,
+      "recompute": "passed",
+      "timings": {
+        "load_s": 1.4982866069999545,
+        "processing_s": 26.30267609900011,
+        "total_s": 27.80905146100008,
+        "fps": 5.70284177303549,
+        "stages": {
+          "people": {
+            "calls": 150,
+            "seconds": 3.050561795001613,
+            "wait_seconds": 0.0004153840004619269
+          },
+          "pose": {
+            "calls": 150,
+            "seconds": 3.321966551998912,
+            "wait_seconds": 0.0009999520011660934
+          },
+          "jersey": {
+            "calls": 150,
+            "seconds": 1.035646876001465,
+            "wait_seconds": 0.0010482499985755567
+          }
+        },
+        "finalization_s": 0.008088463999911255
+      },
+      "resources": {
+        "main_peak_rss_mb": 2925.921875,
+        "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+        "main_peak_torch_cuda_allocated_mb": {
+          "0": 559.625
+        }
+      },
+      "observation_bytes": 6213564,
+      "ocr_log_rows": 253,
+      "ocr_status_counts": {
+        "rejected": 208,
+        "vote": 45
+      },
+      "ocr_executed_reads": 253,
+      "evidence_sha256": {
+        "run.json": "73a4615c69422b62c160dd3cdfd5d1351b2aac5bd70b89c221cee0d0b7c4b981",
+        "observations.jsonl": "66dfd26dc2069aa641d9b26dd1d2f6d2b405a92d663e631fd5e0052560ca57e1",
+        "tracks.jsonl": "f46e29ffe1579578b4319ddbb37dde57b18535b0fd750790585ab005d16ec618",
+        "jersey_reads.jsonl": "50890d1b33c1f6baf4b38603ba483db9684a371ddb0f4b1592e09101b4eb6bc1",
+        "recomputed.json": "c8ee6a0a4c21358a9aa5999e051c10ea6d37aec4bec1c8ef1cca86870b716643"
+      },
+      "ocr_by_decoder": {
+        "digits_only_v2": {
+          "rejected": 36,
+          "vote": 1
+        },
+        "digits_only_v4": {
+          "vote": 44,
+          "rejected": 172
+        }
+      },
+      "postpass_number_majority_tracks": 10,
+      "postpass_number_majority_episodes": 13,
+      "resolved_player_tracks": 10,
+      "temporal_confirmed_observations": 0,
+      "source_timestamp_first_s": 0.0,
+      "source_timestamp_last_s": 4.966666666666667,
+      "majority_accuracy": null
+    }
+  },
+  "postpass_majorities_identical_baseline_vs_sam": true
+}

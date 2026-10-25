@@ -86,19 +86,24 @@ class People:
         self.provenance = {"adapter": config["adapter"], "checkpoint_sha256": file_hash(path),
                            "weights": str(path), "class_names": names, "class_roles": config["class_roles"]}
 
-    def predict(self, image):
+    def predict(self, image, *, roles=None, confidence=None):
         cfg = self.config
+        confidence = cfg["confidence"] if confidence is None else confidence
+        selected = {k: v for k, v in self.roles.items() if roles is None or v in roles}
+        if not selected:
+            return []
         if cfg["adapter"] == "registry":
             return [{**d, "class_id": 0, "role": self.roles[d["class_id"]],
                      "source_class_id": self.model.source_class if d["class_id"] == 0 else self.model.referee_source_class}
                     for d in self.model.predict(
-                image, confidence=cfg["confidence"], max_detections=cfg["max_detections"], square=True)]
+                image, confidence=confidence, max_detections=cfg["max_detections"], square=True)
+                    if self.roles[d["class_id"]] in selected.values()]
         if cfg["adapter"] == "rfdetr":
             role = next(iter(self.roles.values()))
             return [{**d, "role": role} for d in self.model.predict(
-                image, confidence=cfg["confidence"], max_detections=cfg["max_detections"], square=True)]
-        result = self.model.predict(image, imgsz=cfg["resolution"], conf=cfg["confidence"],
-                                    classes=list(self.roles), device=cfg["device"],
+                image, confidence=confidence, max_detections=cfg["max_detections"], square=True)]
+        result = self.model.predict(image, imgsz=cfg["resolution"], conf=confidence,
+                                    classes=list(selected), device=cfg["device"],
                                     max_det=cfg["max_detections"], verbose=False)[0]
         return [{"bbox": box.tolist(), "confidence": float(score), "class_id": 0,
                  "source_class_id": int(cls), "role": self.roles[int(cls)]}

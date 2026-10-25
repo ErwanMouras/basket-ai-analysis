@@ -12,6 +12,7 @@ from training.court.config import DEFAULTS as COURT_DEFAULTS, settings as court_
 from training.jersey.config import DEFAULTS as JERSEY_DEFAULTS, settings as jersey_settings
 from training.players.pose import DEFAULTS as POSE_DEFAULTS, settings as pose_settings
 from training.players.tracking import DEFAULTS as TRACKING_DEFAULTS, settings as tracking_settings
+from training.segmentation.config import DEFAULTS as SEGMENTATION_DEFAULTS, settings as segmentation_settings
 
 DEFAULTS = {
     "mode": "parallel", "workers": 4, "prefetch": 2, "cpu_threads": 4,
@@ -29,6 +30,7 @@ DEFAULTS = {
     "court": {**COURT_DEFAULTS, "enabled": True, "overlay": False, "minimap": False},
     "pose": {**POSE_DEFAULTS, "enabled": True}, "jersey": {**JERSEY_DEFAULTS, "enabled": True},
     "tracking": TRACKING_DEFAULTS,
+    "segmentation": SEGMENTATION_DEFAULTS,
     "distance": {"smoothing_tau_s": 0.12, "deadband_m": 0.025,
                  "max_speed_m_s": 12.0, "max_gap_s": 0.2},
 }
@@ -77,6 +79,9 @@ def load_config(path=None, overrides=None):
     cfg["pose"] = pose_settings(cfg["pose"])
     cfg["jersey"] = jersey_settings(cfg["jersey"])
     cfg["tracking"] = tracking_settings(cfg["tracking"])
+    cfg["segmentation"] = segmentation_settings(cfg["segmentation"])
+    if cfg["segmentation"]["strategy"] == "direct" and cfg["people"]["adapter"] != "yolo":
+        raise ValueError("Direct segmentation currently requires the YOLO referee adapter")
     cfg["tracking"]["enabled"] = True
     for key, value in cfg["distance"].items():
         positive(value, key, zero=key in ("smoothing_tau_s", "deadband_m"))

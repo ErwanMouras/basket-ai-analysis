@@ -77,6 +77,20 @@ chaque `device` à `cpu` et employer l'environnement CPU joueurs.
   cadence constante. Le buffer du tracker reste exprimé en FPS nominaux ; la
   calibration, les votes OCR et la distance utilisent les timestamps vidéo.
 
+### Expérience de segmentation (désactivée par défaut)
+
+Les profils [`box-prompt.yaml`](../configs/segmentation/box-prompt.yaml),
+[`direct-l.yaml`](../configs/segmentation/direct-l.yaml) et
+[`direct-x.yaml`](../configs/segmentation/direct-x.yaml) comparent les boîtes
+E-BARD suivies de SAM 2.1 à la segmentation directe YOLO26 L/X, avec les
+arbitres en détection seule dans le chemin direct. Les masques suivent leurs
+observations et peuvent neutraliser le fond des crops OCR. Les modèles COCO
+utilisent un proxy de rôle joueur explicitement expérimental.
+
+Installation, contrats des masques, politiques OCR et reproduction :
+[guide segmentation](../training/segmentation/README.md). Mesures et limites :
+[rapport comparatif](../reports/segmentation-comparison-2026-10-25/README.md).
+
 ### Baseline joueurs/arbitres provisoire
 
 Checkpoint **E-BARD YOLOv8n**, auteur Gabriele Giudici, fiche modèle indiquant

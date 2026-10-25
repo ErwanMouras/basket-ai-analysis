@@ -129,6 +129,60 @@
           },
           "position_status": {
             "type": "string"
+          },
+          "segmentation": {
+            "type": "object",
+            "required": [
+              "status",
+              "quality_score",
+              "mask"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "ok",
+                  "empty"
+                ]
+              },
+              "quality_score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "mask": {
+                "type": "object",
+                "required": [
+                  "encoding",
+                  "roi",
+                  "counts"
+                ],
+                "properties": {
+                  "encoding": {
+                    "const": "roi_rle_c"
+                  },
+                  "roi": {
+                    "type": "array",
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "counts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
           }
         },
         "required": [

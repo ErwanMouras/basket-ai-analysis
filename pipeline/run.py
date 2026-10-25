@@ -54,7 +54,11 @@ class Models:
                 continue
             if not c.get("enabled", True) or not c.get("weights") or not Path(c["weights"]).is_file():
                 raise ValueError(f"Required capability {name} has no enabled local checkpoint")
-        self.people = People(config["people"])
+        if config["segmentation"]["strategy"] == "disabled":
+            self.people = People(config["people"])
+        else:
+            from training.segmentation.adapters import SegmentedPeople
+            self.people = SegmentedPeople(config["people"], config["segmentation"])
         self.provenance["people"] = self.people.provenance
         self.capabilities["players"] = "ok" if "player" in self.people.roles.values() else "unavailable"
         self.capabilities["referees"] = "ok" if "referee" in self.people.roles.values() else "unavailable"
@@ -143,7 +147,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 "warnings": [], "artifacts": {}, "display_colors": palette}
     root = Path(__file__).resolve().parents[1]
     manifest["code_sha256"] = {str(path.relative_to(root)): file_hash(path)
-                               for folder in ("pipeline", "mlops", "training/players", "training/court", "training/jersey", "training/ball", "training/common")
+                               for folder in ("pipeline", "mlops", "training/players", "training/segmentation", "training/court", "training/jersey", "training/ball", "training/common")
                                for path in sorted((root / folder).rglob("*.py")) if "tests" not in path.parts}
     write_json(output / "run.json", manifest)
     if roster:
