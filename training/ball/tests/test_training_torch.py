@@ -195,6 +195,20 @@ class TorchTrainingTests(unittest.TestCase):
         from training.ball.train_tracknet_v5_totnet import train
 
         config = self.config()
+        original_epoch = torch_loop.run_epoch
+
+        def different_selection_criteria(*args, **kwargs):
+            metrics = original_epoch(*args, **kwargs)
+            epoch, training = args[7:9]
+            if not training:
+                # Loss improves while localization worsens: preserve both winners.
+                metrics.update({"val/loss": 0.2 - 0.1 * epoch,
+                                "val/f1": 0.9 - 0.2 * epoch})
+            return metrics
+
+        self.enterContext(patch.object(
+            torch_loop, "run_epoch", side_effect=different_selection_criteria
+        ))
         # One uninterrupted run supplies the expected second-epoch model/optimizer state.
         complete = train(deepcopy(config))
         original_log = torch_loop.log_metrics
@@ -225,3 +239,16 @@ class TorchTrainingTests(unittest.TestCase):
             expected["optimizer"], actual["optimizer"], rtol=0, atol=0
         )
         self.assertEqual(len(client.get_metric_history(resumed.name, "val/loss")), 1)
+        for directory in (complete, resumed):
+            best_loss = self.torch.load(directory / "best.pt", weights_only=False)
+            best_f1 = self.torch.load(directory / "best_f1.pt", weights_only=False)
+            self.assertEqual(best_loss["epoch"], 1)
+            self.assertEqual(best_f1["epoch"], 0)
+            self.assertEqual(best_f1["best_val_f1"], 0.9)
+            artifacts = client.list_artifacts(directory.name, "checkpoints")
+            self.assertIn("checkpoints/best_f1.pt", {item.path for item in artifacts})
+        self.torch.testing.assert_close(
+            self.torch.load(complete / "best_f1.pt", weights_only=False)["model"],
+            self.torch.load(resumed / "best_f1.pt", weights_only=False)["model"],
+            rtol=0, atol=0,
+        )

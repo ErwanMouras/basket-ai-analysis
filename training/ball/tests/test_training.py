@@ -86,6 +86,18 @@ class TrainingContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "only train and val"):
             sdk_samples(self.dataset, "test", 1)
 
+    def test_yolo_rectangular_geometry_requires_explicit_mode(self):
+        path = self.root / "rect.yaml"
+        path.write_text("input_width: 512\ninput_height: 288\n")
+        with self.assertRaisesRegex(ValueError, "rect"):
+            load_config("yolo", path)
+        path.write_text("input_width: 512\ninput_height: 288\nyolo:\n  rect: true\n")
+        config = load_config("yolo", path)
+        self.assertEqual((config["input_width"], config["input_height"]), (512, 288))
+        path.write_text("input_width: 512\ninput_height: 289\nyolo:\n  rect: true\n")
+        with self.assertRaisesRegex(ValueError, "dimensions"):
+            load_config("yolo", path)
+
     def test_v3_rejects_known_position_rounded_to_origin(self):
         profile = self.config("tracknet_v3")["geometry"]
         self.assertEqual(len(v3_samples(self.dataset, "train", profile)), 3)

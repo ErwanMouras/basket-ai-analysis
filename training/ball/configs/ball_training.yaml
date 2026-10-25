@@ -30,8 +30,8 @@ profiles:
 
   tracknet_v5_totnet:
     version: 5
-    input_width: 864
-    input_height: 480
+    input_width: 512
+    input_height: 288
     sequence_length: 3
     sequence_stride: 1
     occlusion_augmentation: true

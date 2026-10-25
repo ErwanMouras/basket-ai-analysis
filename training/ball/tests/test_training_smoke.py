@@ -1,6 +1,7 @@
 """Opt-in real training/validation/checkpoint/MLflow tests, one process per model."""
 
 import os
+import ast
 import subprocess
 import sys
 import tempfile
@@ -88,6 +89,8 @@ class TrainingSmoke(unittest.TestCase):
             expected = (
                 {"best", "last"} if model == "tracknet_v4" else {"best.pt", "last.pt"}
             )
+            if model in ("yolo", "tracknet_v3", "tracknet_v5", "tracknet_v5_totnet"):
+                expected.add("best_f1.pt")
             self.assertEqual(
                 {Path(artifact.path).name for artifact in artifacts}, expected
             )
@@ -101,12 +104,26 @@ class TrainingSmoke(unittest.TestCase):
             )
             # Training must never create a test reader or test metrics.
             self.assertFalse(any(key.startswith("test/") for key in run.data.metrics))
+            if model == "yolo" and recipe.get("yolo", {}).get("rect"):
+                expected_shape = [(recipe["input_height"], recipe["input_width"])]
+                for split in ("train", "val"):
+                    self.assertEqual(
+                        ast.literal_eval(run.data.params[f"effective_{split}_shapes"]),
+                        expected_shape,
+                    )
 
     @unittest.skipUnless(
         "yolo" in MODELS, "Set BALL_SMOKE_MODELS=yolo to execute real YOLO training"
     )
     def test_yolo(self):
         self.smoke("yolo")
+
+    @unittest.skipUnless("yolo" in MODELS, "Opt-in rectangular YOLO integration")
+    def test_yolo_rectangular(self):
+        self.smoke("yolo", {
+            "input_width": 64, "input_height": 32,
+            "yolo": {"rect": True, "mosaic": 0.0, "close_mosaic": 0},
+        })
 
     @unittest.skipUnless("tracknet_v3" in MODELS, "Opt-in V3 integration")
     def test_v3(self):

@@ -32,14 +32,16 @@ def load_config(model, path=None, resume=None):
     else:
         if (
             any(
-                type(config[key]) is not int or config[key] < 32
+                type(config[key]) is not int or config[key] < 32 or config[key] % 32
                 for key in ("input_width", "input_height")
             )
-            or config["input_width"] != config["input_height"]
-            or config["input_width"] % 32
+            or (
+                config["input_width"] != config["input_height"]
+                and not config["yolo"].get("rect", False)
+            )
         ):
             raise ValueError(
-                "YOLO training requires square input dimensions divisible by 32"
+                "YOLO input dimensions must be divisible by 32; non-square inputs require yolo.rect=true"
             )
         if (config["sequence_length"], config["sequence_stride"]) != (1, 1):
             raise ValueError("YOLO uses individual frames")
@@ -71,6 +73,8 @@ def validate_config(config):
     if config["precision"] not in choices:
         raise ValueError(f"precision must be one of {choices}")
     if model == "yolo":
+        if type(config["yolo"].get("rect", False)) is not bool:
+            raise ValueError("yolo.rect must be boolean")
         if config["yolo"]["augmentations"] != []:
             raise ValueError(
                 "Use the explicit native YOLO augmentation settings; custom Albumentations objects are unsupported"
