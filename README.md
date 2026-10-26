@@ -57,7 +57,8 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 
 Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
 and five spatial views for players or teams: presence, movement, zones, comparison
-and evolution within a camera plan.
+and evolution across estimated offensive or defensive passages, with a common
+basket direction. Unclassified periods remain available for video review.
 The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
 </details>

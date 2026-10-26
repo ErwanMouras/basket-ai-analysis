@@ -111,7 +111,7 @@ Flèches gauche/droite, Début et Fin permettent de naviguer entre les onglets a
 clavier. Le choix de langue conserve l’onglet et l’équipe sélectionnés.
 
 **Équipe** affiche le nom et le nombre de joueurs de l’effectif sélectionné,
-puis un accès aux heatmaps collectives. La zone `#teamStatsContent` reste défilante
+puis un accès aux heatmaps collectives en attaque ou en défense. La zone `#teamStatsContent` reste défilante
 pour accueillir d’autres groupes de statistiques. Les cartes d’équipe cumulent
 les contributions observées ; elles ne supposent pas que les cinq joueurs sont visibles.
 
@@ -145,9 +145,51 @@ panneaux du lecteur. Les fiches **Joueurs** et **Équipe** proposent aussi un ac
 direct au sujet sélectionné. La vidéo se met en pause. Échap ou le bouton de
 fermeture rend le focus au bouton d’origine ; la lecture ne redémarre pas seule.
 
-Choisir un **joueur ou une équipe**, un **plan caméra** et des bornes temporelles
-en secondes source. Changer de plan rétablit ses bornes. Les plans ne sont pas
-fusionnés : les artefacts n’assurent pas une orientation commune après les coupes.
+Choisir un **joueur ou une équipe**, puis une situation : **Attaque**, **Défense**
+ou **Non classé**. Les cartes cumulent par défaut tous les passages classés dans
+la situation choisie, sur l’extrait complet. Le sélecteur **Passage de jeu** et les
+bornes temporelles permettent ensuite de cibler une période. Un passage peut
+contenir de courts trous non classés : ces trous restent exclus du calcul.
+
+La barre Attaque / Défense / Non classé indique des **secondes de vidéo**, distinctes
+des secondes-joueurs des cartes collectives. Ses boutons changent la situation.
+**Revoir les passages** ferme la fenêtre et positionne la vidéo, en pause, au début
+du passage choisi. La vue Non classé expose les intervalles d’au moins 0,2 s à
+revoir, sans leur imposer une heatmap orientée.
+
+### Comment le découpage est estimé
+
+Le détecteur recherche des contacts balle–mains en pixels source, avec une
+proximité rapportée à la taille du joueur. Sans poignets utilisables, un contact
+corporel plus restrictif peut fournir un indice. Un adversaire, un arbitre ou un
+joueur non attribué proche de la balle peut bloquer la décision. Le ballon élevé
+n’est jamais projeté au sol pour choisir le porteur.
+
+Les contacts doivent se répéter dans une fenêtre temporelle de 0,8 s, avec au
+moins 0,16 s de soutien sur plusieurs images et 80 % d’accord entre les contacts attribués. Les indices
+ne traversent ni coupes détectées, ni frames absentes, ni périodes exclues ou
+grands écarts temporels. Les longues absences de balle restent non classées.
+Ce réglage est expérimental : ce n’est ni un pourcentage de confiance, ni un
+comptage officiel des possessions.
+
+Le sens est estimé séparément, à partir des contacts en jeu placé et de la position
+d’au moins deux défenseurs. Un porteur près d’une ligne de fond ne fixe pas le sens
+à lui seul : il pourrait remettre en jeu sous son propre panier. Des indices
+insuffisants ou contradictoires laissent le sens inconnu. Les indices sont
+réévalués par plan caméra ; aucune orientation n’est transférée d’un plan à l’autre.
+
+Les passages exploitables sont ensuite remis dans le même sens, avec une rotation
+de 180° si nécessaire : **panier attaqué à droite en Attaque**, **panier défendu à
+droite en Défense**. Les cartes peuvent alors cumuler plusieurs plans sans
+superposer des sens opposés. Gauche et droite correspondent aux côtés en regardant
+vers ce panier de référence. Les périodes classées mais sans sens établi restent
+écartées des cartes et leur durée est signalée.
+
+La comparaison applique la situation à **chaque sujet**. Deux équipes en Attaque
+sont comparées sur leurs propres passages offensifs, à des moments potentiellement
+différents dans la période choisie. Une période limitée à l’attaque d’une seule
+équipe peut donc laisser l’autre carte vide. L’évolution partage la période source
+en deux moitiés égales et conserve seulement les instants de la situation choisie.
 Le choix de langue conserve les filtres, le mode et les résultats.
 
 | Angle | Lecture et intérêt |
@@ -156,7 +198,7 @@ Le choix de langue conserve les filtres, le mode et les résultats.
 | **Déplacements** | Part des mètres mesurés dans chaque maille : distinguer une zone traversée d’une zone où l’on reste. Ce n’est pas une carte de vitesse ou d’intensité. |
 | **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les zones sont géométriques, sans attribution attaque/défense. |
 | **Comparaison** | Deux joueurs ou deux équipes, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
-| **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation au sein d’un plan. |
+| **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation dans la situation choisie. |
 
 Le rendu **Zones continues**, actif par défaut, regroupe les positions proches
 avant d’appliquer des paliers de couleur aux contours nets. Les zones les plus
@@ -199,6 +241,11 @@ incompatibles avec le seuil du run sont écartées. Il n’extrapole pas après 
 dernière observation. Les petites portions de trajet sont interpolées à l’intérieur
 des seuls intervalles valides et réparties sur la grille en conservant le total.
 
+Le découpage nécessite exactement deux équipes dans l’effectif. La reconnaissance
+d’équipe et la calibration peuvent se tromper ; les pauses, remises en jeu,
+transitions et ralentis peuvent aussi affecter l’interprétation. Une phase classée
+ne prouve pas une possession officielle ou une attaque placée complète.
+
 Il faut des dimensions métriques explicites dans `run.json` et un véritable
 `roster.json` du run. Un effectif indicatif n’attribue aucune heatmap nominative.
 Sans données pour l’un des deux sujets comparés, aucune différence n’est produite.
@@ -231,7 +278,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -252,7 +299,8 @@ huit résolutions, les contrôles au clavier, les contrastes et libellés, les o
 les termes Bbox/Segmentation dans les deux langues, les calques,
 la langue persistante pendant la lecture, la sélection joueur, les listes longues,
 les données absentes et le repli sans callbacks de présentation. Un second scénario
-couvre les cinq angles pour joueur et équipe, les périodes et plans, les exports,
+couvre les cinq angles pour joueur et équipe dans les deux situations, les périodes,
+les passages, le retour à la vidéo depuis Non classé et les exports,
 la traduction dans la fenêtre, les réponses réseau tardives et les comparaisons
 sans données. Le basculement entre zones continues et mailles vérifie que les
 mesures restent identiques, sans requête supplémentaire. Il vérifie aussi
@@ -268,3 +316,20 @@ La police **Barlow Condensed Bold** est incluse localement, sous
 [SIL Open Font License](BarlowCondensed-OFL.txt), depuis le
 [dépôt Google Fonts](https://github.com/google/fonts/tree/main/ofl/barlowcondensed).
 Le viewer ne charge aucune police, bibliothèque ni image depuis un CDN.
+
+## Reproduire l’expérience de découpage
+
+Le comparateur lit les artefacts terminés et n’exécute aucune inférence :
+
+```bash
+python -m viewer.phase_experiment --run runs/analysis/hou-lal-sam-yolo26l-ball \
+  --review-checkpoints reports/attack-defense-2026-10-26/review-checkpoints.json \
+  --output release/phase-experiment.json
+```
+
+Les points de contrôle sont liés au hash de la vidéo HOU–LAL locale. Ils constituent
+une petite vérification de développement, sans évaluation indépendante de
+précision. Omettre `--review-checkpoints` pour obtenir les durées classées sur un
+autre run, par exemple `examples/demo/runs/synthetic`. Le [rapport de
+l’expérience](../reports/attack-defense-2026-10-26/README.md) décrit les variantes,
+les résultats et leurs limites.

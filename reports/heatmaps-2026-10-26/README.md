@@ -1,5 +1,9 @@
 # Heatmaps — propositions à examiner, 26 octobre 2026
 
+> Historique des premières vues et du rendu. Le pilotage par plan caméra décrit
+> ici a ensuite été remplacé par les [situations Attaque / Défense](../attack-defense-2026-10-26/README.md).
+> Les captures ci-dessous utilisent la version initiale du sample scripté.
+
 Cinq angles sont implémentés dans le viewer, pour **un joueur ou une équipe**.
 Le but est de les essayer sur les mêmes données avant de choisir lesquels garder.
 La validation visuelle et la sélection d’Erwan restent attendues avant tout merge.
