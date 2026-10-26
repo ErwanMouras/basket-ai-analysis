@@ -300,7 +300,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled viewer.test_shots -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -434,3 +434,71 @@ et ne sont jamais proposées dans le sélecteur ni affichées sous la vidéo.
 
 La [revue des demi-terrains](../reports/half-court-2026-10-26/README.md) décrit
 le cadrage final, la comparaison automatique et les vérifications associées.
+
+## Événements de tir
+
+Le volet **Tirs**, sous les commandes vidéo, liste les tentatives estimées. Les
+repères violets pleins correspondent aux **tirs probables** ; les repères creux
+sont des **candidats à vérifier**. Cliquer sur un repère ou une ligne place la
+vidéo en pause 0,6 s avant l’instant estimé du départ. La case **Inclure les
+candidats** filtre à la fois la liste et la timeline. La langue conserve ce choix.
+
+Le détecteur lit les observations existantes une fois à l’ouverture du run :
+aucune inférence, OCR ou nouvelle dépendance ML ne s’exécute pendant la lecture.
+`/api/run` inclut `shots`, également accessible par `/api/shots?name=…`. L’index est
+invalidé avec les observations et les métadonnées du run. Un ancien run sans
+ballon ou contexte exploitable annonce **données insuffisantes**, sans fabriquer de
+zéro officiel.
+
+### Indices croisés
+
+1. Départ du ballon près d’un poignet suffisamment visible, au-dessus des épaules,
+   avec plusieurs observations proches dans le même suivi. Les mains concurrentes,
+   arbitres et identités contradictoires empêchent une attribution nominative.
+2. Ballon observé loin des mains sur au moins 65 % de la courte fenêtre de vol.
+   Une réception avant le panier peut écarter une passe ; un ballon tenu ou un
+   dribble ne suffit pas.
+3. Montée et descente cohérentes, ajustées par une courbe quadratique en temps
+   source. La courbure et les écarts sont normalisés par la taille apparente d’un
+   joueur, **pas exprimés en m/s²**. La grille du terrain ne projette pas le ballon
+   aérien comme s’il touchait le sol.
+4. Compensation du mouvement d’image par les homographies du terrain. Ce recalage
+   de plan est une approximation pour un ballon en hauteur ; un grand saut de
+   trajectoire, une coupe, une exclusion ou un trou supérieur à 0,2 s interrompt
+   la fenêtre. Les positions absentes ne sont pas interpolées.
+5. Proximité d’un panier élevé estimé à partir d’une caméra plausible et de la
+   calibration NBA. Le modèle suppose pixels carrés et point principal au centre
+   de l’image ; il renonce à l’ancrage quand ses contraintes ne sont pas plausibles.
+   Ce repère approximatif n’est pas une détection visuelle de l’arceau.
+
+Un **tir probable** exige relâchement soutenu, arc propre, proximité du panier et
+compensation disponibles. Un arc sans panier fiable, une finition partielle ou un
+relâchement masqué reste **à vérifier**. Un deuxième chemin peut proposer un arc
+près du panier sans mains associables ; il ne nomme alors aucun tireur et donne
+une fenêtre de départ plus large. Les propositions partageant le même vol sont
+regroupées. Le tireur n’est nommé que si le roster du run et l’identité résolue le
+permettent, sans conflit à proximité du départ.
+
+Le score TV n’est pas utilisé pour créer les tirs. **Marqué/raté, 2/3 points,
+lancer franc et statistiques officielles ne sont pas attribués.** Les ralentis,
+lobs, contres, dunks et tip-ins très courts peuvent encore tromper ou échapper
+au détecteur. Les catégories « probable » et « à vérifier » sont des niveaux de
+support heuristique, pas des probabilités calibrées.
+
+### Reproduire une extraction
+
+```bash
+python -m viewer.shot_experiment \
+  --run runs/analysis/hou-lal-sam-yolo26l-ball \
+  --review reports/shots-2026-10-26/review-checkpoints.json \
+  --output /tmp/shots.json
+```
+
+Sans `--review`, la commande fonctionne sur tout run terminé. `--compact` omet
+les points de trajectoire. L’export contient les hashes de la source déclarée,
+des observations, du manifeste, du roster et des deux fichiers du détecteur,
+ainsi que sa version, ses seuils et les indices de chaque événement. Il ne modifie
+aucun artefact d’entrée. Les checkpoints de revue doivent correspondre exactement
+aux hashes vidéo et observations.
+
+Voir le [rapport de développement et ses limites](../reports/shots-2026-10-26/README.md).

@@ -59,7 +59,9 @@ Basketball-inspired Film room with FR/EN controls, category overlays, player sum
 and half-court presence, zones and evolution views for players or teams, plus
 a direct comparison of the two teams. Estimated settled offensive or defensive
 passages share a common basket direction. Transitions are excluded from the maps;
-the full clip remains available for video review.
+the full clip remains available for video review. Shot-attempt proposals appear
+in the timeline with probable/review categories and inspectable evidence;
+made/missed outcomes are not inferred.
 The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
 </details>
