@@ -1805,3 +1805,40 @@ kbd {
     font-size: 15px;
   }
 }
+
+.hm-render-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.hm-continuous .hm-gradient {
+  background: linear-gradient(
+    90deg,
+    #171c20 0% 4%,
+    #60391e 4% 14%,
+    #a54e1c 14% 30%,
+    #e07020 30% 50%,
+    #ffa737 50% 72%,
+    #ffd874 72% 90%,
+    #fff2bf 90% 100%
+  );
+}
+.hm-continuous .hm-gradient.hm-diverging {
+  background: linear-gradient(
+    90deg,
+    #d3f2fc 0% 5%,
+    #94daf2 5% 14%,
+    #52b3db 14% 25%,
+    #3186b4 25% 35%,
+    #265b80 35% 43%,
+    #20394c 43% 48%,
+    #171c20 48% 52%,
+    #60391e 52% 57%,
+    #a54e1c 57% 65%,
+    #e07020 65% 75%,
+    #ffa737 75% 86%,
+    #ffd874 86% 95%,
+    #fff2bf 95% 100%
+  );
+}

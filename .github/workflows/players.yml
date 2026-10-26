@@ -41,7 +41,7 @@ jobs:
       - name: Viewer container build
         run: |
           docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
-          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'heatmaps.js', 'heatmaps.py', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
+          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'heatmaps.js', 'heatmap-renderer.js', 'heatmaps.py', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
       - name: Verify the public scripted sample
         run: .venv-players-cpu/bin/python -m mlops.demo --output examples/demo --ensure
       - uses: actions/upload-artifact@v4

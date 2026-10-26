@@ -39,7 +39,9 @@ la période en deux durées égales et partage une échelle entre les deux carte
   Aucun intervalle n’est ajouté après la dernière image.
 - Plans séparés pour conserver leur orientation locale. Aucun sens d’attaque,
   événement, possession ou position métrique du ballon n’est inventé.
-- Lissage d’affichage facultatif ; survol et tableaux lisent les valeurs brutes.
+- Zones continues par défaut, avec contours de couleur nets et centres plus
+  lumineux ; retour possible aux mailles brutes. Le survol et les tableaux
+  conservent les mesures brutes.
   Les PNG emportent la période, la légende, les limites et les informations
   nécessaires pour identifier le sujet ou les deux profils comparés.
 - Effectif réel du run et géométrie métrique explicite requis. L’effectif indicatif
@@ -53,6 +55,27 @@ Le calcul reste local, en lecture seule, sans dépendance ML supplémentaire.
 
 Le [guide du viewer](../../viewer/README.md#heatmaps--cinq-angles-à-comparer)
 détaille les dénominateurs, les contrôles et les conditions de validité.
+
+## Révision du rendu après la première revue
+
+Le premier lissage agrandissait une grille déjà colorée et produisait des halos
+flous et des carrés perceptibles. Le nouveau rendu reconstruit d’abord une
+concentration spatiale, puis applique des paliers de couleur à haute résolution.
+Les seules transitions antialiasées sont les frontières des paliers.
+
+Le noyau spatial est identique pour tous les sujets et toutes les cartes :
+sigma de 0,85 m, support limité à trois sigmas et grille de huit échantillons par
+mètre. Chaque contribution est normalisée dans les limites du terrain pour
+conserver son total, y compris près des lignes. Cela reste une représentation
+lissée des données disponibles, sans amélioration supposée de la précision.
+
+La légende du rendu continu indique des % par m² (ou des points de pourcentage
+par m² pour la différence). L’échelle commune est calculée après cette
+reconstruction, pour éviter un rendu délavé et garder les comparaisons cohérentes.
+Les paliers sont fixés à 4, 14, 30, 50, 72 et 90 % du maximum commun ; le plus
+sombre rassemble les très faibles concentrations. L’option **Zones continues**
+peut être désactivée pour consulter les mailles brutes. Les mesures au survol,
+les tableaux, les totaux et les couvertures ne sont pas modifiés.
 
 ## Aperçus publics
 
@@ -94,10 +117,15 @@ Ils ne constituent pas une validation de précision métrique.
 - Suites Python hors ligne : **390 réussis, 28 optionnels ignorés** sur 418 tests
   découverts. Parmi eux, 13 vérifications analytiques des heatmaps et trois
   nouveaux scénarios HTTP. Résultats : `runs/checks/heatmaps-2026-10-26/`.
-- **21 tests JavaScript** réussis ; syntaxe de `app.js`, `i18n.js`, `heatmaps.js`.
+- **26 tests JavaScript** réussis ; syntaxe de `app.js`, `i18n.js`, `heatmaps.js`
+  et `heatmap-renderer.js`. Cinq tests supplémentaires vérifient la conservation
+  des contributions aux bords, la continuité spatiale, la cohérence métrique du
+  lissage, les écarts signés et les profils absents.
 - Chromium sur le sample : cinq modes pour les deux types de sujet ; conservation
   des totaux grille/zones, découpage temporel, changement de plan, FR/EN sans
   perte des filtres, export PNG, fermeture au clavier et retour du focus.
+  Le changement de rendu conserve les tableaux et les totaux sans nouvelle
+  requête réseau ; les légendes distinguent densité continue et mailles brutes.
 - Cas incomplets et concurrence : métadonnées sans géométrie, profil B sans
   données et réponse tardive après un changement de mode.
 - Résolutions du lecteur : 1920 × 1080, 1600 × 1000, 1440 × 900, 1366 × 768,

@@ -133,6 +133,13 @@ async function main() {
           await page.locator("#heatmapTables tbody tr").count(),
           count * 9,
         );
+        assert.equal(
+          await page
+            .locator(".hm-canvas")
+            .first()
+            .getAttribute("data-rendering"),
+          mode === "zones" ? "cells" : "contours",
+        );
         await accessibility(page);
         if (output) {
           await fs.mkdir(output, { recursive: true });
@@ -156,6 +163,58 @@ async function main() {
       time,
       "analysis controls preserve playback position",
     );
+    const beforeRendering = {
+      stats: await page.locator(".hm-map-stats").allTextContents(),
+      table: await page.locator("#heatmapTables").textContent(),
+      pixels: await page
+        .locator(".hm-canvas")
+        .first()
+        .evaluate((canvas) => canvas.toDataURL()),
+    };
+    let extraRequests = 0;
+    const countRequest = (request) => {
+      if (request.url().includes("/api/heatmaps")) extraRequests++;
+    };
+    page.on("request", countRequest);
+    assert.match(
+      await page.locator(".hm-map-legend").first().innerText(),
+      /m²/,
+    );
+    await page.locator("#heatmapSmooth").uncheck();
+    assert.equal(
+      await page.locator(".hm-canvas").first().getAttribute("data-rendering"),
+      "cells",
+    );
+    assert.doesNotMatch(
+      await page.locator(".hm-map-legend").first().innerText(),
+      /m²/,
+    );
+    assert.notEqual(
+      await page
+        .locator(".hm-canvas")
+        .first()
+        .evaluate((canvas) => canvas.toDataURL()),
+      beforeRendering.pixels,
+    );
+    await page.locator("#heatmapSmooth").check();
+    assert.equal(
+      await page.locator(".hm-canvas").first().getAttribute("data-rendering"),
+      "contours",
+    );
+    assert.deepEqual(
+      await page.locator(".hm-map-stats").allTextContents(),
+      beforeRendering.stats,
+    );
+    assert.equal(
+      await page.locator("#heatmapTables").textContent(),
+      beforeRendering.table,
+    );
+    assert.equal(
+      extraRequests,
+      0,
+      "rendering does not refetch or change measurements",
+    );
+    page.off("request", countRequest);
     await page.locator("#heatmapStart").fill("0.5");
     await calculate(
       page,
@@ -307,7 +366,7 @@ async function main() {
       );
     assert.deepEqual(
       pixel,
-      [41, 38, 32],
+      [23, 28, 32],
       "unavailable comparison remains neutral",
     );
     await accessibility(missing);
@@ -342,7 +401,13 @@ async function main() {
         new URL(response.url()).searchParams.get("mode") === "presence",
     );
     release();
-    await late;
+    await (await late).finished();
+    await race.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     assert.equal(
       await race.locator("#heatmapModeTitle").innerText(),
       "Déplacements",

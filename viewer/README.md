@@ -158,9 +158,19 @@ Le choix de langue conserve les filtres, le mode et les résultats.
 | **Comparaison** | Deux joueurs ou deux équipes, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
 | **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation au sein d’un plan. |
 
-Les mailles font environ un mètre ; le **lissage visuel** interpole seulement les
-couleurs affichées. Il ne modifie ni les valeurs, ni les mesures au survol, ni le
-tableau par grandes zones. Les cartes PNG exportées indiquent le sujet, le mode,
+Le rendu **Zones continues**, actif par défaut, regroupe les positions proches
+avant d’appliquer des paliers de couleur aux contours nets. Les zones les plus
+claires indiquent les concentrations les plus fortes, sur un fond ardoise.
+Désactiver cette option affiche les mailles brutes d’environ un mètre ; la vue
+Zones conserve sa grille 3 × 3.
+
+Les cartes continues expriment une concentration en **% par m²** : du temps
+localisé, ou des mètres mesurés pour Déplacements. L’écart de comparaison est en
+points de pourcentage par m². Les cartes comparées partagent la même échelle
+calculée sur cette concentration, avec un traitement spatial identique.
+Le survol et les tableaux conservent les mesures brutes par maille ou par zone ;
+les totaux et couvertures ne changent pas avec le rendu. Les cartes PNG exportées
+indiquent le sujet, le mode,
 le plan, la période, la légende et les limites de lecture. Pour une carte simple,
 elles conservent aussi le total et la couverture ; une différence indique A et B.
 Le tableau sous les cartes rend les neuf zones lisibles au clavier, y compris
@@ -225,7 +235,8 @@ python -m unittest viewer.test_server viewer.test_heatmaps -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
-node --test viewer/test_app.js
+node --check viewer/heatmap-renderer.js
+node --test viewer/test_app.js viewer/test_heatmap_renderer.cjs
 ```
 
 Pour les contrôles navigateur, démarrer le sample avec `make demo-native`, puis :
@@ -243,8 +254,9 @@ la langue persistante pendant la lecture, la sélection joueur, les listes longu
 les données absentes et le repli sans callbacks de présentation. Un second scénario
 couvre les cinq angles pour joueur et équipe, les périodes et plans, les exports,
 la traduction dans la fenêtre, les réponses réseau tardives et les comparaisons
-sans données. Il vérifie aussi l’accessibilité des cartes et des tableaux. Les contrôles
-automatiques d’accessibilité ne remplacent pas une revue manuelle.
+sans données. Le basculement entre zones continues et mailles vérifie que les
+mesures restent identiques, sans requête supplémentaire. Il vérifie aussi
+l’accessibilité des cartes et des tableaux. Les contrôles automatiques d’accessibilité ne remplacent pas une revue manuelle.
 
 Options : `VIEWER_URL` pour une autre instance servant le sample,
 `VIEWER_SCREENSHOTS` pour enregistrer les captures et

@@ -9,6 +9,7 @@ window.heatmapStudio = (() => {
     comparison: "hmComparison",
     evolution: "hmEvolution",
   };
+  const densityCache = new WeakMap();
   let metadata = null;
   let metadataRun = null;
   let result = null;
@@ -85,6 +86,7 @@ window.heatmapStudio = (() => {
     subjectOptions($("heatmapCompare"), candidates, $("heatmapCompare").value);
     $("heatmapCompareField").hidden = mode !== "comparison";
     $("heatmapSmoothField").hidden = mode === "zones";
+    $("heatmapRenderNote").hidden = mode === "zones";
   }
   function planOptions(value) {
     const select = $("heatmapPlan");
@@ -284,10 +286,30 @@ window.heatmapStudio = (() => {
     tables.replaceChildren();
     charts.classList.toggle("hm-multiple", result.maps.length > 1);
     charts.classList.toggle("hm-comparison", mode === "comparison");
+    const continuous = $("heatmapSmooth").checked && mode !== "zones";
+    charts.classList.toggle("hm-continuous", continuous);
+    const fields = result.maps.map((map) => {
+      if (!continuous) return null;
+      if (!densityCache.has(map)) {
+        densityCache.set(
+          map,
+          HeatmapRenderer.density(
+            map.grid.map((value) => share(value, map.total)),
+            map.nx,
+            map.ny,
+            result.court.length,
+            result.court.width,
+          ),
+        );
+      }
+      return densityCache.get(map);
+    });
     const maximum = Math.max(
       0,
-      ...result.maps.flatMap((map) =>
-        map.grid.map((value) => share(value, map.total)),
+      ...result.maps.map((map, index) =>
+        fields[index]
+          ? HeatmapRenderer.maximum(fields[index])
+          : Math.max(0, ...map.grid.map((value) => share(value, map.total))),
       ),
     );
     result.maps.forEach((map, index) => {
@@ -297,7 +319,7 @@ window.heatmapStudio = (() => {
           : mode === "comparison"
             ? `${index ? "B" : "A"} · ${map.subject.label}`
             : map.subject.label;
-      charts.append(mapCard(map, title, maximum));
+      charts.append(mapCard(map, title, maximum, fields[index]));
       tables.append(zoneTable(map, title));
     });
     if (mode === "comparison") {
@@ -321,11 +343,17 @@ window.heatmapStudio = (() => {
         difference: true,
         available,
       };
+      const field = continuous
+        ? HeatmapRenderer.subtract(fields[0], fields[1], available)
+        : null;
       charts.append(
         mapCard(
           difference,
           t("hmDifference"),
-          Math.max(0, ...grid.map(Math.abs)),
+          field
+            ? HeatmapRenderer.maximum(field)
+            : Math.max(0, ...grid.map(Math.abs)),
+          field,
         ),
       );
       tables.append(zoneTable(difference, t("hmDifference")));
@@ -342,7 +370,7 @@ window.heatmapStudio = (() => {
     item.append(name, output);
     return item;
   }
-  function mapCard(map, title, maximum) {
+  function mapCard(map, title, maximum, field) {
     const card = element("article", "hm-map-card");
     const heading = element("div", "hm-map-heading");
     const exportButton = element("button", "hm-export", t("hmExport"));
@@ -368,7 +396,28 @@ window.heatmapStudio = (() => {
       "aria-label",
       `${t(modeKeys[mode])} · ${title} · ${time}`,
     );
-    paintMap(mapCanvas, map, maximum);
+    paintMap(mapCanvas, map, maximum, field);
+    mapCanvas.dataset.rendering = field ? "contours" : "cells";
+    const displayUnit = field
+      ? map.difference
+        ? "pp/m²"
+        : "%/m²"
+      : map.difference
+        ? "pp"
+        : "%";
+    const legendKey = map.difference
+      ? field
+        ? "hmDensityDifferenceLegend"
+        : "hmDifferenceLegend"
+      : mode === "zones"
+        ? "hmZonesLegend"
+        : mode === "movement"
+          ? field
+            ? "hmMovementDensityLegend"
+            : "hmMovementLegend"
+          : field
+            ? "hmDensityLegend"
+            : "hmLegend";
     card.append(mapCanvas);
     const empty = map.difference ? !map.available : map.total <= 0;
     if (empty)
@@ -388,30 +437,18 @@ window.heatmapStudio = (() => {
     const legend = element("div", "hm-map-legend");
     if (map.difference) {
       legend.append(
-        element("span", "", `−${number(maximum)} pp`),
+        element("span", "", `−${number(maximum)} ${displayUnit}`),
         element("i", "hm-gradient hm-diverging"),
-        element("span", "", `+${number(maximum)} pp`),
+        element("span", "", `+${number(maximum)} ${displayUnit}`),
       );
-      card.append(element("p", "hm-legend-caption", t("hmDifferenceLegend")));
+      card.append(element("p", "hm-legend-caption", t(legendKey)));
     } else {
       legend.append(
         element("span", "", "0"),
         element("i", "hm-gradient"),
-        element("span", "", `${number(legendMaximum)} %`),
+        element("span", "", `${number(legendMaximum)} ${displayUnit}`),
       );
-      card.append(
-        element(
-          "p",
-          "hm-legend-caption",
-          t(
-            mode === "movement"
-              ? "hmMovementLegend"
-              : mode === "zones"
-                ? "hmZonesLegend"
-                : "hmLegend",
-          ),
-        ),
-      );
+      card.append(element("p", "hm-legend-caption", t(legendKey)));
     }
     card.append(legend);
     if (!map.difference) {
@@ -449,7 +486,7 @@ window.heatmapStudio = (() => {
           "hmMaxDifference",
           map.available ? `±${number(maximum)}` : "—",
           null,
-          map.available ? "pp" : null,
+          map.available ? displayUnit : null,
         ),
       );
       card.insertBefore(stats, mapCanvas);
@@ -517,9 +554,7 @@ window.heatmapStudio = (() => {
       ctx.drawImage(mapCanvas, 0, 130);
       ctx.font = "15px Arial";
       ctx.fillText(
-        map.difference
-          ? t("hmDifferenceLegend")
-          : `${t(mode === "movement" ? "hmMovementLegend" : mode === "zones" ? "hmZonesLegend" : "hmLegend")} · 0 – ${number(legendMaximum)} %`,
+        `${t(legendKey)} · ${map.difference ? "±" : "0 – "}${number(legendMaximum)} ${displayUnit}`,
         35,
         output.height - 52,
         1030,
@@ -589,7 +624,7 @@ window.heatmapStudio = (() => {
       height,
     };
   }
-  function paintMap(canvas, map, maximum) {
+  function paintMap(canvas, map, maximum, field) {
     const ctx = canvas.getContext("2d");
     const box = courtBox(canvas),
       geometry = result.court;
@@ -597,9 +632,9 @@ window.heatmapStudio = (() => {
       sy = box.height / geometry.width;
     const x = (value) => box.x + value * sx,
       y = (value) => box.y + value * sy;
-    ctx.fillStyle = "#1d1c1b";
+    ctx.fillStyle = "#171a1d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#292620";
+    ctx.fillStyle = "#171c20";
     ctx.fillRect(box.x, box.y, box.width, box.height);
     const values = mode === "zones" ? map.zones : map.grid;
     const nx = mode === "zones" ? 3 : map.nx,
@@ -608,18 +643,21 @@ window.heatmapStudio = (() => {
       map.difference ? value : share(value, map.total),
     );
     const max = mode === "zones" ? Math.max(0, ...normalized) : maximum;
-    const raster = document.createElement("canvas");
-    raster.width = nx;
-    raster.height = ny;
-    const paint = raster.getContext("2d");
-    normalized.forEach((value, index) => {
-      const amount = max > 0 ? Math.min(1, Math.abs(value) / max) : 0;
-      paint.fillStyle = color(amount, map.difference && value < 0);
-      paint.fillRect(index % nx, Math.floor(index / nx), 1, 1);
-    });
-    ctx.imageSmoothingEnabled = $("heatmapSmooth").checked && mode !== "zones";
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(raster, box.x, box.y, box.width, box.height);
+    if (field) {
+      HeatmapRenderer.paint(ctx, box, field, maximum, map.difference);
+    } else {
+      const raster = document.createElement("canvas");
+      raster.width = nx;
+      raster.height = ny;
+      const paint = raster.getContext("2d");
+      normalized.forEach((value, index) => {
+        const amount = max > 0 ? Math.min(1, Math.abs(value) / max) : 0;
+        paint.fillStyle = color(amount, map.difference && value < 0);
+        paint.fillRect(index % nx, Math.floor(index / nx), 1, 1);
+      });
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(raster, box.x, box.y, box.width, box.height);
+    }
     ctx.strokeStyle = "#eee0bf99";
     ctx.lineWidth = 2;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
@@ -704,12 +742,12 @@ window.heatmapStudio = (() => {
   function color(amount, blue) {
     const stops = blue
       ? [
-          [41, 38, 32],
+          [23, 28, 32],
           [60, 123, 182],
           [193, 228, 253],
         ]
       : [
-          [41, 38, 32],
+          [23, 28, 32],
           [209, 97, 43],
           [255, 229, 162],
         ];

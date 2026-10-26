@@ -24,14 +24,20 @@ const messages = {
     hmEvolution: "Évolution",
     hmEvolutionShort: "Première et seconde moitié.",
     hmCompareWith: "Comparer avec",
-    hmSmooth: "Lissage visuel",
+    hmSmooth: "Zones continues",
+    hmRenderHelp:
+      "Les zones claires indiquent une plus forte concentration. Survol et tableau : mesures brutes.",
+    hmDensityLegend: "Concentration du temps localisé · % par m²",
+    hmMovementDensityLegend: "Concentration des mètres mesurés · % par m²",
+    hmDensityDifferenceLegend:
+      "Orange : A davantage représenté · Bleu : B · écart par m²",
     hmPlanNote:
       "Un plan à la fois. L’orientation du terrain peut changer entre les coupes.",
     hmData: "Lire les valeurs par zone",
     hmLimits:
       "Ces cartes décrivent les positions observées, pas les espaces réellement libres. Les joueurs hors champ, les positions non projetables et les ralentis peuvent modifier la lecture. Les ralentis ne sont pas exclus automatiquement.",
     hmPresenceHelp:
-      "La chaleur représente la part du temps localisé dans chaque maille. Pour une équipe, les temps des joueurs observables sont cumulés : ce sont des secondes-joueurs.",
+      "La chaleur montre où se concentre le temps localisé. Pour une équipe, les temps des joueurs observables sont cumulés : ce sont des secondes-joueurs.",
     hmMovementHelp:
       "La chaleur montre où se répartissent les mètres mesurés. Une zone peut être très fréquentée sans concentrer beaucoup de déplacements. Les intervalles sans mesure de distance sont exclus.",
     hmZonesHelp:
@@ -247,14 +253,20 @@ const messages = {
     hmEvolution: "Evolution",
     hmEvolutionShort: "First half and second half.",
     hmCompareWith: "Compare with",
-    hmSmooth: "Visual smoothing",
+    hmSmooth: "Continuous areas",
+    hmRenderHelp:
+      "Lighter areas indicate greater concentration. Hover and tables show raw measurements.",
+    hmDensityLegend: "Localized time concentration · % per m²",
+    hmMovementDensityLegend: "Measured distance concentration · % per m²",
+    hmDensityDifferenceLegend:
+      "Orange: A more represented · Blue: B · difference per m²",
     hmPlanNote:
       "One camera shot at a time. Court orientation may change between cuts.",
     hmData: "Read the values by zone",
     hmLimits:
       "These maps describe observed positions, not genuinely free space. Off-screen players, unavailable projections and replays may affect the interpretation. Replays are not automatically excluded.",
     hmPresenceHelp:
-      "Heat represents the share of localized time in each cell. For teams, observable player times are added together: these are player-seconds.",
+      "Heat shows where localized time is concentrated. For teams, observable player times are added together: these are player-seconds.",
     hmMovementHelp:
       "Heat shows where measured metres accumulate. A frequently occupied zone need not contain much movement. Intervals without a distance measurement are excluded.",
     hmZonesHelp:
