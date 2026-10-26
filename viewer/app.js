@@ -288,11 +288,12 @@ function renderGamePhase(time) {
   }
   const span = spans[lo - 1];
   const owner = span && time < span.end_s ? span.attacking_team_id : null;
+  target.hidden = !owner;
+  if (!owner) { target.textContent = ''; return; }
   const team = (state.meta?.scoreboard?.teams || []).find(team => team.team_id === owner);
-  target.textContent = owner
-    ? `${t('gamePhaseAttack', {team: team?.label || owner})} · ${t(span.source === 'court_context' ? 'gamePhaseCourt' : 'gamePhaseBall')}`
-    : t('gamePhaseUnknown');
-  target.setAttribute('data-source', owner ? span.source : 'unknown');
+  const opponent = (state.meta?.scoreboard?.teams || []).find(team => team.team_id !== owner);
+  target.textContent = t('gamePhaseMatchup', {attack: team?.label || owner, defense: opponent?.label || '—'});
+  target.setAttribute('data-source', 'settled');
   target.title = t('gamePhaseHelp');
 }
 function videoFrameLoop(_now, metadata) {

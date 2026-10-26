@@ -6,7 +6,7 @@
   "segments": 2,
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "0575bdf6bd91685511a70cd858e124b0b901cb2f26f454638e3a5ab8ce1cec05",
+    "sha256": "f63901d1813c8163adc0ea06fb2caeafe0aae7322593aea409e73a253f2184da",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,
@@ -37,13 +37,13 @@
   ],
   "artifacts": {
     "statistics.json": {
-      "sha256": "e64b7dc830b3d93858fae9c2e93cdd67370b3cac7a28ea8bc49c392e5b910bb0"
+      "sha256": "fa637e5aaf7c7bbdb2d46878a03f375691e0dd132b4d1369f978bc6db99c7ae9"
     },
     "observations.jsonl": {
-      "sha256": "5945eb1fce5e8904ff4ffe4a75ed1df1ae2594780154cd5fcf4935646490fc5e"
+      "sha256": "02b7fe51ff5cce848a2032ebdb9b605ba17c6cab843b9285b4abc52d42a3c2b7"
     },
     "tracks.jsonl": {
-      "sha256": "7092d120adcff25d85c34c6e7ef4b6a46addf2bb1020a762fec33eb72955812c"
+      "sha256": "29c61092a324ab0874e69130b85bc76c419fb9eb121edb5c4e9959c898648f9b"
     },
     "jersey_reads.jsonl": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -52,7 +52,7 @@
       "sha256": "76e740b0d5c199ae994dfd9e74da8d96ebdebb0a3abe44b5c6dfb76171949b2a"
     },
     "scoreboard.json": {
-      "sha256": "4e03a267df415252cc9a62dfa4100ba9733aeb430185ee214ef98f7475f8dd0d"
+      "sha256": "d7b4db309ec796c66fc862772f9ddc2d09ce0224fd5ff5beed4adc2b6b0c137f"
     }
   },
   "court_coordinate_system": {

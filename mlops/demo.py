@@ -58,7 +58,10 @@ def create_demo(output):
             owner = (i // 45) % 2
             for team_index, team in enumerate(roster["teams"]):
                 for player_index, player in enumerate(team["players"]):
-                    x = ((240, 315, 365) if team_index == 0 else (415, 465, 480))[player_index] + (i % 90) * .15
+                    # The new controller first recovers the ball at its own
+                    # basket, then reaches the other half ten frames later.
+                    layout = ((400, 380, 430), (500, 540, 565)) if i % 90 < 55 else ((65, 105, 140), (220, 195, 255))
+                    x = layout[team_index][player_index] + (i % 45) * .08
                     y = (150, 100, 215)[player_index]
                     if i >= 90:
                         x, y = 640 - (x + 13) - 13, 400 - (y + 55) - 55

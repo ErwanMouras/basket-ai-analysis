@@ -311,11 +311,12 @@ test('phase label distinguishes court context and contacts without carrying acro
     {start_s:0,end_s:1,attacking_team_id:'a',source:'court_context'},
     {start_s:1.1,end_s:2,attacking_team_id:'b',source:'contacts'}
   ]}; renderGamePhase(.5)`);
-  assert.equal(ui.byId('gamePhase').textContent,'AAA en attaque · zone du terrain');
+  assert.equal(ui.byId('gamePhase').textContent,'AAA attaque · BBB défense');
   ui.run('renderGamePhase(1)');
-  assert.equal(ui.byId('gamePhase').textContent,'Situation non classée');
+  assert.equal(ui.byId('gamePhase').hidden,true);
+  assert.equal(ui.byId('gamePhase').textContent,'');
   ui.run("language='en';renderGamePhase(1.1)");
-  assert.equal(ui.byId('gamePhase').textContent,'BBB attacking · ball');
+  assert.equal(ui.byId('gamePhase').textContent,'BBB offense · AAA defense');
   ui.run('state.meta=null;renderGamePhase(0)');
   assert.equal(ui.byId('gamePhase').hidden,true);
 });

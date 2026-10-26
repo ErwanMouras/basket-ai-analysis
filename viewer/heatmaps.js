@@ -32,9 +32,7 @@ window.heatmapStudio = (() => {
   const selectedSubject = () =>
     metadata?.subjects.find((item) => item.id === $("heatmapSubject").value);
   const phaseKey = (phase) =>
-    ({ offense: "hmOffense", defense: "hmDefense", unknown: "hmUnknown" })[
-      phase
-    ];
+    ({ offense: "hmOffense", defense: "hmDefense" })[phase];
   const selectedPhase = () => $("heatmapPhase").value;
   const selectedPassage = () =>
     metadata?.phase_analysis?.episodes.find(
@@ -81,8 +79,6 @@ window.heatmapStudio = (() => {
     $("heatmapInspect").textContent = "";
     $("heatmapPhaseSummary").replaceChildren();
     $("heatmapOrientation").textContent = "";
-    $("heatmapEvidence").textContent = "";
-    $("heatmapUnknown").hidden = true;
     $("heatmapPassages").hidden = true;
   }
   function subjectOptions(select, subjects, value) {
@@ -138,7 +134,6 @@ window.heatmapStudio = (() => {
     )
       ? value
       : "";
-    select.disabled = selectedPhase() === "unknown";
   }
   function periodOptions(value = "") {
     const periods = metadata?.scoreboard?.periods || [];
@@ -283,18 +278,12 @@ window.heatmapStudio = (() => {
         "aria-pressed",
         String(button.dataset.heatmapMode === mode),
       );
-      button.disabled = !metadata?.available || selectedPhase() === "unknown";
+      button.disabled = !metadata?.available;
     });
   }
   function updateIntro() {
-    $("heatmapModeTitle").textContent = t(
-      selectedPhase() === "unknown" ? "hmUnknown" : modeKeys[mode],
-    );
-    $("heatmapExplanation").textContent = t(
-      selectedPhase() === "unknown"
-        ? "hmUnknownIntro"
-        : `${modeKeys[mode]}Help`,
-    );
+    $("heatmapModeTitle").textContent = t(modeKeys[mode]);
+    $("heatmapExplanation").textContent = t(`${modeKeys[mode]}Help`);
     const subject = selectedSubject();
     $("heatmapScope").textContent = [
       subject?.label,
@@ -332,7 +321,6 @@ window.heatmapStudio = (() => {
     document
       .querySelectorAll("[data-heatmap-mode]")
       .forEach((button) => (button.disabled = disabled));
-    if (selectedPhase() === "unknown") $("heatmapPassage").disabled = true;
     updateModeButtons();
     updateIntro();
     if (statusKey) status(statusKey);
@@ -344,14 +332,9 @@ window.heatmapStudio = (() => {
     summary.replaceChildren();
     const durations = result.phase_analysis;
     if (!durations) return;
-    $("heatmapEvidence").textContent = t("hmClassificationSources", {
-      contacts: number(durations.contacts_s || 0),
-      court: number(durations.court_context_s || 0),
-    });
-    $("heatmapEvidence").title = t("gamePhaseHelp");
     summary.setAttribute("role", "group");
     summary.setAttribute("aria-label", t("hmPhaseBreakdown"));
-    for (const phase of ["offense", "defense", "unknown"]) {
+    for (const phase of ["offense", "defense"]) {
       const button = element("button", `hm-phase-chip hm-phase-${phase}`);
       button.type = "button";
       button.setAttribute("aria-pressed", String(selectedPhase() === phase));
@@ -367,20 +350,13 @@ window.heatmapStudio = (() => {
         ? ` · ${t("hmDirectionMissing", { value: number(durations.orientation_missing_s) })}`
         : "";
     $("heatmapOrientation").textContent =
-      (selectedPhase() === "unknown"
-        ? t("hmUnknownScope")
-        : t(
-            selectedPhase() === "offense" ? "hmAttackBasket" : "hmDefendBasket",
-          )) +
+      t(selectedPhase() === "offense" ? "hmAttackBasket" : "hmDefendBasket") +
       missing +
       (metadata.phase_analysis.period_directions?.length
         ? ` · ${t("hmQuarterLock")}`
         : "");
     const bounds = result.scope;
-    const unknown = selectedPhase() === "unknown";
-    const passages = unknown
-      ? metadata.phase_analysis.uncertain_intervals
-      : metadata.phase_analysis.episodes.filter(matchingRole);
+    const passages = metadata.phase_analysis.episodes.filter(matchingRole);
     const list = $("heatmapPassagesList");
     list.replaceChildren();
     for (const passage of passages) {
@@ -388,7 +364,7 @@ window.heatmapStudio = (() => {
         b = Math.min(bounds.end_s, passage.end_s);
       if (
         b - a < 0.2 ||
-        (selectedPassage() && !unknown && passage.id !== selectedPassage().id)
+        (selectedPassage() && passage.id !== selectedPassage().id)
       )
         continue;
       const button = element("button", "hm-passage-review");
@@ -405,15 +381,14 @@ window.heatmapStudio = (() => {
       list.append(button);
     }
     if (!list.children.length) list.append(element("p", "", t("hmNoPassages")));
-    $("heatmapPassagesTitle").textContent = t(
-      unknown ? "hmUnknownPassages" : "hmReviewPassages",
-    );
+    $("heatmapPassagesTitle").textContent = t("hmReviewPassages");
     $("heatmapPassages").hidden = false;
     if ($("heatmapPassages").dataset.phase !== selectedPhase())
-      $("heatmapPassages").open = unknown;
+      $("heatmapPassages").open = false;
     $("heatmapPassages").dataset.phase = selectedPhase();
   }
   function changePhase(phase) {
+    if (!["offense", "defense"].includes(phase)) return;
     $("heatmapPhase").value = phase;
     $("heatmapPhase").focus();
     passageOptions();
@@ -427,13 +402,6 @@ window.heatmapStudio = (() => {
     charts.replaceChildren();
     const tables = $("heatmapTables");
     tables.replaceChildren();
-    const unknown = selectedPhase() === "unknown";
-    $("heatmapUnknown").hidden = !unknown;
-    if (unknown) {
-      $("heatmapData").hidden = true;
-      $("heatmapInspect").textContent = "";
-      return;
-    }
     charts.classList.toggle("hm-multiple", result.maps.length > 1);
     charts.classList.toggle("hm-comparison", mode === "comparison");
     const continuous = $("heatmapSmooth").checked && mode !== "zones";

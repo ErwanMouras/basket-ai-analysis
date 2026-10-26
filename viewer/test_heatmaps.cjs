@@ -254,9 +254,13 @@ async function main() {
       "bad range clears old charts",
     );
     assert.equal(await page.locator("#heatmapStatus").isVisible(), true);
+    const latePassage = await page
+      .locator("#heatmapPassage option")
+      .last()
+      .getAttribute("value");
     const second = await calculate(
       page,
-      () => page.locator("#heatmapPassage").selectOption("2"),
+      () => page.locator("#heatmapPassage").selectOption(latePassage),
       "presence",
     );
     assert.ok(
@@ -336,24 +340,18 @@ async function main() {
       await page.locator("#heatmapSubject").inputValue(),
       await page.evaluate(() => `team:${state.teamId}`),
     );
-    const unknown = await calculate(
-      page,
-      () => page.locator(".hm-phase-unknown").click(),
-      "presence",
+    assert.deepEqual(
+      await page
+        .locator("#heatmapPhase option")
+        .evaluateAll((nodes) => nodes.map((n) => n.value)),
+      ["offense", "defense"],
     );
-    assert.ok(unknown.phase_analysis.unknown_s > 0);
-    assert.equal(await page.locator("#heatmapUnknown").isVisible(), true);
-    assert.equal(await page.locator(".hm-canvas").count(), 0);
-    assert.equal(
-      await page.locator('[data-heatmap-mode="comparison"]').isDisabled(),
-      true,
-    );
+    assert.equal(await page.locator(".hm-phase-chip").count(), 2);
+    assert.equal(await page.locator("#heatmapUnknown").count(), 0);
     await accessibility(page);
-    if (output)
-      await page.screenshot({
-        path: path.join(output, "heatmap-unclassified.png"),
-        fullPage: true,
-      });
+    await page
+      .locator("#heatmapPassages")
+      .evaluate((node) => (node.open = true));
     await page.locator("#heatmapPassagesList button").first().click();
     assert.equal(
       await page.locator("#heatmapDialog").evaluate((dialog) => dialog.open),
@@ -467,7 +465,7 @@ async function main() {
     await unavailable.close();
     assert.deepEqual(errors, [], "no browser exceptions");
     console.log(
-      "Heatmaps: five modes × player/team, offense/defense, time ranges, passages, unknown reviews, languages, exports, missing data, response races, responsive layout and accessibility passed",
+      "Heatmaps: five modes × player/team, offense/defense, time ranges, passages, hidden neutral intervals, languages, exports, missing data, response races, responsive layout and accessibility passed",
     );
   } finally {
     await browser.close();

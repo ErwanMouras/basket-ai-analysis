@@ -20,11 +20,9 @@ class DemoTests(unittest.TestCase):
         for line in (run / "observations.jsonl").read_text().splitlines():
             index.add_frame(json.loads(line))
         index.finish()
-        # Missing ball/calibration in Q1 intentionally leave less than 0.75 s
-        # of direction anchors: keep its local estimate without a quarter lock.
         self.assertEqual(index.phases.directions, {0: 1, 1: -1})
-        self.assertEqual([(q["period"], q["direction"]) for q in index.phases.period_directions], [(3, -1)])
-        self.assertTrue(all(e["orientation_source"] == "camera_plan" for e in index.phases.episodes if e["period"] == 1))
+        self.assertEqual([(q["period"],q["direction"]) for q in index.phases.period_directions], [(1,1),(3,-1)])
+        self.assertFalse(any(p["start_s"]<=1.7<p["end_s"] for p in index.phases.timeline()))
 
     def test_public_sample_has_the_required_output_fields_and_matching_source(self):
         run = ROOT / "examples/demo/runs/synthetic"
@@ -55,7 +53,7 @@ class DemoTests(unittest.TestCase):
         for line in (run / "observations.jsonl").read_text().splitlines():
             index.add_frame(json.loads(line))
         index.finish()
-        for time, owner in ((.3, "blue"), (2., "pink"), (3.5, "blue"), (5., "pink")):
+        for time, owner in ((.3, "blue"), (2.7, "pink"), (3.5, "blue"), (5., "pink")):
             span = next(span for span in index.phases.spans if span.start <= time < span.end)
             self.assertEqual(span.owner, owner)
         self.assertEqual(index.phases.directions, {0: 1, 1: -1})

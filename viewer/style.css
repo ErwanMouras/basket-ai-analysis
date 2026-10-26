@@ -1845,7 +1845,7 @@ kbd {
 
 .hm-phase-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 15px 0 8px;
 }
@@ -1873,23 +1873,11 @@ kbd {
   background: #30251c;
   color: #ffc299;
 }
-.hm-phase-unknown[aria-pressed="true"] {
-  background: #282b2e;
-  border-color: #8a9297;
-  color: var(--text);
-}
 .hm-orientation {
   color: var(--muted);
   font-size: 10px;
   line-height: 1.6;
   margin: 8px 0 20px;
-}
-.hm-unknown {
-  padding: 22px;
-  line-height: 1.8;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 4px;
 }
 .hm-passages-list {
   display: grid;
@@ -1986,17 +1974,4 @@ kbd {
   font:
     10px Arial,
     sans-serif;
-}
-.game-phase[data-source="court_context"] {
-  color: #96cfc7;
-}
-.game-phase[data-source="unknown"] {
-  color: var(--muted);
-}
-.hm-evidence {
-  color: var(--muted);
-  font:
-    11px Arial,
-    sans-serif;
-  margin: 10px 0 0;
 }

@@ -33,17 +33,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603736000000033,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593599999987,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
@@ -67,17 +69,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603736000000033,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593599999947,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
@@ -101,17 +105,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603735999999998,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593600000045,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
@@ -135,17 +141,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603736000000069,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593600000009,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
@@ -169,17 +177,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603736000000033,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593600000076,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
@@ -203,17 +213,19 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 1.1603736000000007,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593599999934,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     }
   ],
@@ -227,7 +239,7 @@
   "status": "completed",
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "0575bdf6bd91685511a70cd858e124b0b901cb2f26f454638e3a5ab8ce1cec05",
+    "sha256": "f63901d1813c8163adc0ea06fb2caeafe0aae7322593aea409e73a253f2184da",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,
