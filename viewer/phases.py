@@ -3,6 +3,8 @@
 A ball detection is not a possession. Unknown players and referees compete with
 known players for the contact, and uncertain windows remain unclassified.
 No elevated ball is projected through the ground-plane homography.
+Learned quarter sides can complete the attacking context from a settled group;
+that spatial estimate does not assert that a particular player possesses the ball.
 """
 
 from __future__ import annotations
@@ -173,6 +175,51 @@ def contact(row, teams, geometry=None, method="hands", min_ball_confidence=0.35)
     return result
 
 
+def occupied_half(row, teams, geometry):
+    """A settled, calibrated group in an outer third; never project the ball.
+
+    Both teams must be represented. Requiring their medians in the same outer
+    third avoids treating a team crossing midcourt as a settled attack.
+    """
+    court = row.get("court") or {}
+    if (
+        not geometry
+        or len(teams) != 2
+        or not row.get("included", True)
+        or court.get("status") not in ("fit", "propagated")
+        or court.get("image_to_court") is None
+    ):
+        return None
+    people = [p for p in row.get("persons", []) if p.get("role") == "player"]
+    tracks = Counter(p.get("track_id") for p in people)
+    xs = {team: [] for team in teams}
+    all_x = []
+    length, width = geometry["length"], geometry["width"]
+    for person in people:
+        xy, track = person.get("position_m"), person.get("track_id")
+        if (
+            track is None
+            or tracks[track] != 1
+            or not point(xy)
+            or not 0 <= xy[0] <= length
+            or not 0 <= xy[1] <= width
+        ):
+            continue
+        x = xy[0] / length
+        all_x.append(x)
+        team = team_of(person)
+        if team in xs:
+            xs[team].append(x)
+    if any(len(values) < 2 for values in xs.values()):
+        return None
+    centres = [median(values) for values in xs.values()]
+    if all(x <= 0.35 for x in centres) and sum(x < 0.45 for x in all_x) / len(all_x) >= 0.8:
+        return -1
+    if all(x >= 0.65 for x in centres) and sum(x > 0.55 for x in all_x) / len(all_x) >= 0.8:
+        return 1
+    return None
+
+
 @dataclass(slots=True)
 class Evidence:
     frame: int
@@ -181,6 +228,7 @@ class Evidence:
     included: bool
     contact: Contact
     period: int | None = None
+    half: int | None = None
 
 
 @dataclass(slots=True)
@@ -201,6 +249,10 @@ class PhaseIndex:
     min_evidence_s = 0.16
     quarter_anchor_s = 0.75
     reversed_view_agreement = 0.9
+    spatial_evidence_s = 0.35
+    contact_guard_s = 1.0
+    score_guard_before_s = 2.0
+    score_guard_after_s = 0.75
 
     def __init__(
         self,
@@ -210,6 +262,7 @@ class PhaseIndex:
         method="hands",
         min_ball_confidence=0.35,
         scoreboard=None,
+        use_court_context=True,
     ):
         self.teams = tuple(teams)
         self.geometry = geometry
@@ -225,6 +278,12 @@ class PhaseIndex:
         self.orientation_evidence = []
         self.scoreboard = scoreboard
         self.period_directions = []
+        self.use_court_context = use_court_context
+        events = scoreboard.events if scoreboard else []
+        self.score_changes = defaultdict(list)
+        for previous, current in zip(events, events[1:]):
+            if previous["period"] == current["period"] and previous["scores"] != current["scores"]:
+                self.score_changes[current["period"]].append(current["time_s"])
 
     def add_frame(self, row, plan):
         reading = self.scoreboard.at(row["timestamp_s"]) if self.scoreboard else None
@@ -236,6 +295,7 @@ class PhaseIndex:
                 row.get("included", True),
                 contact(row, self.teams, self.geometry, self.method, self.min_ball_confidence),
                 reading.get("period") if reading else None,
+                occupied_half(row, self.teams, self.geometry) if self.use_court_context else None,
             )
         )
 
@@ -317,8 +377,8 @@ class PhaseIndex:
                 local_directions[key] = direction
                 self.directions[key[1]] = direction
         # A quarter keeps its first well-supported reference view. A strongly
-        # reversed camera still uses its own orientation; possession remains
-        # entirely independent of this spatial reference.
+        # reversed camera still uses its own orientation. Only contact evidence
+        # establishes that reference: spatial completion cannot vote for itself.
         locked = {}
         for (period, plan), votes in direction_votes.items():
             if (
@@ -375,6 +435,8 @@ class PhaseIndex:
                     "source": sources.get((period, plan), "camera_plan"),
                 }
             )
+        if self.use_court_context:
+            self._complete_from_court(blocks, locked, effective_directions)
         for span in self.spans:
             direction = effective_directions.get((span.period, span.plan))
             if direction and span.owner:
@@ -434,6 +496,63 @@ class PhaseIndex:
             span.episode = self.episodes[-1]["id"]
         self.frames.clear()
 
+    def _complete_from_court(self, blocks, locked, directions):
+        """Complete missing roles from quarter sides, without overwriting contacts."""
+        spans = {(s.plan, s.start, s.end): s for s in self.spans}
+        for block in blocks:
+            pairs = [(a.time, b.time, b) for a, b in zip(block, block[1:])]
+            starts, ends = [a for a, _, _ in pairs], [b for _, b, _ in pairs]
+            for start, end, frame in pairs:
+                span = spans[(frame.plan, start, end)]
+                direction = directions.get((frame.period, frame.plan))
+                if (
+                    span.owner
+                    or frame.period not in locked
+                    or not direction
+                    or not frame.half
+                    or frame.contact.reason
+                    in ("referee_contact", "unassigned_contact", "contested_contact")
+                ):
+                    continue
+                team = self.teams[0] if frame.half == direction else self.teams[1]
+                middle = (start + end) / 2
+                # The TV graphic can update after the basket. A short guard on
+                # both sides of that observed update prevents a settled group
+                # beneath the rim from being mistaken for continued offense.
+                # This excludes spatial guesses; it never infers a basket time
+                # or changes contact-based labels.
+                changes = self.score_changes.get(frame.period, ())
+                change = bisect_left(changes, middle - self.score_guard_after_s)
+                if change < len(changes) and changes[change] <= middle + self.score_guard_before_s:
+                    continue
+                # A rebound or inbound can put the new attacking team underneath
+                # the other basket. Even a single contrary contact blocks the
+                # spatial guess nearby, including contacts too brief to classify.
+                guarded = pairs[
+                    bisect_right(ends, middle - self.contact_guard_s) : bisect_left(
+                        starts, middle + self.contact_guard_s
+                    )
+                ]
+                if any(
+                    other.contact.team and other.contact.team != team for _, _, other in guarded
+                ):
+                    continue
+                lo, hi = middle - self.window_s, middle + self.window_s
+                votes, support = Counter(), Counter()
+                for a, b, other in pairs[bisect_right(ends, lo) : bisect_left(starts, hi)]:
+                    if other.half:
+                        weight = max(0.0, min(hi, b) - max(lo, a))
+                        votes[other.half] += weight
+                        support[other.half] += int(weight > 0)
+                if (
+                    votes[frame.half] >= self.spatial_evidence_s - 1e-9
+                    and support[frame.half] >= 3
+                    and votes[frame.half] / sum(votes.values()) >= 0.9
+                ):
+                    span.owner = team
+                    span.method = "court"
+                    span.reason = "quarter_court_context"
+
     def metadata(self):
         eligible = self.duration_s
         classified = sum(s.end - s.start for s in self.spans if s.owner)
@@ -443,7 +562,28 @@ class PhaseIndex:
             "orientation_evidence": self.orientation_evidence,
             "period_directions": self.period_directions,
             "orientation_policy": "quarter_lock_with_verified_camera_reversals",
-            "method": "image_contacts_temporal_layout_v1",
+            "method": (
+                "contacts_temporal_quarter_court_context_v2"
+                if self.use_court_context
+                else "image_contacts_temporal_layout_v1"
+            ),
+            "classification_sources": {
+                "contacts_s": sum(
+                    s.end - s.start for s in self.spans if s.owner and s.method != "court"
+                ),
+                "court_context_s": sum(
+                    s.end - s.start for s in self.spans if s.owner and s.method == "court"
+                ),
+            },
+            "court_context": {
+                "enabled": self.use_court_context,
+                "requires_quarter_lock": True,
+                "min_players_per_team": 2,
+                "min_evidence_s": self.spatial_evidence_s,
+                "contact_guard_s": self.contact_guard_s,
+                "score_guard_before_s": self.score_guard_before_s,
+                "score_guard_after_s": self.score_guard_after_s,
+            },
             "eligible_s": eligible,
             "classified_s": classified,
             "unknown_s": eligible - classified,
@@ -453,3 +593,28 @@ class PhaseIndex:
             "classification_coverage": classified / eligible if eligible else None,
             "automatic_replay_exclusion": False,
         }
+
+    def timeline(self):
+        """Compact half-open intervals, preserving cuts and missing source time."""
+        rows = []
+        for span in self.spans:
+            source = (
+                "court_context" if span.method == "court" else "contacts" if span.owner else None
+            )
+            context = {
+                "plan_id": span.plan,
+                "period": span.period,
+                "attacking_team_id": span.owner,
+                "direction": span.direction,
+                "source": source,
+            }
+            previous = rows[-1] if rows else None
+            if (
+                previous
+                and all(previous[key] == value for key, value in context.items())
+                and abs(previous["end_s"] - span.start) < 1e-6
+            ):
+                previous["end_s"] = span.end
+            else:
+                rows.append({"start_s": span.start, "end_s": span.end, **context})
+        return rows

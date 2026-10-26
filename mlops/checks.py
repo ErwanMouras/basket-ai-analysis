@@ -27,7 +27,7 @@ def main():
               ("jersey", ["discover", "-s", "training/jersey/tests"]),
               ("segmentation", ["discover", "-s", "training/segmentation/tests"]),
               ("analysis", ["discover", "-s", "pipeline/tests"]),
-              ("mlops", ["discover", "-s", "mlops/tests"]), ("viewer", ["viewer.test_server", "viewer.test_heatmaps", "viewer.test_phases", "viewer.test_scoreboard"])]
+              ("mlops", ["discover", "-s", "mlops/tests"]), ("viewer", ["viewer.test_server", "viewer.test_heatmaps", "viewer.test_phases", "viewer.test_scoreboard", "viewer.test_court_context"])]
     report = {"training_executed": False, "annotation_sources_modified": False, "suites": [], "status": "running"}
     for name, options in suites:
         start = time.monotonic()

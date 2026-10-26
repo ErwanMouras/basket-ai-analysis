@@ -254,6 +254,7 @@ class Handler(BaseHTTPRequestHandler):
                         'track_votes': vote_summaries,
                         'spatial_handoffs': manifest.get('spatial_handoffs', []),
                         'scoreboard': index.scoreboard.metadata(),
+                        'phase_timeline': index.heatmaps.phases.timeline(),
                         'markers': index.markers,
                         'video_available': source.is_relative_to(self.server.video_root) and source.is_file()})
                 index = self.server.index(path)

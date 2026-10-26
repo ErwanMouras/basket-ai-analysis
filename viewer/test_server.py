@@ -236,6 +236,29 @@ class ScoreboardServerTests(unittest.TestCase):
     tearDown = ViewerTests.tearDown
     get = ViewerTests.get
 
+    def test_spatial_classification_reaches_the_player_timeline_and_heatmap_api(self):
+        from viewer.test_phases import GEOMETRY, ROSTER
+        from viewer.test_court_context import anchored_rows, scoreboard
+        run = self.server.runs_root / 'match'
+        rows = anchored_rows()
+        manifest = json.loads((run / 'run.json').read_text())
+        manifest.update(frames=len(rows), court_coordinate_system=GEOMETRY)
+        manifest['source']['sha256'] = 'source'
+        (run / 'run.json').write_text(json.dumps(manifest))
+        (run / 'roster.json').write_text(json.dumps(ROSTER))
+        readings = scoreboard(rows)
+        document = {'schema_version':1, 'source_sha256':'source', 'sample_s':.1,
+                    'teams':readings.document['teams'], 'samples':readings.samples}
+        (run / 'scoreboard.json').write_text(json.dumps(document))
+        (run / 'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows))
+        data = json.loads(self.get('/api/run?name=match')[2])
+        phase = next(p for p in data['phase_timeline'] if p['start_s']<=2.5<p['end_s'])
+        self.assertEqual(phase['attacking_team_id'],'a')
+        self.assertEqual(phase['source'],'court_context')
+        data = json.loads(self.get('/api/heatmaps?name=match&subject=team:a&phase=offense&start=2&end=3')[2])
+        self.assertAlmostEqual(data['phase_analysis']['court_context_s'],1.)
+        self.assertAlmostEqual(data['maps'][0]['total'],3.)
+
     def test_source_bound_scoreboard_is_exposed_and_updates_invalidate_the_index(self):
         from viewer.test_scoreboard import document, sample
         run = self.server.runs_root / 'match'

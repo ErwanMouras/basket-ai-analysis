@@ -12,6 +12,7 @@ from pathlib import Path
 from statistics import median
 
 from viewer.phases import PhaseIndex, contact, finite, point, team_of
+from viewer.scoreboard import ScoreboardIndex
 
 
 def zone_only(row, teams, geometry):
@@ -84,8 +85,21 @@ def experiment(run, review=None):
         raise ValueError("The run contains no observations")
     times = [row["timestamp_s"] for row in rows]
     indices = {
-        method: PhaseIndex(teams, geometry, gap, method=method) for method in ("body", "hands")
+        method: PhaseIndex(teams, geometry, gap, method=method, use_court_context=False)
+        for method in ("body", "hands")
     }
+    scoreboard = ScoreboardIndex.load(run, manifest, roster)
+    indices.update(
+        {
+            "quarter_contacts": PhaseIndex(
+                teams, geometry, gap, scoreboard=scoreboard, use_court_context=False
+            ),
+            "quarter_context": PhaseIndex(teams, geometry, gap, scoreboard=scoreboard),
+        }
+    )
+    unguarded = PhaseIndex(teams, geometry, gap, scoreboard=scoreboard)
+    unguarded.score_guard_before_s = unguarded.score_guard_after_s = 0.0
+    indices["quarter_context_without_score_guard"] = unguarded
     plan, previous = -1, None
     raw_contacts = []
     zones = []
@@ -142,7 +156,7 @@ def experiment(run, review=None):
                     (span.owner for span in index.spans if span.start <= time < span.end), None
                 )
             result["review"]["checkpoints"].append({**checkpoint, "predictions": predictions})
-        for method in ("zone_only", "hands_instant", "body_temporal", "hands_temporal"):
+        for method in ("zone_only", "hands_instant", *(f"{name}_temporal" for name in indices)):
             score = {
                 "labeled": 0,
                 "decided": 0,
