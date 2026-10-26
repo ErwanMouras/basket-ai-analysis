@@ -64,6 +64,12 @@ Local before/after, player and layers captures live in the ignored
 - The `viewer-browser` GitHub Actions job installs the locked development-only
   dependencies, starts the scripted viewer and repeats the browser checks.
   Public sample screenshots are retained as workflow artifacts.
+- Real HOU–LAL segmentation: 60 presented frames at 1× and 60 at 2×, all with
+  masks available and **zero annotation/presentation mismatches**. Paused seeking
+  to 51.60 s after resizing, a one-frame step and in-place language switching passed.
+- Docker build context explicitly includes the local font and its license; the
+  container check asserts that both and `i18n.js` are shipped. Browser checks also
+  run against a locally built read-only viewer container with the scripted sample.
 
 ### Presentation-order regression found during resize checks
 

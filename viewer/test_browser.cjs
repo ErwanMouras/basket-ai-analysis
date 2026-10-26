@@ -87,6 +87,14 @@ async function assertLayout(page, width, height) {
   );
 }
 async function checkAccessibility(page) {
+  // Audit settled colors, rather than an intermediate frame of a theme transition.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .map((animation) => animation.finished.catch(() => {})),
+    ),
+  );
   await page.addScriptTag({ path: axePath });
   const violations = await page.evaluate(async () =>
     (

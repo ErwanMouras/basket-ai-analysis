@@ -6,6 +6,8 @@
 !viewer/*.html
 !viewer/*.js
 !viewer/*.css
+!viewer/*.ttf
+!viewer/BarlowCondensed-OFL.txt
 !training/
 !training/**/
 !training/**/*.py

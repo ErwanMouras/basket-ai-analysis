@@ -146,7 +146,7 @@ select {
   border: 0;
   padding: 6px 8px;
   background: transparent;
-  color: var(--dim);
+  color: var(--muted);
   font: 11px var(--mono);
   border-radius: 3px;
 }

@@ -39,7 +39,9 @@ jobs:
       - name: All offline regression suites (no training or annotation)
         run: .venv-players-cpu/bin/python -m mlops.checks --output runs/ci-poc
       - name: Viewer container build
-        run: docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
+        run: |
+          docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
+          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
       - name: Verify the public scripted sample
         run: .venv-players-cpu/bin/python -m mlops.demo --output examples/demo --ensure
       - uses: actions/upload-artifact@v4
