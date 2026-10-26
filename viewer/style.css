@@ -1925,3 +1925,56 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Game context belongs to the timeline, beside the source-time controls. */
+.scoreboard-context {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-bottom: 12px;
+}
+.scoreboard-match {
+  color: var(--text);
+  font:
+    600 21px "Barlow Condensed",
+    sans-serif;
+  letter-spacing: 0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.scoreboard-period,
+.scoreboard-clock {
+  color: var(--muted);
+  font: 11px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.scoreboard-source {
+  margin-left: auto;
+  color: var(--dim);
+  font: 9px var(--mono);
+}
+.mark.score {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #78c8bf;
+}
+.timeline-markers button.score {
+  top: 21px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #78c8bf;
+}
+.timeline-markers button.score:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
+@media (max-width: 600px) {
+  .timeline-caption {
+    flex-wrap: wrap;
+  }
+  .scoreboard-source {
+    display: none;
+  }
+}

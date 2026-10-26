@@ -276,11 +276,22 @@
             </div>
           </div>
           <div class="timeline">
+            <div id="scoreboardContext" class="scoreboard-context" hidden>
+              <span id="scoreboardMatch" class="scoreboard-match"></span>
+              <span id="scoreboardPeriod" class="scoreboard-period"></span>
+              <span id="scoreboardClock" class="scoreboard-clock"></span>
+              <span class="scoreboard-source" data-i18n="scoreObserved"
+                >Bandeau TV</span
+              >
+            </div>
             <div class="timeline-caption">
               <span data-i18n="sequence">DÉROULÉ DE L’EXTRAIT</span
               ><span class="timeline-legend"
                 ><i class="mark cut"></i
                 ><span data-i18n="sceneCut">Changement de plan</span></span
+              ><span id="scoreboardLegend" class="timeline-legend" hidden
+                ><i class="mark score"></i
+                ><span data-i18n="scoreChanges">Score observé</span></span
               >
             </div>
             <div class="seek-wrap">
@@ -638,6 +649,10 @@
               <option value="defense" data-i18n="hmDefense">Défense</option>
               <option value="unknown" data-i18n="hmUnknown">Non classé</option>
             </select>
+          </label>
+          <label class="hm-field" id="heatmapPeriodField" hidden>
+            <span data-i18n="gamePeriod">Quart-temps</span>
+            <select id="heatmapPeriod"></select>
           </label>
           <label class="hm-field">
             <span data-i18n="hmPassage">Passage</span>

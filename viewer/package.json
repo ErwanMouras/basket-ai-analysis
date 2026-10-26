@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "test": "node --test test_app.js test_heatmap_renderer.cjs",
-    "test:browser": "node test_browser.cjs && node test_heatmaps.cjs"
+    "test:browser": "node test_browser.cjs && node test_heatmaps.cjs && node test_scoreboard.cjs"
   },
   "devDependencies": {
     "axe-core": "4.11.1",

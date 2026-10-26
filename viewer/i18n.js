@@ -1,6 +1,17 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    gamePeriod: "Quart-temps",
+    quarterShort: "QT",
+    overtimeShort: "PR",
+    gamePeriodUnknown: "QT non lu",
+    allGamePeriods: "Tout l’extrait",
+    scoreObserved: "Bandeau TV",
+    scoreChanges: "Score observé",
+    scoreObservedHelp:
+      "Lecture du bandeau TV, confirmée sur plusieurs images. Le chronomètre est celui de la dernière image lue ; les repères signalent une mise à jour observée du score, pas l’instant du panier.",
+    hmQuarterLock:
+      "Côtés conservés par quart-temps · angles inversés vérifiés séparément",
     hmPhase: "Situation de jeu",
     hmOffense: "Attaque",
     hmDefense: "Défense",
@@ -259,6 +270,16 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    gamePeriod: "Quarter",
+    quarterShort: "Q",
+    overtimeShort: "OT",
+    gamePeriodUnknown: "Quarter unread",
+    allGamePeriods: "Entire clip",
+    scoreObserved: "TV graphic",
+    scoreChanges: "Observed score",
+    scoreObservedHelp:
+      "Broadcast readings confirmed across multiple images. The clock is the last observed value; markers indicate observed score updates, not the instant a basket was made.",
+    hmQuarterLock: "Sides held per quarter · reversed views checked separately",
     hmPhase: "Game situation",
     hmOffense: "Offense",
     hmDefense: "Defense",

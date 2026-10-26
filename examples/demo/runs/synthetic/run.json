@@ -6,7 +6,7 @@
   "segments": 2,
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "7b53d9ed382a46800e161d48f3303347693ffa6cae6e4292cd5243f99d27daa5",
+    "sha256": "0575bdf6bd91685511a70cd858e124b0b901cb2f26f454638e3a5ab8ce1cec05",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,
@@ -37,7 +37,7 @@
   ],
   "artifacts": {
     "statistics.json": {
-      "sha256": "5914dc1f555c9370dfef8ba6a46c677c7f0b44be0339a2264211ea71ee34377e"
+      "sha256": "e64b7dc830b3d93858fae9c2e93cdd67370b3cac7a28ea8bc49c392e5b910bb0"
     },
     "observations.jsonl": {
       "sha256": "5945eb1fce5e8904ff4ffe4a75ed1df1ae2594780154cd5fcf4935646490fc5e"
@@ -50,6 +50,9 @@
     },
     "roster.json": {
       "sha256": "76e740b0d5c199ae994dfd9e74da8d96ebdebb0a3abe44b5c6dfb76171949b2a"
+    },
+    "scoreboard.json": {
+      "sha256": "4e03a267df415252cc9a62dfa4100ba9733aeb430185ee214ef98f7475f8dd0d"
     }
   },
   "court_coordinate_system": {

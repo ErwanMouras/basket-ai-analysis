@@ -16,6 +16,13 @@ from training.common.provenance import file_hash
 from training.jersey.display import display_colors
 
 
+def scripted_score(index):
+    return {"period": 1 if index < 90 else 3,
+            "clock_s": (684 - index // 30) if index < 90 else (710 - (index - 90) // 30),
+            "scores": {"blue": 2 if index < 90 else 52,
+                       "pink": 0 if index < 45 else 2 if index < 90 else 48 if index < 135 else 50}}
+
+
 def create_demo(output):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -84,6 +91,11 @@ def create_demo(output):
                         cv2.FONT_HERSHEY_SIMPLEX, .45, (255, 255, 255), 1)
             if not available:
                 cv2.putText(image, "Calibration unavailable", (170, 325), cv2.FONT_HERSHEY_SIMPLEX, .6, (100, 180, 255), 1)
+            score = scripted_score(i)
+            cv2.rectangle(image, (145, 316), (505, 342), (27, 30, 35), -1)
+            clock = score["clock_s"]
+            label = f"BLU {score['scores']['blue']}   PNK {score['scores']['pink']}   Q{score['period']}   {clock//60}:{clock%60:02d}"
+            cv2.putText(image, label, (155, 335), cv2.FONT_HERSHEY_SIMPLEX, .52, (245, 245, 245), 1)
             writer.write(image)
             row = {"schema_version": 1, "artifact_type": "video_observation", "run_id": "synthetic-demo",
                    "frame_index": i, "segment_id": i // 90, "timestamp_s": i / 30,
@@ -113,11 +125,17 @@ def create_demo(output):
     write_jsonl(run / "tracks.jsonl", contributions)
     write_jsonl(run / "jersey_reads.jsonl", [])
     write_json(run / "roster.json", roster)
+    write_json(run / "scoreboard.json", {
+        "schema_version": 1, "source_sha256": source["sha256"], "sample_s": .5,
+        "teams": [{"team_id": "blue", "label": "BLU"}, {"team_id": "pink", "label": "PNK"}],
+        "provenance": {"method": "scripted_demo_no_ocr_or_accuracy_claim"},
+        "samples": [{"time_s": i/30, **scripted_score(i)} for i in [*range(0,180,15),179]],
+    })
     manifest = {"schema_version": 1, "run_id": "synthetic-demo", "status": "completed", "frames": 180, "segments": 2,
                 "source": source, "capabilities": capabilities,
                 "display_colors": palette, "demo": "Scripted synthetic interface demonstration; no learned predictions.",
                 "models": {}, "warnings": ["synthetic_scripted_demo"], "artifacts": {}}
-    for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json"):
+    for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json", "scoreboard.json"):
         manifest["artifacts"][name] = {"sha256": file_hash(run / name)}
     manifest["court_coordinate_system"] = {
         "league": "NBA", "units": "metres", "length": 28.6512, "width": 15.24,

@@ -227,7 +227,7 @@
   "status": "completed",
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "7b53d9ed382a46800e161d48f3303347693ffa6cae6e4292cd5243f99d27daa5",
+    "sha256": "0575bdf6bd91685511a70cd858e124b0b901cb2f26f454638e3a5ab8ce1cec05",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,

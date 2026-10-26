@@ -152,6 +152,7 @@ async function loadRun(name) {
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
+  renderScoreboard(0); renderMarkers();
   maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
   $('runMeta').textContent = t('loadingMatch');
@@ -239,9 +240,39 @@ function updateClock(time = video.currentTime || 0) {
   $('currentTime').textContent = fmtTime(time);
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
+  renderScoreboard(time);
   $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
   $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
+}
+function periodLabel(period) {
+  return period <= 4 ? `${t('quarterShort')}${period}` : `${t('overtimeShort')}${period - 4}`;
+}
+function gameClockLabel(seconds) {
+  if (seconds == null) return '—';
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}${seconds % 1 ? `.${Math.round((seconds % 1) * 10)}` : ''}`;
+}
+function scoreReading(time) {
+  const data = state.meta?.scoreboard;
+  if (!data?.available) return null;
+  const samples = data.samples || [];
+  let lo = 0, hi = samples.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (samples[mid].time_s <= time + 1e-8) lo = mid + 1; else hi = mid; }
+  const reading = samples[lo - 1];
+  return reading && time - reading.time_s <= data.max_age_s ? reading : null;
+}
+function scoreLabel(reading) {
+  return (state.meta?.scoreboard?.teams || []).map(team => `${team.label} ${reading?.scores?.[team.team_id] ?? '—'}`).join('  ·  ');
+}
+function renderScoreboard(time) {
+  const available = state.meta?.scoreboard?.available;
+  $('scoreboardContext').hidden = !available;
+  if (!available) return;
+  const reading = scoreReading(time);
+  $('scoreboardMatch').textContent = scoreLabel(reading);
+  $('scoreboardPeriod').textContent = reading?.period ? periodLabel(reading.period) : t('gamePeriodUnknown');
+  $('scoreboardClock').textContent = gameClockLabel(reading?.clock_s);
+  $('scoreboardContext').title = t('scoreObservedHelp');
 }
 function videoFrameLoop(_now, metadata) {
   if (state.loaded) {
@@ -728,6 +759,16 @@ function renderMarkers(){
     button.style.left=`${100*marker.time/Math.max(duration(),.001)}%`;
     button.title=`${fmtTime(marker.time)} · ${t('sceneCut')}`;button.setAttribute('aria-label',button.title);
     button.addEventListener('click',()=>seekToFrame(marker.index));target.append(button);
+  }
+  const data=state.meta?.scoreboard;
+  $('scoreboardLegend').hidden=!data?.available;
+  for(const event of data?.events || []) {
+    if(event.time_s > duration()) continue;
+    const button=document.createElement('button');button.className='score';button.type='button';
+    button.style.left=`${100*event.time_s/Math.max(duration(),.001)}%`;
+    button.title=`${fmtTime(event.time_s)} · ${periodLabel(event.period)} · ${gameClockLabel(event.clock_s)} · ${scoreLabel(event)} · ${t('scoreChanges')}`;
+    button.setAttribute('aria-label',button.title);
+    button.addEventListener('click',()=>seekToFrame(nearestFrame(event.time_s)));target.append(button);
   }
 }
 function seekToFrame(index){

@@ -6,6 +6,26 @@ from training.common.provenance import ROOT, file_hash
 
 
 class DemoTests(unittest.TestCase):
+    def test_public_scorebug_matches_the_source_and_has_independent_quarter_directions(self):
+        from viewer.scoreboard import ScoreboardIndex
+        from viewer.heatmaps import HeatmapIndex
+        run = ROOT / "examples/demo/runs/synthetic"
+        manifest = json.loads((run / "run.json").read_text())
+        roster = json.loads((run / "roster.json").read_text())
+        scoreboard = ScoreboardIndex.load(run, manifest, roster)
+        self.assertTrue(scoreboard.metadata()["available"])
+        self.assertEqual([q["period"] for q in scoreboard.periods], [1, 3])
+        self.assertEqual(scoreboard.periods[0]["end_s"], 3.)
+        index = HeatmapIndex(manifest, roster, scoreboard)
+        for line in (run / "observations.jsonl").read_text().splitlines():
+            index.add_frame(json.loads(line))
+        index.finish()
+        # Missing ball/calibration in Q1 intentionally leave less than 0.75 s
+        # of direction anchors: keep its local estimate without a quarter lock.
+        self.assertEqual(index.phases.directions, {0: 1, 1: -1})
+        self.assertEqual([(q["period"], q["direction"]) for q in index.phases.period_directions], [(3, -1)])
+        self.assertTrue(all(e["orientation_source"] == "camera_plan" for e in index.phases.episodes if e["period"] == 1))
+
     def test_public_sample_has_the_required_output_fields_and_matching_source(self):
         run = ROOT / "examples/demo/runs/synthetic"
         manifest = json.loads((run / "run.json").read_text())

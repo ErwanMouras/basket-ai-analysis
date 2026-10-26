@@ -40,12 +40,27 @@ window.heatmapStudio = (() => {
     metadata?.phase_analysis?.episodes.find(
       (item) => String(item.id) === $("heatmapPassage").value,
     );
-  const scopeBounds = () => selectedPassage() || metadata?.bounds;
+  const selectedPeriod = () =>
+    (metadata?.scoreboard?.periods || []).find(
+      (_, index) => String(index) === $("heatmapPeriod").value,
+    );
+  const periodBounds = () =>
+    selectedPeriod()
+      ? {
+          start_s: selectedPeriod().start_s,
+          end_s: Math.min(metadata.bounds.end_s, selectedPeriod().end_s),
+        }
+      : metadata?.bounds;
+  const scopeBounds = () => selectedPassage() || periodBounds();
   const matchingRole = (episode) =>
-    selectedPhase() === "offense"
+    (!selectedPeriod() ||
+      (episode.period === selectedPeriod().period &&
+        episode.start_s < periodBounds().end_s &&
+        episode.end_s > periodBounds().start_s)) &&
+    (selectedPhase() === "offense"
       ? episode.attacking_team_id === selectedSubject()?.team_id
       : selectedPhase() === "defense" &&
-        episode.attacking_team_id !== selectedSubject()?.team_id;
+        episode.attacking_team_id !== selectedSubject()?.team_id);
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -112,7 +127,7 @@ window.heatmapStudio = (() => {
       if (!matchingRole(passage)) continue;
       select.add(
         new Option(
-          `${fmtTime(passage.start_s)} – ${fmtTime(passage.end_s)}${passage.orientation_ready ? "" : ` · ${t("hmNoDirectionShort")}`}`,
+          `${passage.period ? `${periodLabel(passage.period)} · ` : ""}${fmtTime(passage.start_s)} – ${fmtTime(passage.end_s)}${passage.orientation_ready ? "" : ` · ${t("hmNoDirectionShort")}`}`,
           passage.id,
         ),
       );
@@ -123,6 +138,21 @@ window.heatmapStudio = (() => {
       ? value
       : "";
     select.disabled = selectedPhase() === "unknown";
+  }
+  function periodOptions(value = "") {
+    const periods = metadata?.scoreboard?.periods || [];
+    $("heatmapPeriodField").hidden = !periods.length;
+    const select = $("heatmapPeriod");
+    select.replaceChildren(new Option(t("allGamePeriods"), ""));
+    periods.forEach((period, index) =>
+      select.add(
+        new Option(
+          `${periodLabel(period.period)} · ${fmtTime(period.start_s)} – ${fmtTime(Math.min(metadata.bounds.end_s, period.end_s))}`,
+          String(index),
+        ),
+      ),
+    );
+    select.value = value;
   }
   function resetRange() {
     const bounds = scopeBounds();
@@ -168,6 +198,7 @@ window.heatmapStudio = (() => {
             : state.selected?.subject || `team:${state.teamId}`;
       subjectOptions($("heatmapSubject"), metadata.subjects, subject);
       $("heatmapPhase").value = "offense";
+      periodOptions();
       passageOptions();
       resetRange();
       updateCompare();
@@ -266,6 +297,7 @@ window.heatmapStudio = (() => {
     const subject = selectedSubject();
     $("heatmapScope").textContent = [
       subject?.label,
+      selectedPeriod() ? periodLabel(selectedPeriod().period) : null,
       t(phaseKey(selectedPhase())) + ` · ${t("hmEstimated")}`,
     ]
       .filter(Boolean)
@@ -282,6 +314,7 @@ window.heatmapStudio = (() => {
         $("heatmapSubject").value,
       );
       passageOptions($("heatmapPassage").value);
+      periodOptions($("heatmapPeriod").value);
       updateCompare();
     }
     const disabled = !metadata?.available;
@@ -289,6 +322,7 @@ window.heatmapStudio = (() => {
       "heatmapSubject",
       "heatmapPhase",
       "heatmapPassage",
+      "heatmapPeriod",
       "heatmapStart",
       "heatmapEnd",
       "heatmapCompare",
@@ -331,7 +365,11 @@ window.heatmapStudio = (() => {
         ? t("hmUnknownScope")
         : t(
             selectedPhase() === "offense" ? "hmAttackBasket" : "hmDefendBasket",
-          )) + missing;
+          )) +
+      missing +
+      (metadata.phase_analysis.period_directions?.length
+        ? ` · ${t("hmQuarterLock")}`
+        : "");
     const bounds = result.scope;
     const unknown = selectedPhase() === "unknown";
     const passages = unknown
@@ -645,7 +683,7 @@ window.heatmapStudio = (() => {
       ctx.font = "18px Arial";
       ctx.fillStyle = "#b8b2aa";
       ctx.fillText(
-        `${t(phaseKey(selectedPhase()))} · ${t("hmEstimated")} · ${time}`,
+        `${selectedPeriod() ? `${periodLabel(selectedPeriod().period)} · ` : ""}${t(phaseKey(selectedPhase()))} · ${t("hmEstimated")} · ${time}`,
         35,
         77,
       );
@@ -667,7 +705,7 @@ window.heatmapStudio = (() => {
       );
       ctx.fillText(t("hmExportCaveat"), 35, output.height - 22, 1030);
       const link = document.createElement("a");
-      link.download = `heatmap-${mode}-${selectedPhase()}-${map.subject.id.replace(/[^a-z0-9-]/gi, "-")}.png`;
+      link.download = `heatmap-${mode}-${selectedPhase()}${selectedPeriod() ? `-q${selectedPeriod().period}` : ""}-${map.subject.id.replace(/[^a-z0-9-]/gi, "-")}.png`;
       link.href = output.toDataURL("image/png");
       link.click();
     });
@@ -890,6 +928,11 @@ window.heatmapStudio = (() => {
     changePhase(selectedPhase()),
   );
   $("heatmapPassage").addEventListener("change", () => {
+    resetRange();
+    calculate();
+  });
+  $("heatmapPeriod").addEventListener("change", () => {
+    passageOptions();
     resetRange();
     calculate();
   });
