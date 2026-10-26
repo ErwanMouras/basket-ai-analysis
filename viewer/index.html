@@ -632,8 +632,16 @@
             ><select id="heatmapSubject"></select
           ></label>
           <label class="hm-field"
-            ><span data-i18n="hmPlan">Plan caméra</span
-            ><select id="heatmapPlan"></select
+            ><span data-i18n="hmPhase">Situation de jeu</span
+            ><select id="heatmapPhase">
+              <option value="offense" data-i18n="hmOffense">Attaque</option>
+              <option value="defense" data-i18n="hmDefense">Défense</option>
+              <option value="unknown" data-i18n="hmUnknown">Non classé</option>
+            </select>
+          </label>
+          <label class="hm-field">
+            <span data-i18n="hmPassage">Passage</span>
+            <select id="heatmapPassage"></select
           ></label>
           <div class="hm-range">
             <label class="hm-field"
@@ -736,9 +744,9 @@
             Les zones claires indiquent une plus forte concentration. Survol et
             tableau : mesures brutes.
           </p>
-          <p class="hm-plan-note" data-i18n="hmPlanNote">
-            Un plan à la fois. L’orientation du terrain peut changer entre les
-            coupes.
+          <p class="hm-plan-note" data-i18n="hmPhaseNote">
+            Découpage estimé à partir des contacts avec le ballon. Les phases
+            incertaines restent à part.
           </p>
         </aside>
         <section
@@ -757,6 +765,18 @@
             role="status"
             aria-live="polite"
           ></div>
+          <div id="heatmapPhaseSummary" class="hm-phase-summary"></div>
+          <p id="heatmapOrientation" class="hm-orientation"></p>
+          <div
+            id="heatmapUnknown"
+            class="hm-unknown"
+            hidden
+            data-i18n="hmUnknownHelp"
+          >
+            Le contrôle du ballon n’est pas assez clair. Ces périodes sont
+            exclues des heatmaps Attaque et Défense ; vous pouvez les revoir
+            ci-dessous.
+          </div>
           <div id="heatmapCharts" class="hm-charts"></div>
           <p
             class="hm-inspect"
@@ -767,6 +787,10 @@
           <details class="hm-data" id="heatmapData" hidden>
             <summary data-i18n="hmData">Lire les valeurs par zone</summary>
             <div id="heatmapTables"></div>
+          </details>
+          <details class="hm-data hm-passages" id="heatmapPassages" hidden>
+            <summary id="heatmapPassagesTitle"></summary>
+            <div id="heatmapPassagesList" class="hm-passages-list"></div>
           </details>
           <div class="hm-limit">
             <span class="hm-limit-mark" aria-hidden="true">i</span>

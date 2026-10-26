@@ -1,6 +1,34 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    hmPhase: "Situation de jeu",
+    hmOffense: "Attaque",
+    hmDefense: "Défense",
+    hmUnknown: "Non classé",
+    hmEstimated: "estimation",
+    hmPassage: "Passage de jeu",
+    hmAllPassages: "Tous les passages",
+    hmNoDirectionShort: "sens non établi",
+    hmPhaseNote:
+      "Découpage estimé à partir des contacts avec le ballon. Les phases incertaines restent à part.",
+    hmPhaseBreakdown: "Découpage estimé de la période",
+    hmAttackBasket:
+      "Panier attaqué à droite · passages remis dans le même sens",
+    hmDefendBasket:
+      "Panier défendu à droite · passages remis dans le même sens",
+    hmDirectionMissing:
+      "{value} s classées sans sens établi, écartées des cartes",
+    hmUnknownScope: "Contrôle non établi · aucune orientation imposée",
+    hmUnknownIntro:
+      "Les indices ne suffisent pas à attribuer ces périodes à une équipe en attaque.",
+    hmUnknownHelp:
+      "Ces périodes sont exclues des heatmaps Attaque et Défense. Ballon masqué, passe, tir, contact disputé ou identité inconnue : vous pouvez revoir les intervalles d’au moins 0,2 s ci-dessous.",
+    hmReviewVideo: "Revoir la vidéo",
+    hmReviewPassages: "Revoir les passages de cette situation",
+    hmUnknownPassages: "Intervalles à revoir · au moins 0,2 s",
+    hmNoPassages: "Aucun passage à revoir dans cette période.",
+    hmAttackLeft: "CÔTÉ GAUCHE",
+    hmAttackRight: "CÔTÉ DROIT",
     hmOpen: "Heatmaps",
     hmPlayerOpen: "Explorer les heatmaps du joueur",
     hmTeamOpen: "Explorer les heatmaps de l’équipe",
@@ -43,9 +71,9 @@ const messages = {
     hmZonesHelp:
       "Le même temps de présence, réparti sur neuf grandes zones. Les pourcentages portent sur le temps localisé, sans attribuer de rôle offensif ou défensif aux côtés du terrain.",
     hmComparisonHelp:
-      "Chaque profil est ramené à 100 % de son propre temps localisé. La troisième carte montre l’écart en points de pourcentage, avec une échelle commune pour les deux premières. Ce n’est pas une mesure de domination.",
+      "Chaque profil est ramené à 100 % de son temps localisé dans la situation choisie. Deux équipes sont comparées sur leurs propres attaques ou défenses, qui peuvent se produire à des moments différents. La troisième carte montre l’écart de répartition, pas une domination.",
     hmEvolutionHelp:
-      "La période choisie est divisée en deux durées égales. Chaque moitié est normalisée par son propre temps localisé ; l’échelle commune permet de comparer les changements de présence.",
+      "La période vidéo choisie est divisée en deux durées égales. Seuls les instants de la situation choisie sont retenus, puis normalisés dans chaque moitié avec une échelle commune.",
     hmLoading: "Calcul de la répartition…",
     hmError: "Impossible de charger les heatmaps.",
     hmNoRun: "Choisissez d’abord une analyse.",
@@ -58,7 +86,8 @@ const messages = {
     hmNoMovement: "Aucun déplacement mesuré sur les intervalles disponibles.",
     hmNoPair:
       "Choisissez un autre sujet du même type pour comparer les répartitions.",
-    hmBadRange: "Choisissez une fin après le début, à l’intérieur du plan.",
+    hmBadRange:
+      "Choisissez une fin après le début, à l’intérieur de la période sélectionnée.",
     hmFirst: "Première moitié",
     hmSecond: "Seconde moitié",
     hmDifference: "Écart des répartitions",
@@ -73,7 +102,7 @@ const messages = {
     hmMetres: "m",
     hmPercent: "%",
     hmCoverageHelp:
-      "Temps localisé / temps de suivi attribué. Ce taux ne couvre pas les absences hors champ.",
+      "Temps localisé et orienté / temps de suivi attribué dans la situation choisie. Ce taux ne couvre pas les absences hors champ.",
     hmVideoHelp:
       "Durée vidéo avec au moins une position mesurable pour le sujet. Pour une équipe, cela ne signifie pas que les cinq joueurs sont visibles.",
     hmMovementCoverage:
@@ -90,7 +119,7 @@ const messages = {
     hmExport: "PNG",
     hmExportLabel: "Exporter cette carte en PNG",
     hmExportCaveat:
-      "Positions observées uniquement · Ralentis non exclus automatiquement · Orientation propre au plan",
+      "Situation et sens estimés · Positions observées uniquement · Ralentis non exclus automatiquement",
     hmZone: "Zone",
     hmValue: "Mesure",
     hmShare: "Part observée",
@@ -99,15 +128,15 @@ const messages = {
     hmSideFar: "CÔTÉ ÉLOIGNÉ",
     hmSideNear: "CÔTÉ PROCHE",
     hmCloseLanguage: "Passer en anglais",
-    hmZone0: "Gauche · éloigné",
-    hmZone1: "Centre · éloigné",
-    hmZone2: "Droite · éloigné",
-    hmZone3: "Gauche · milieu",
-    hmZone4: "Centre",
-    hmZone5: "Droite · milieu",
-    hmZone6: "Gauche · proche",
-    hmZone7: "Centre · proche",
-    hmZone8: "Droite · proche",
+    hmZone0: "Tiers opposé · côté gauche",
+    hmZone1: "Tiers central · côté gauche",
+    hmZone2: "Tiers du panier · côté gauche",
+    hmZone3: "Tiers opposé · axe central",
+    hmZone4: "Tiers central · axe central",
+    hmZone5: "Tiers du panier · axe central",
+    hmZone6: "Tiers opposé · côté droit",
+    hmZone7: "Tiers central · côté droit",
+    hmZone8: "Tiers du panier · côté droit",
     language: "Langue de l’interface",
     session: "LA SALLE VIDÉO",
     matchAnalysis: "Analyse de match",
@@ -230,6 +259,34 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    hmPhase: "Game situation",
+    hmOffense: "Offense",
+    hmDefense: "Defense",
+    hmUnknown: "Unclassified",
+    hmEstimated: "estimate",
+    hmPassage: "Passage of play",
+    hmAllPassages: "All passages",
+    hmNoDirectionShort: "direction unknown",
+    hmPhaseNote:
+      "Estimated from ball contacts. Uncertain phases are kept separate.",
+    hmPhaseBreakdown: "Estimated breakdown of the period",
+    hmAttackBasket:
+      "Attacked basket on the right · passages aligned to the same direction",
+    hmDefendBasket:
+      "Defended basket on the right · passages aligned to the same direction",
+    hmDirectionMissing:
+      "{value} s classified without a known direction, excluded from maps",
+    hmUnknownScope: "Control unknown · no orientation imposed",
+    hmUnknownIntro:
+      "There is insufficient evidence to attribute these periods to an attacking team.",
+    hmUnknownHelp:
+      "These periods are excluded from Offense and Defense heatmaps. Occluded ball, pass, shot, contested contact or unknown identity: review intervals of at least 0.2 s below.",
+    hmReviewVideo: "Review video",
+    hmReviewPassages: "Review passages in this situation",
+    hmUnknownPassages: "Intervals to review · at least 0.2 s",
+    hmNoPassages: "No passage to review in this period.",
+    hmAttackLeft: "LEFT SIDE",
+    hmAttackRight: "RIGHT SIDE",
     hmOpen: "Heatmaps",
     hmPlayerOpen: "Explore player heatmaps",
     hmTeamOpen: "Explore team heatmaps",
@@ -272,9 +329,9 @@ const messages = {
     hmZonesHelp:
       "The same presence time, distributed across nine broad zones. Percentages use localized time, without assigning offensive or defensive roles to either side.",
     hmComparisonHelp:
-      "Each profile is normalized to 100% of its own localized time. The third map shows the difference in percentage points, with a shared scale for the first two. This is not a measure of dominance.",
+      "Each profile is normalized to 100% of its localized time in the selected situation. Teams are compared on their own offensive or defensive passages, which may occur at different times. The third map shows a distribution difference, not dominance.",
     hmEvolutionHelp:
-      "The selected period is split into two equal durations. Each half uses its own localized time as denominator; a shared scale highlights shifts in presence.",
+      "The selected video period is split into two equal durations. Only moments in the selected situation are retained, then normalized within each half using a shared scale.",
     hmLoading: "Computing the distribution…",
     hmError: "Unable to load heatmaps.",
     hmNoRun: "Choose an analysis first.",
@@ -302,7 +359,7 @@ const messages = {
     hmMetres: "m",
     hmPercent: "%",
     hmCoverageHelp:
-      "Localized time / attributed tracked time. This rate does not cover off-screen absences.",
+      "Localized and oriented time / attributed tracking in the selected situation. This rate does not cover off-screen absences.",
     hmVideoHelp:
       "Video duration with at least one measurable position for the subject. For a team, this does not imply that all five players are visible.",
     hmMovementCoverage:
@@ -319,7 +376,7 @@ const messages = {
     hmExport: "PNG",
     hmExportLabel: "Export this map as PNG",
     hmExportCaveat:
-      "Observed positions only · Replays not excluded automatically · Orientation specific to this camera plan",
+      "Estimated situation and direction · Observed positions only · Replays not excluded automatically",
     hmZone: "Zone",
     hmValue: "Measure",
     hmShare: "Observed share",
@@ -328,15 +385,15 @@ const messages = {
     hmSideFar: "FAR SIDE",
     hmSideNear: "NEAR SIDE",
     hmCloseLanguage: "Switch to French",
-    hmZone0: "Left · far",
-    hmZone1: "Centre · far",
-    hmZone2: "Right · far",
-    hmZone3: "Left · middle",
-    hmZone4: "Centre",
-    hmZone5: "Right · middle",
-    hmZone6: "Left · near",
-    hmZone7: "Centre · near",
-    hmZone8: "Right · near",
+    hmZone0: "Opposite third · left side",
+    hmZone1: "Middle third · left side",
+    hmZone2: "Basket third · left side",
+    hmZone3: "Opposite third · central lane",
+    hmZone4: "Middle third · central lane",
+    hmZone5: "Basket third · central lane",
+    hmZone6: "Opposite third · right side",
+    hmZone7: "Middle third · right side",
+    hmZone8: "Basket third · right side",
     language: "Interface language",
     session: "THE FILM ROOM",
     matchAnalysis: "Game analysis",
