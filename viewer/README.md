@@ -1,7 +1,8 @@
 # Salle vidéo / Film room
 
 Studio local en lecture seule pour explorer les analyses terminées du pipeline :
-vidéo source, détections, positions projetées et statistiques finales des joueurs.
+vidéo source, détections, positions projetées, statistiques finales des joueurs et
+heatmaps individuelles ou collectives.
 
 ## Démarrer
 
@@ -110,10 +111,9 @@ Flèches gauche/droite, Début et Fin permettent de naviguer entre les onglets a
 clavier. Le choix de langue conserve l’onglet et l’équipe sélectionnés.
 
 **Équipe** affiche le nom et le nombre de joueurs de l’effectif sélectionné,
-ainsi qu’un espace explicite pour les futures statistiques collectives. Aucun
-chiffre collectif n’est actuellement calculé ni déduit des statistiques joueur.
-La future intégration pourra remplacer le contenu de `#teamStatsContent`, dans
-une zone qui défile quand nécessaire, une fois les données d’équipe définies.
+puis un accès aux heatmaps collectives. La zone `#teamStatsContent` reste défilante
+pour accueillir d’autres groupes de statistiques. Les cartes d’équipe cumulent
+les contributions observées ; elles ne supposent pas que les cinq joueurs sont visibles.
 
 **Joueurs** conserve la fiche du joueur quand on consulte l’onglet Équipe puis
 revient. Changer d’équipe efface la sélection d’un joueur de l’autre équipe.
@@ -138,6 +138,70 @@ attribuer de statistiques. Un numéro unique peut suggérer une équipe et sa
 couleur : la boîte reste pointillée car cette association n’a pas été validée
 par le pipeline. Un numéro partagé par les deux équipes reste ambigu.
 
+## Heatmaps : cinq angles à comparer
+
+**Heatmaps** dans l’en-tête du terrain ouvre un espace agrandi, sans modifier les
+panneaux du lecteur. Les fiches **Joueurs** et **Équipe** proposent aussi un accès
+direct au sujet sélectionné. La vidéo se met en pause. Échap ou le bouton de
+fermeture rend le focus au bouton d’origine ; la lecture ne redémarre pas seule.
+
+Choisir un **joueur ou une équipe**, un **plan caméra** et des bornes temporelles
+en secondes source. Changer de plan rétablit ses bornes. Les plans ne sont pas
+fusionnés : les artefacts n’assurent pas une orientation commune après les coupes.
+Le choix de langue conserve les filtres, le mode et les résultats.
+
+| Angle | Lecture et intérêt |
+| --- | --- |
+| **Présence** | Part du temps localisé dans chaque maille : repérer les espaces occupés par un joueur ou la répartition collective. |
+| **Déplacements** | Part des mètres mesurés dans chaque maille : distinguer une zone traversée d’une zone où l’on reste. Ce n’est pas une carte de vitesse ou d’intensité. |
+| **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les zones sont géométriques, sans attribution attaque/défense. |
+| **Comparaison** | Deux joueurs ou deux équipes, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
+| **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation au sein d’un plan. |
+
+Les mailles font environ un mètre ; le **lissage visuel** interpole seulement les
+couleurs affichées. Il ne modifie ni les valeurs, ni les mesures au survol, ni le
+tableau par grandes zones. Les cartes PNG exportées indiquent le sujet, le mode,
+le plan, la période, la légende et les limites de lecture. Pour une carte simple,
+elles conservent aussi le total et la couverture ; une différence indique A et B.
+Le tableau sous les cartes rend les neuf zones lisibles au clavier, y compris
+les écarts de comparaison.
+
+### Ce que les chiffres mesurent
+
+- **Temps localisé** : somme des intervalles avec positions valides aux deux
+  extrémités. Pour une équipe, deux joueurs suivis pendant une seconde représentent
+  **deux secondes-joueurs**, pas deux secondes de vidéo.
+- **Suivi localisable** : temps localisé / temps de suivi attribué au sujet.
+  Les intervalles suivis mais non projetables réduisent ce taux. Les absences,
+  identités inconnues et joueurs hors champ n’entrent pas dans le dénominateur.
+- **Vidéo documentée** : union des intervalles comportant au moins une position
+  localisable pour le sujet. Pour une équipe, cela n’implique pas un suivi complet
+  des cinq joueurs.
+- **Distance répartie** : contributions valides de `tracks.jsonl`, déjà calculées
+  par le pipeline, réparties le long des courts trajets correspondants. Une note
+  indique la part du temps localisé disposant d’une mesure de distance. Zéro mètre
+  mesuré et absence de mesure restent distingués.
+
+Le calcul pondère par le temps, jamais par le nombre d’images. Il coupe aux
+changements de plan, frames manquantes, exclusions, grands intervalles de temps,
+changements d’identité et changements de méthode de point au sol. Les vitesses
+incompatibles avec le seuil du run sont écartées. Il n’extrapole pas après la
+dernière observation. Les petites portions de trajet sont interpolées à l’intérieur
+des seuls intervalles valides et réparties sur la grille en conservant le total.
+
+Il faut des dimensions métriques explicites dans `run.json` et un véritable
+`roster.json` du run. Un effectif indicatif n’attribue aucune heatmap nominative.
+Sans données pour l’un des deux sujets comparés, aucune différence n’est produite.
+L’index compact est conservé pour trois runs au maximum et invalidé quand les
+observations, le manifeste, l’effectif ou les contributions de distance changent.
+
+Les cartes décrivent **les positions observées**. Une zone sombre ne prouve pas
+qu’elle était libre ; un suivi partiel peut orienter la répartition. La précision
+métrique n’est pas validée par ces cartes et les ralentis ne sont pas exclus
+automatiquement. Le ballon n’a pas de projection métrique exploitable ici : il
+ne contribue pas aux heatmaps. Aucune possession, phase offensive ou défensive
+n’est déduite.
+
 ## Raccourcis
 
 | Action | Raccourci |
@@ -157,9 +221,10 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server -v
+python -m unittest viewer.test_server viewer.test_heatmaps -v
 node --check viewer/app.js
 node --check viewer/i18n.js
+node --check viewer/heatmaps.js
 node --test viewer/test_app.js
 ```
 
@@ -175,7 +240,10 @@ Le test utilise Chromium et axe-core uniquement pour le développement. Il couvr
 huit résolutions, les contrôles au clavier, les contrastes et libellés, les onglets Joueurs/Équipe,
 les termes Bbox/Segmentation dans les deux langues, les calques,
 la langue persistante pendant la lecture, la sélection joueur, les listes longues,
-les données absentes et le repli sans callbacks de présentation. Les contrôles
+les données absentes et le repli sans callbacks de présentation. Un second scénario
+couvre les cinq angles pour joueur et équipe, les périodes et plans, les exports,
+la traduction dans la fenêtre, les réponses réseau tardives et les comparaisons
+sans données. Il vérifie aussi l’accessibilité des cartes et des tableaux. Les contrôles
 automatiques d’accessibilité ne remplacent pas une revue manuelle.
 
 Options : `VIEWER_URL` pour une autre instance servant le sample,
