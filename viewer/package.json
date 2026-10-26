@@ -1,0 +1,12 @@
+{
+  "name": "vyneros-viewer-checks",
+  "private": true,
+  "scripts": {
+    "test": "node --test test_app.js",
+    "test:browser": "node test_browser.cjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.11.1",
+    "playwright": "1.64.1"
+  }
+}

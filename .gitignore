@@ -36,3 +36,6 @@ htmlcov/
 /mlartifacts/
 /mlflow.db*
 /release/
+
+# Optional viewer browser checks
+/viewer/node_modules/
