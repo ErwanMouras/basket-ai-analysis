@@ -160,7 +160,7 @@ class HeatmapTests(unittest.TestCase):
             0,
         )
 
-    def test_evolution_and_comparison_keep_separate_denominators(self):
+    def test_comparison_keeps_separate_denominators(self):
         rows = [
             frame(i, t, [person(), person(3, "3", "b", (20.0, 5.0))])
             for i, t in enumerate([0, 0.1, 0.2])
@@ -169,9 +169,6 @@ class HeatmapTests(unittest.TestCase):
         maps = index.query("team:a", 0, mode="comparison", compare="team:b")["maps"]
         self.assertEqual(len(maps), 2)
         self.assertAlmostEqual(maps[0]["total"], maps[1]["total"])
-        halves = index.query("team:a", 0, mode="evolution")["maps"]
-        self.assertAlmostEqual(sum(item["total"] for item in halves), 0.2)
-        self.assertEqual(halves[0]["end_s"], halves[1]["start_s"])
 
     def test_bad_queries_fail_before_aggregation(self):
         index = build([frame(0, 0), frame(1, 0.1)])
@@ -261,13 +258,11 @@ class HalfCourtTests(unittest.TestCase):
         touching = self.index([((14.5, 3), (15, 3))]).query("team:a", phase="offense")["maps"][0]
         self.assertEqual(touching["total"], 0)
 
-    def test_evolution_retains_only_time_after_arrival_in_half(self):
-        data = self.index([((14.5, 3), (15.5, 3))]).query(
-            "team:a", phase="offense", mode="evolution"
-        )
-        self.assertEqual(data["maps"][0]["total"], 0)
-        self.assertAlmostEqual(data["maps"][1]["total"], 0.1)
-        self.assertEqual(data["normalization"], "share_of_half_court_mass")
+    def test_removed_evolution_mode_is_rejected(self):
+        index = self.index([((14.5, 3), (15.5, 3))])
+        for phase in (None, "offense", "defense"):
+            with self.subTest(phase=phase), self.assertRaises(ValueError):
+                index.query("team:a", phase=phase, mode="evolution")
 
     def test_comparison_automatically_uses_only_the_two_roster_teams(self):
         index = self.index([((24, 3), (24, 3))])

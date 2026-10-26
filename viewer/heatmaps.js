@@ -1,12 +1,11 @@
 /* Spatial analysis is separate from the frame/segmentation playback loop. */
 window.heatmapStudio = (() => {
   const dialog = $("heatmapDialog");
-  const modes = ["presence", "zones", "evolution", "comparison"];
+  const modes = ["presence", "zones", "comparison"];
   const modeKeys = {
     presence: "hmPresence",
     zones: "hmZones",
     comparison: "hmComparison",
-    evolution: "hmEvolution",
   };
   const densityCache = new WeakMap();
   let metadata = null;
@@ -451,11 +450,9 @@ window.heatmapStudio = (() => {
     );
     result.maps.forEach((map, index) => {
       const title =
-        mode === "evolution"
-          ? t(index ? "hmSecond" : "hmFirst")
-          : mode === "comparison"
-            ? `${index ? "B" : "A"} · ${map.subject.label}`
-            : map.subject.label;
+        mode === "comparison"
+          ? `${index ? "B" : "A"} · ${map.subject.label}`
+          : map.subject.label;
       charts.append(mapCard(map, title, maximum, fields[index]));
       tables.append(zoneTable(map, title));
     });

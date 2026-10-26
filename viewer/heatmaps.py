@@ -414,7 +414,6 @@ class HeatmapIndex:
             "movement",
             "zones",
             "comparison",
-            "evolution",
         ):
             raise ValueError("Invalid heatmap subject or mode")
         if phase is not None:
@@ -448,16 +447,9 @@ class HeatmapIndex:
                 raise ValueError("Comparison requires the opposing roster team")
             compare = opponent
         metric = "movement" if mode == "movement" else "presence"
-        if mode == "evolution":
-            middle = (start + end) / 2
-            maps = [
-                self.summarize(subject, plan, start, middle, phase=phase, episode=episode),
-                self.summarize(subject, plan, middle, end, phase=phase, episode=episode),
-            ]
-        else:
-            maps = [self.summarize(subject, plan, start, end, metric, phase, episode)]
-            if mode == "comparison":
-                maps.append(self.summarize(compare, plan, start, end, phase=phase, episode=episode))
+        maps = [self.summarize(subject, plan, start, end, metric, phase, episode)]
+        if mode == "comparison":
+            maps.append(self.summarize(compare, plan, start, end, phase=phase, episode=episode))
         return {
             "court": (
                 {

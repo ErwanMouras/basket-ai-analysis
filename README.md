@@ -56,7 +56,7 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 ![Vyneros Film room displaying synthetic, scripted outputs](imagesReadMe/viewer-studio-fr.png)
 
 Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
-and half-court presence, zones and evolution views for players or teams, plus
+and half-court presence and zones views for players or teams, plus
 a direct comparison of the two teams. Estimated settled offensive or defensive
 passages share a common basket direction. Transitions are excluded from the maps;
 the full clip remains available for video review. Shot-attempt proposals appear

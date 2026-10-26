@@ -189,7 +189,8 @@ class HeatmapEndpointTests(unittest.TestCase):
         self.assertEqual(heatmap['unit'], 's')
 
     def test_bad_heatmap_queries_and_run_boundary(self):
-        for suffix in ('&subject=unknown', '&subject=team:home&start=nan',
+        for suffix in ('&subject=unknown', '&subject=team:home&mode=evolution',
+                       '&subject=team:home&start=nan',
                        '&subject=team:home&end=999', '&subject=team:home&mode=comparison&compare=roster:home:23'):
             with self.assertRaises(HTTPError) as error:
                 self.get('/api/heatmaps?name=match'+suffix)

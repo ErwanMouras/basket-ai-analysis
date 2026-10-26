@@ -11,7 +11,6 @@ const modes = {
   presence: 1,
   zones: 1,
   comparison: 3,
-  evolution: 2,
 };
 
 async function settled(page, count) {
@@ -113,6 +112,14 @@ async function main() {
       viewport: { width: 1600, height: 1000 },
     });
     const page = await open(context);
+    assert.deepEqual(
+      await page
+        .locator("[data-heatmap-mode]")
+        .evaluateAll((buttons) =>
+          buttons.map((button) => button.dataset.heatmapMode),
+        ),
+      ["presence", "zones", "comparison"],
+    );
     await calculate(
       page,
       () => page.locator("#openCourtHeatmaps").click(),
@@ -549,7 +556,7 @@ async function main() {
     await unavailable.close();
     assert.deepEqual(errors, [], "no browser exceptions");
     console.log(
-      "Heatmaps: three player/team views + automatic team comparison, half courts, offense/defense, time ranges, passages, hidden neutral intervals, languages, exports, missing data, response races, responsive layout and accessibility passed",
+      "Heatmaps: two player/team views + automatic team comparison, half courts, offense/defense, time ranges, passages, hidden neutral intervals, languages, exports, missing data, response races, responsive layout and accessibility passed",
     );
   } finally {
     await browser.close();

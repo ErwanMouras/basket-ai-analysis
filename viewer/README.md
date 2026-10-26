@@ -206,16 +206,14 @@ si aucun passage n’était sélectionné.
 La comparaison applique la situation à **chaque équipe**. Deux équipes en Attaque
 sont comparées sur leurs propres passages offensifs, à des moments potentiellement
 différents dans la période choisie. Une période limitée à l’attaque d’une seule
-équipe peut donc laisser l’autre carte vide. L’évolution partage la période source
-en deux moitiés égales et conserve seulement les instants de la situation choisie.
-Le choix de langue conserve les filtres, le mode et les résultats.
+équipe peut donc laisser l’autre carte vide. Le choix de langue conserve les
+filtres, le mode et les résultats.
 
 | Angle | Lecture et intérêt |
 | --- | --- |
 | **Présence** | Part du temps localisé dans chaque maille : repérer les espaces occupés par un joueur ou la répartition collective. |
 | **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les tiers vont de la ligne médiane au panier du demi-terrain affiché. |
 | **Comparaison** | Les deux équipes du match, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé dans le demi-terrain ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
-| **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation dans la situation choisie. |
 
 Le rendu **Zones continues**, actif par défaut, regroupe les positions proches
 avant d’appliquer des paliers de couleur aux contours nets. Les zones les plus
@@ -252,7 +250,7 @@ L’API expose `half_court_s`, `outside_half_s` et `half_court_video_s` pour sé
 le recadrage spatial de la qualité de localisation. Les requêtes de phases
 retournent `court.extent: "half"`, la demi-longueur affichée et `court.full_length`.
 Le chemin d’audit historique sans filtre de phase conserve ses coordonnées plein
-terrain et les contributions de distance ; le viewer propose les quatre vues
+terrain et les contributions de distance ; le viewer propose les trois vues
 ci-dessus. La comparaison API accepte uniquement les deux équipes du match et
 choisit l’adversaire automatiquement.
 
@@ -417,8 +415,7 @@ cependant la classification de contexte décrite ci-dessous.
 Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
 **Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
 interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
-Les quatre vues et la
-normalisation du panier à droite restent disponibles.
+Les trois vues et la normalisation du panier à droite restent disponibles.
 
 L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
 la couverture des lectures, les points contrôlés et leurs limites. La démo

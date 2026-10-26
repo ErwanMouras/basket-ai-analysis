@@ -39,7 +39,7 @@ sans renormaliser chaque équipe à 100 %. Les cercles montrent les positions
 estimées ; le survol donne le nombre proche et les timestamps, ou le nombre par
 maille. L’export PNG reprend le total, le nombre placé, le périmètre de l’extrait,
 le panier de référence et l’échelle de densité. Le dessin du demi-terrain est
-partagé avec les quatre vues d’occupation existantes.
+partagé avec les trois vues d’occupation : Présence, Zones et Comparaison.
 
 ## Contrôle sur HOU–LAL
 
@@ -76,7 +76,7 @@ la précision métrique des positions ou la qualité du détecteur.
 - Chromium : compteurs 1/0/indisponible, changement d’équipe, sens opposés donnant
   le même rendu, échelle commune, candidats exclus, localisation manquante,
   survol, PNG, FR/EN, quatre tailles et axe-core. Les parcours du lecteur, du
-  score, des détections et des quatre autres heatmaps passent également.
+  score, des détections et des trois autres heatmaps passent également.
 - Docker construit ; les 27 tests du détecteur et des statistiques spatiales
   passent dans l’image Python standard en lecture seule.
 
