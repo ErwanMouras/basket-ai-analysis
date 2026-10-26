@@ -300,7 +300,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled viewer.test_shots -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled viewer.test_shots viewer.test_shot_analytics -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -502,3 +502,36 @@ aucun artefact d’entrée. Les checkpoints de revue doivent correspondre exacte
 aux hashes vidéo et observations.
 
 Voir le [rapport de développement et ses limites](../reports/shots-2026-10-26/README.md).
+
+### Cartes de tirs et compteurs joueurs
+
+**Équipe → Carte des tirs** présente les positions au sol estimées avant les
+relâchements, sur un demi-terrain normalisé vers le panier attaqué à droite.
+La sélection d’équipe conserve une échelle commune en tirs/m². Les cercles sont
+les origines estimées ; le survol lit les timestamps proches ou le nombre par
+maille. **PNG** exporte la carte et son périmètre.
+
+Seuls les **probables** entrent dans la carte et dans le compteur **Tirs détectés**
+de chaque fiche joueur. Les candidats restent séparés dans la timeline. Le bilan
+porte sur l’extrait entier, indépendamment du curseur vidéo et du filtre des
+candidats. Une absence de distance ne masque pas le compteur de tirs.
+
+L’origine est la médiane d’au moins deux positions calibrées du tireur dans les
+0,25 s avant le départ, sans franchir de coupe. Les changements de méthode et
+les dispersions supérieures à 1,25 m sont exclus. Le sens utilise les repères
+appris par plan et quart-temps ; il ne dépend pas simplement du côté occupé par
+le tireur. Aucune projection du ballon aérien ne remplace une origine manquante.
+
+Un probable sans position ou orientation est compté mais absent de la carte.
+Les événements sans équipe connue restent hors des cartes et des compteurs
+nominatifs. Zéro signifie aucun probable attribué sur l’extrait ; `—` indique
+que les données nécessaires ne sont pas disponibles. Aucun taux de réussite
+ou statistique officielle n’est ajouté.
+
+Les métadonnées `shots` exposent `player_counts`, `unassigned_probable_count` et
+`shot_maps` (`scope: whole_clip`, `status: probable`). Chaque carte contient
+`detected_count`, `located_count`, `unlocated_count`, sa grille de comptage et ses
+points avec timestamp. Les événements exposent leur `origin` et leur
+`court_direction`. Les statistiques historiques de déplacement restent inchangées.
+
+Voir la [revue des cartes de tirs](../reports/shot-maps-2026-10-26/README.md).
