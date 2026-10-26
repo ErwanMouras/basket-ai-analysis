@@ -21,7 +21,7 @@ ROSTER = {
 
 def phase_frame(index, time=None, owner="a", mirror=False, **extra):
     people = []
-    xs = (13, 9, 11, 22, 24, 25) if owner == "a" else (6, 7, 8, 14, 16, 18)
+    xs = (19, 18, 17, 24, 25, 26) if owner == "a" else (4, 5, 6, 11, 10, 9)
     for track in range(1, 7):
         team = "a" if track <= 3 else "b"
         carrier = team == owner and track in (1, 4)
@@ -62,7 +62,7 @@ def phase_frame(index, time=None, owner="a", mirror=False, **extra):
 
 
 def phases(rows):
-    result = PhaseIndex(("a", "b"), GEOMETRY)
+    result = PhaseIndex(("a", "b"), GEOMETRY, use_court_context=False)
     plan, previous = -1, None
     for row in rows:
         if previous is None or row.get("scene_cut") or row["segment_id"] != previous["segment_id"]:
@@ -194,9 +194,9 @@ class PhaseHeatmapTests(unittest.TestCase):
     def test_opposite_camera_directions_are_rotated_without_losing_mass(self):
         rows = [phase_frame(i, mirror=i >= 10, segment_id=int(i >= 10)) for i in range(20)]
         index = self.build(rows)
-        legacy = index.query("roster:a:1", 0)["maps"][0]
+        legacy = index.query("roster:a:1", 0, start=0.1, end=0.9)["maps"][0]
         combined = index.query("roster:a:1", phase="offense")["maps"][0]
-        self.assertAlmostEqual(combined["total"], 1.8)
+        self.assertAlmostEqual(combined["total"], 1.6)
         for a, b in zip(combined["grid"], legacy["grid"]):
             self.assertAlmostEqual(a, 2 * b)
         self.assertEqual(
@@ -221,8 +221,8 @@ class PhaseHeatmapTests(unittest.TestCase):
             row["persons"][0]["position_m"][0] = 28.0
         result = self.build(rows).query("team:a", phase="offense")["maps"][0]
         self.assertEqual(result["total"], 0)
-        self.assertGreater(result["observed_s"], 0)
-        self.assertGreater(result["phase_durations"]["orientation_missing_s"], 0)
+        self.assertEqual(result["observed_s"], 0)
+        self.assertGreater(result["phase_durations"]["unknown_s"], 0)
 
     def test_passage_range_and_partial_bounds_conserve_selected_time(self):
         index = self.build([phase_frame(i) for i in range(10)])

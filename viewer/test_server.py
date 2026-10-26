@@ -222,7 +222,7 @@ class HeatmapEndpointTests(unittest.TestCase):
         data = json.loads(body)
         self.assertEqual(data['scope']['normalized_basket'], 'right')
         self.assertIsNone(data['plan'])
-        self.assertAlmostEqual(data['maps'][0]['total'], 1.8)
+        self.assertAlmostEqual(data['maps'][0]['total'], 1.6)  # Initial confirmation in each view is excluded.
         _, _, body = self.get('/api/heatmaps?name=match')
         self.assertEqual(len(json.loads(body)['phase_analysis']['episodes']), 2)
         for suffix in ('&phase=made_up', '&phase=offense&episode=99'):
@@ -238,9 +238,9 @@ class ScoreboardServerTests(unittest.TestCase):
 
     def test_spatial_classification_reaches_the_player_timeline_and_heatmap_api(self):
         from viewer.test_phases import GEOMETRY, ROSTER
-        from viewer.test_court_context import anchored_rows, scoreboard
+        from viewer.test_settled import transition_rows, scoreboard
         run = self.server.runs_root / 'match'
-        rows = anchored_rows()
+        rows = transition_rows()
         manifest = json.loads((run / 'run.json').read_text())
         manifest.update(frames=len(rows), court_coordinate_system=GEOMETRY)
         manifest['source']['sha256'] = 'source'
@@ -252,11 +252,12 @@ class ScoreboardServerTests(unittest.TestCase):
         (run / 'scoreboard.json').write_text(json.dumps(document))
         (run / 'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows))
         data = json.loads(self.get('/api/run?name=match')[2])
-        phase = next(p for p in data['phase_timeline'] if p['start_s']<=2.5<p['end_s'])
-        self.assertEqual(phase['attacking_team_id'],'a')
-        self.assertEqual(phase['source'],'court_context')
-        data = json.loads(self.get('/api/heatmaps?name=match&subject=team:a&phase=offense&start=2&end=3')[2])
-        self.assertAlmostEqual(data['phase_analysis']['court_context_s'],1.)
+        self.assertFalse(any(p['start_s']<=2.5<p['end_s'] for p in data['phase_timeline']))
+        phase = next(p for p in data['phase_timeline'] if p['start_s']<=3.5<p['end_s'])
+        self.assertEqual(phase['attacking_team_id'],'b')
+        self.assertEqual(phase['source'],'settled')
+        data = json.loads(self.get('/api/heatmaps?name=match&subject=team:b&phase=offense&start=3.5&end=4.5')[2])
+        self.assertAlmostEqual(data['phase_analysis']['settled_s'],1.)
         self.assertAlmostEqual(data['maps'][0]['total'],3.)
 
     def test_source_bound_scoreboard_is_exposed_and_updates_invalidate_the_index(self):

@@ -94,12 +94,9 @@ def experiment(run, review=None):
             "quarter_contacts": PhaseIndex(
                 teams, geometry, gap, scoreboard=scoreboard, use_court_context=False
             ),
-            "quarter_context": PhaseIndex(teams, geometry, gap, scoreboard=scoreboard),
+            "settled": PhaseIndex(teams, geometry, gap, scoreboard=scoreboard),
         }
     )
-    unguarded = PhaseIndex(teams, geometry, gap, scoreboard=scoreboard)
-    unguarded.score_guard_before_s = unguarded.score_guard_after_s = 0.0
-    indices["quarter_context_without_score_guard"] = unguarded
     plan, previous = -1, None
     raw_contacts = []
     zones = []

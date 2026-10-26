@@ -1,10 +1,8 @@
-"""Experimental attack/defense segmentation from image contacts and court layout.
+"""Learn basket directions, then retain only installed attack/defense phases.
 
-A ball detection is not a possession. Unknown players and referees compete with
-known players for the contact, and uncertain windows remain unclassified.
-No elevated ball is projected through the ground-plane homography.
-Learned quarter sides can complete the attacking context from a settled group;
-that spatial estimate does not assert that a particular player possesses the ball.
+Possession and installed play are separate: a confirmed turnover enters a neutral
+transition until the new controller reaches its attacking half. Neutral and
+unobserved intervals remain internal and never contribute to the heatmaps.
 """
 
 from __future__ import annotations
@@ -14,6 +12,8 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 import math
 from statistics import median
+
+from viewer.settled import classify_settled
 
 
 def finite(value):
@@ -229,6 +229,7 @@ class Evidence:
     contact: Contact
     period: int | None = None
     half: int | None = None
+    court_visible: bool = False
 
 
 @dataclass(slots=True)
@@ -249,10 +250,6 @@ class PhaseIndex:
     min_evidence_s = 0.16
     quarter_anchor_s = 0.75
     reversed_view_agreement = 0.9
-    spatial_evidence_s = 0.35
-    contact_guard_s = 1.0
-    score_guard_before_s = 2.0
-    score_guard_after_s = 0.75
 
     def __init__(
         self,
@@ -296,6 +293,8 @@ class PhaseIndex:
                 contact(row, self.teams, self.geometry, self.method, self.min_ball_confidence),
                 reading.get("period") if reading else None,
                 occupied_half(row, self.teams, self.geometry) if self.use_court_context else None,
+                (row.get("court") or {}).get("status") in ("fit", "propagated")
+                and (row.get("court") or {}).get("image_to_court") is not None,
             )
         )
 
@@ -436,7 +435,14 @@ class PhaseIndex:
                 }
             )
         if self.use_court_context:
-            self._complete_from_court(blocks, locked, effective_directions)
+            classify_settled(
+                blocks,
+                self.spans,
+                self.teams,
+                self.geometry,
+                effective_directions,
+                self.score_changes,
+            )
         for span in self.spans:
             direction = effective_directions.get((span.period, span.plan))
             if direction and span.owner:
@@ -464,15 +470,18 @@ class PhaseIndex:
                     )
                 continue
             previous = self.episodes[-1] if self.episodes else None
-            # Merge presentation ranges across short unknown gaps, without relabeling
-            # those gaps or using them in any heatmap. These are estimated passages,
-            # not official possession counts.
+            # Installed-play passages are contiguous. The legacy contact-only
+            # experiment can still group short gaps for historical comparison.
             if (
                 previous
                 and previous["plan_id"] == span.plan
                 and previous["period"] == span.period
                 and previous["attacking_team_id"] == span.owner
-                and span.start - previous["end_s"] <= 0.6 + 1e-9
+                and (
+                    abs(span.start - previous["end_s"]) < 1e-6
+                    if self.use_court_context
+                    else span.start - previous["end_s"] <= 0.6 + 1e-9
+                )
             ):
                 previous["end_s"] = span.end
                 previous["duration_s"] = span.end - previous["start_s"]
@@ -496,63 +505,6 @@ class PhaseIndex:
             span.episode = self.episodes[-1]["id"]
         self.frames.clear()
 
-    def _complete_from_court(self, blocks, locked, directions):
-        """Complete missing roles from quarter sides, without overwriting contacts."""
-        spans = {(s.plan, s.start, s.end): s for s in self.spans}
-        for block in blocks:
-            pairs = [(a.time, b.time, b) for a, b in zip(block, block[1:])]
-            starts, ends = [a for a, _, _ in pairs], [b for _, b, _ in pairs]
-            for start, end, frame in pairs:
-                span = spans[(frame.plan, start, end)]
-                direction = directions.get((frame.period, frame.plan))
-                if (
-                    span.owner
-                    or frame.period not in locked
-                    or not direction
-                    or not frame.half
-                    or frame.contact.reason
-                    in ("referee_contact", "unassigned_contact", "contested_contact")
-                ):
-                    continue
-                team = self.teams[0] if frame.half == direction else self.teams[1]
-                middle = (start + end) / 2
-                # The TV graphic can update after the basket. A short guard on
-                # both sides of that observed update prevents a settled group
-                # beneath the rim from being mistaken for continued offense.
-                # This excludes spatial guesses; it never infers a basket time
-                # or changes contact-based labels.
-                changes = self.score_changes.get(frame.period, ())
-                change = bisect_left(changes, middle - self.score_guard_after_s)
-                if change < len(changes) and changes[change] <= middle + self.score_guard_before_s:
-                    continue
-                # A rebound or inbound can put the new attacking team underneath
-                # the other basket. Even a single contrary contact blocks the
-                # spatial guess nearby, including contacts too brief to classify.
-                guarded = pairs[
-                    bisect_right(ends, middle - self.contact_guard_s) : bisect_left(
-                        starts, middle + self.contact_guard_s
-                    )
-                ]
-                if any(
-                    other.contact.team and other.contact.team != team for _, _, other in guarded
-                ):
-                    continue
-                lo, hi = middle - self.window_s, middle + self.window_s
-                votes, support = Counter(), Counter()
-                for a, b, other in pairs[bisect_right(ends, lo) : bisect_left(starts, hi)]:
-                    if other.half:
-                        weight = max(0.0, min(hi, b) - max(lo, a))
-                        votes[other.half] += weight
-                        support[other.half] += int(weight > 0)
-                if (
-                    votes[frame.half] >= self.spatial_evidence_s - 1e-9
-                    and support[frame.half] >= 3
-                    and votes[frame.half] / sum(votes.values()) >= 0.9
-                ):
-                    span.owner = team
-                    span.method = "court"
-                    span.reason = "quarter_court_context"
-
     def metadata(self):
         eligible = self.duration_s
         classified = sum(s.end - s.start for s in self.spans if s.owner)
@@ -563,27 +515,25 @@ class PhaseIndex:
             "period_directions": self.period_directions,
             "orientation_policy": "quarter_lock_with_verified_camera_reversals",
             "method": (
-                "contacts_temporal_quarter_court_context_v2"
+                "settled_halfcourt_state_machine_v3"
                 if self.use_court_context
                 else "image_contacts_temporal_layout_v1"
             ),
             "classification_sources": {
                 "contacts_s": sum(
-                    s.end - s.start for s in self.spans if s.owner and s.method != "court"
+                    s.end - s.start
+                    for s in self.spans
+                    if s.owner and s.method not in ("court", "settled")
+                ),
+                "settled_s": sum(
+                    s.end - s.start for s in self.spans if s.owner and s.method == "settled"
                 ),
                 "court_context_s": sum(
                     s.end - s.start for s in self.spans if s.owner and s.method == "court"
                 ),
             },
-            "court_context": {
-                "enabled": self.use_court_context,
-                "requires_quarter_lock": True,
-                "min_players_per_team": 2,
-                "min_evidence_s": self.spatial_evidence_s,
-                "contact_guard_s": self.contact_guard_s,
-                "score_guard_before_s": self.score_guard_before_s,
-                "score_guard_after_s": self.score_guard_after_s,
-            },
+            "phase_policy": "installed_attack_neutral_installed_opponent",
+            "neutral_s": sum(s.end - s.start for s in self.spans if s.method == "neutral"),
             "eligible_s": eligible,
             "classified_s": classified,
             "unknown_s": eligible - classified,
@@ -598,8 +548,16 @@ class PhaseIndex:
         """Compact half-open intervals, preserving cuts and missing source time."""
         rows = []
         for span in self.spans:
+            if not span.owner:
+                continue
             source = (
-                "court_context" if span.method == "court" else "contacts" if span.owner else None
+                "settled"
+                if span.method == "settled"
+                else (
+                    "court_context"
+                    if span.method == "court"
+                    else "contacts" if span.owner else None
+                )
             )
             context = {
                 "plan_id": span.plan,

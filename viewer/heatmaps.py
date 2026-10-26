@@ -258,6 +258,7 @@ class HeatmapIndex:
             "orientation_missing_s": 0.0,
             "contacts_s": 0.0,
             "court_context_s": 0.0,
+            "settled_s": 0.0,
         }
         for span in self.phases.spans:
             if episode is not None and span.owner and span.episode != episode:
@@ -266,7 +267,12 @@ class HeatmapIndex:
             role = "unknown" if not span.owner else "offense" if span.owner == team else "defense"
             durations[role + "_s"] += seconds
             if span.owner:
-                durations["court_context_s" if span.method == "court" else "contacts_s"] += seconds
+                source = (
+                    "settled_s"
+                    if span.method == "settled"
+                    else "court_context_s" if span.method == "court" else "contacts_s"
+                )
+                durations[source] += seconds
             if span.owner and not span.direction:
                 durations["orientation_missing_s"] += seconds
         durations["unknown_s"] = max(
