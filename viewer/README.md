@@ -189,7 +189,21 @@ superposer des sens opposés. Gauche et droite correspondent aux côtés en rega
 vers ce panier de référence. Sans repère de panier exploitable, aucun intervalle
 n’entre dans une carte Attaque ou Défense.
 
-La comparaison applique la situation à **chaque sujet**. Deux équipes en Attaque
+Toutes les cartes affichent uniquement le **demi-terrain du panier de référence**.
+Après la rotation, le calcul conserve les positions entre la ligne médiane et ce
+panier. Un trajet traversant la ligne est découpé à son instant de franchissement :
+seul le temps passé dans ce camp contribue à la grille, aux neuf zones et aux
+pourcentages. Les positions dans l’autre moitié ne sont ni repliées ni comptées
+comme des trous de calibration. Une note indique leur temps exclu lorsqu’il existe.
+Le terrain NBA affiché mesure 14,3256 × 15,24 m ; le sens du panier reste à droite.
+
+La comparaison utilise automatiquement les **deux équipes de l’effectif**, sans
+sélecteur de sujet ou d’adversaire. Le joueur sélectionné reste mémorisé pour les
+autres vues. Passer à Comparaison depuis un passage isolé revient à tous les
+passages du quart-temps choisi ; les bornes saisies manuellement restent conservées
+si aucun passage n’était sélectionné.
+
+La comparaison applique la situation à **chaque équipe**. Deux équipes en Attaque
 sont comparées sur leurs propres passages offensifs, à des moments potentiellement
 différents dans la période choisie. Une période limitée à l’attaque d’une seule
 équipe peut donc laisser l’autre carte vide. L’évolution partage la période source
@@ -199,9 +213,8 @@ Le choix de langue conserve les filtres, le mode et les résultats.
 | Angle | Lecture et intérêt |
 | --- | --- |
 | **Présence** | Part du temps localisé dans chaque maille : repérer les espaces occupés par un joueur ou la répartition collective. |
-| **Déplacements** | Part des mètres mesurés dans chaque maille : distinguer une zone traversée d’une zone où l’on reste. Ce n’est pas une carte de vitesse ou d’intensité. |
-| **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les zones sont géométriques, sans attribution attaque/défense. |
-| **Comparaison** | Deux joueurs ou deux équipes, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
+| **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les tiers vont de la ligne médiane au panier du demi-terrain affiché. |
+| **Comparaison** | Les deux équipes du match, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé dans le demi-terrain ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
 | **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation dans la situation choisie. |
 
 Le rendu **Zones continues**, actif par défaut, regroupe les positions proches
@@ -210,33 +223,38 @@ claires indiquent les concentrations les plus fortes, sur un fond ardoise.
 Désactiver cette option affiche les mailles brutes d’environ un mètre ; la vue
 Zones conserve sa grille 3 × 3.
 
-Les cartes continues expriment une concentration en **% par m²** : du temps
-localisé, ou des mètres mesurés pour Déplacements. L’écart de comparaison est en
+Les cartes continues expriment une concentration du temps localisé dans le
+demi-terrain en **% par m²**. L’écart de comparaison est en
 points de pourcentage par m². Les cartes comparées partagent la même échelle
 calculée sur cette concentration, avec un traitement spatial identique.
 Le survol et les tableaux conservent les mesures brutes par maille ou par zone ;
 les totaux et couvertures ne changent pas avec le rendu. Les cartes PNG exportées
 indiquent le sujet, le mode,
-le plan, la période, la légende et les limites de lecture. Pour une carte simple,
+la situation, le quart-temps éventuel, la période, la légende et les limites de lecture. Pour une carte simple,
 elles conservent aussi le total et la couverture ; une différence indique A et B.
 Le tableau sous les cartes rend les neuf zones lisibles au clavier, y compris
 les écarts de comparaison.
 
 ### Ce que les chiffres mesurent
 
-- **Temps localisé** : somme des intervalles avec positions valides aux deux
-  extrémités. Pour une équipe, deux joueurs suivis pendant une seconde représentent
-  **deux secondes-joueurs**, pas deux secondes de vidéo.
-- **Suivi localisable** : temps localisé / temps de suivi attribué au sujet.
-  Les intervalles suivis mais non projetables réduisent ce taux. Les absences,
-  identités inconnues et joueurs hors champ n’entrent pas dans le dénominateur.
-- **Vidéo documentée** : union des intervalles comportant au moins une position
-  localisable pour le sujet. Pour une équipe, cela n’implique pas un suivi complet
-  des cinq joueurs.
-- **Distance répartie** : contributions valides de `tracks.jsonl`, déjà calculées
-  par le pipeline, réparties le long des courts trajets correspondants. Une note
-  indique la part du temps localisé disposant d’une mesure de distance. Zéro mètre
-  mesuré et absence de mesure restent distingués.
+- **Temps dans ce camp** : somme des durées localisées dans le demi-terrain
+  affiché, après orientation et découpage à la ligne médiane. Pour une équipe,
+  deux joueurs suivis pendant une seconde représentent **deux secondes-joueurs**.
+- **Suivi localisable** : temps localisé et orienté / temps de suivi attribué au
+  sujet dans cette situation. Les positions valides dans l’autre moitié restent
+  localisées pour ce taux de qualité, mais ne contribuent pas à la carte. Les
+  absences, identités inconnues et joueurs hors champ n’entrent pas au dénominateur.
+- **Vidéo dans ce camp** : union des intervalles comportant au moins une position
+  localisable dans le demi-terrain affiché. Pour une équipe, cela n’implique pas
+  un suivi complet des cinq joueurs.
+
+L’API expose `half_court_s`, `outside_half_s` et `half_court_video_s` pour séparer
+le recadrage spatial de la qualité de localisation. Les requêtes de phases
+retournent `court.extent: "half"`, la demi-longueur affichée et `court.full_length`.
+Le chemin d’audit historique sans filtre de phase conserve ses coordonnées plein
+terrain et les contributions de distance ; le viewer propose les quatre vues
+ci-dessus. La comparaison API accepte uniquement les deux équipes du match et
+choisit l’adversaire automatiquement.
 
 Le calcul pondère par le temps, jamais par le nombre d’images. Il coupe aux
 changements de plan, frames manquantes, exclusions, grands intervalles de temps,
@@ -260,8 +278,8 @@ Les cartes décrivent **les positions observées**. Une zone sombre ne prouve pa
 qu’elle était libre ; un suivi partiel peut orienter la répartition. La précision
 métrique n’est pas validée par ces cartes et les ralentis ne sont pas exclus
 automatiquement. Le ballon n’a pas de projection métrique exploitable ici : il
-ne contribue pas aux heatmaps. Aucune possession, phase offensive ou défensive
-n’est déduite.
+ne contribue pas aux cartes de présence. Les phases installées restent des
+estimations conservatrices, et non des possessions officielles.
 
 ## Raccourcis
 
@@ -399,7 +417,7 @@ cependant la classification de contexte décrite ci-dessous.
 Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
 **Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
 interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
-Le bilan complet, les cinq vues et la
+Les quatre vues et la
 normalisation du panier à droite restent disponibles.
 
 L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
@@ -413,3 +431,6 @@ remplace le précédent complément par zone. Le contrôle du ballon sert à con
 les changements ; l’arrivée dans le camp attaqué détermine quand une nouvelle
 attaque/défense peut entrer dans les heatmaps. Les transitions restent internes
 et ne sont jamais proposées dans le sélecteur ni affichées sous la vidéo.
+
+La [revue des demi-terrains](../reports/half-court-2026-10-26/README.md) décrit
+le cadrage final, la comparaison automatique et les vérifications associées.
