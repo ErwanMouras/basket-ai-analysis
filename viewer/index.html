@@ -205,12 +205,18 @@
                       <legend data-i18n="court">Terrain</legend>
                       <div class="category-toggles">
                         <label
-                          ><input type="checkbox" data-filter="court" /><span
+                          ><input type="checkbox" data-filter="court" checked /><span
+                            data-i18n="courtLines"
+                            >Lignes projetées</span
+                          ></label
+                        ><label
+                          ><input type="checkbox" data-filter="courtLandmarks" /><span
                             data-i18n="landmarks"
-                            >Repères</span
+                            >Repères détectés</span
                           ></label
                         >
                       </div>
+                      <p class="layers-note" data-i18n="courtOverlayHint">Lignes cyan : projection du terrain. Zone teintée : support des repères. Repères roses : non retenus.</p>
                     </fieldset>
                   </div>
                   <p

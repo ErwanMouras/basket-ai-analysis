@@ -1,0 +1,479 @@
+{
+  "scope": "paired replay, predicted landmarks, no ground truth",
+  "results": [
+    {
+      "clip": "hou-lal-1800",
+      "source_sha256": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+      "historical_predictions": "runs/court/validation/hou-lal-1800",
+      "new_shared_predictions": 1,
+      "config_before": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "config_after": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0.15,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "before": {
+        "frames": 1800,
+        "statuses": {
+          "fit": 290,
+          "propagated": 1212,
+          "unavailable": 298
+        },
+        "coverage": 0.8344444444444444,
+        "cuts": [
+          399,
+          438,
+          1017,
+          1243,
+          1317
+        ],
+        "smoothed_fits": 0,
+        "correction_px": {
+          "count": 270,
+          "median": 6.72408218837385,
+          "p95": 20.098179464322076
+        },
+        "raw_reprojection_px": {
+          "count": 290,
+          "median": 1.4663124648791368,
+          "p95": 2.341689013036264
+        },
+        "smoothed_reprojection_px": {
+          "count": 0,
+          "median": null,
+          "p95": null
+        }
+      },
+      "after": {
+        "frames": 1800,
+        "statuses": {
+          "fit": 290,
+          "propagated": 1211,
+          "unavailable": 299
+        },
+        "coverage": 0.8338888888888889,
+        "cuts": [
+          399,
+          438,
+          1017,
+          1243,
+          1317
+        ],
+        "smoothed_fits": 251,
+        "correction_px": {
+          "count": 270,
+          "median": 4.323021361508029,
+          "p95": 20.391878023679556
+        },
+        "raw_reprojection_px": {
+          "count": 290,
+          "median": 1.4663124648791368,
+          "p95": 2.341689013036264
+        },
+        "smoothed_reprojection_px": {
+          "count": 251,
+          "median": 2.6391948472355526,
+          "p95": 4.930632797743545
+        }
+      },
+      "paired_fits": 270,
+      "paired_correction_before_px": {
+        "count": 270,
+        "median": 6.72408218837385,
+        "p95": 20.098179464322076
+      },
+      "paired_correction_after_px": {
+        "count": 270,
+        "median": 4.323021361508029,
+        "p95": 20.391878023679556
+      },
+      "availability_changes": 1
+    },
+    {
+      "clip": "por-sas-1500",
+      "source_sha256": "1799d308513e6c42ffcd46d3af8ad60d875f80e39d4ca2e2bd006f8a8414513e",
+      "historical_predictions": "runs/court/validation/por-sas-1500",
+      "new_shared_predictions": 0,
+      "config_before": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "config_after": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0.15,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "before": {
+        "frames": 1500,
+        "statuses": {
+          "fit": 266,
+          "propagated": 1110,
+          "unavailable": 124
+        },
+        "coverage": 0.9173333333333333,
+        "cuts": [],
+        "smoothed_fits": 0,
+        "correction_px": {
+          "count": 262,
+          "median": 5.639975012249819,
+          "p95": 17.953937983013667
+        },
+        "raw_reprojection_px": {
+          "count": 266,
+          "median": 1.1501400876225416,
+          "p95": 2.705247207575801
+        },
+        "smoothed_reprojection_px": {
+          "count": 0,
+          "median": null,
+          "p95": null
+        }
+      },
+      "after": {
+        "frames": 1500,
+        "statuses": {
+          "fit": 266,
+          "propagated": 1110,
+          "unavailable": 124
+        },
+        "coverage": 0.9173333333333333,
+        "cuts": [],
+        "smoothed_fits": 232,
+        "correction_px": {
+          "count": 262,
+          "median": 3.9096627827797565,
+          "p95": 15.64857878572507
+        },
+        "raw_reprojection_px": {
+          "count": 266,
+          "median": 1.1501400876225416,
+          "p95": 2.705247207575801
+        },
+        "smoothed_reprojection_px": {
+          "count": 232,
+          "median": 2.347667921538701,
+          "p95": 5.06488862557943
+        }
+      },
+      "paired_fits": 262,
+      "paired_correction_before_px": {
+        "count": 262,
+        "median": 5.639975012249819,
+        "p95": 17.953937983013667
+      },
+      "paired_correction_after_px": {
+        "count": 262,
+        "median": 3.9096627827797565,
+        "p95": 15.64857878572507
+      },
+      "availability_changes": 0
+    },
+    {
+      "clip": "phx-okc-1800",
+      "source_sha256": "9368301bb884c5d4db1ed2dcb2358436cbd0be308c49ce78940fcf6c5e1e3ea8",
+      "historical_predictions": "runs/court/validation/phx-okc-1800",
+      "new_shared_predictions": 0,
+      "config_before": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "config_after": {
+        "enabled": true,
+        "weights": "/home/erwan/Vyneros/models/court/court_keypoints.pt",
+        "device": "cuda:0",
+        "resolution": 640,
+        "detect_every": 5,
+        "keypoint_confidence": 0.5,
+        "min_inliers": 5,
+        "min_inlier_ratio": 0.6,
+        "ransac_pixels": 8.0,
+        "max_reprojection_pixels": 6.0,
+        "min_support_area_m2": 8.0,
+        "max_propagation_seconds": 0.5,
+        "max_temporal_jump_m": 1.5,
+        "smoothing_seconds": 0.15,
+        "motion_width": 960,
+        "motion_min_inliers": 12,
+        "cut_pixel_difference": 0.3,
+        "cut_histogram_distance": 0.55,
+        "auto_cuts": true,
+        "min_player_confidence": 0.25,
+        "footpoint": "bbox",
+        "max_extrapolation_m": 4.0,
+        "court_margin_m": 0.5,
+        "overlay": true,
+        "minimap": true,
+        "excluded_regions": [
+          [
+            0.0,
+            0.87,
+            1.0,
+            1.0
+          ],
+          [
+            0.72,
+            0.0,
+            1.0,
+            0.18
+          ]
+        ]
+      },
+      "before": {
+        "frames": 1800,
+        "statuses": {
+          "unavailable": 378,
+          "fit": 287,
+          "propagated": 1135
+        },
+        "coverage": 0.79,
+        "cuts": [
+          1410,
+          1553
+        ],
+        "smoothed_fits": 0,
+        "correction_px": {
+          "count": 277,
+          "median": 4.6022020652824445,
+          "p95": 17.10374078581937
+        },
+        "raw_reprojection_px": {
+          "count": 287,
+          "median": 0.969063507757201,
+          "p95": 2.247590726020704
+        },
+        "smoothed_reprojection_px": {
+          "count": 0,
+          "median": null,
+          "p95": null
+        }
+      },
+      "after": {
+        "frames": 1800,
+        "statuses": {
+          "unavailable": 378,
+          "fit": 287,
+          "propagated": 1135
+        },
+        "coverage": 0.79,
+        "cuts": [
+          1410,
+          1553
+        ],
+        "smoothed_fits": 258,
+        "correction_px": {
+          "count": 277,
+          "median": 3.4264392351001414,
+          "p95": 13.570814146515023
+        },
+        "raw_reprojection_px": {
+          "count": 287,
+          "median": 0.969063507757201,
+          "p95": 2.247590726020704
+        },
+        "smoothed_reprojection_px": {
+          "count": 258,
+          "median": 2.1533687467399636,
+          "p95": 5.0789002509141925
+        }
+      },
+      "paired_fits": 277,
+      "paired_correction_before_px": {
+        "count": 277,
+        "median": 4.6022020652824445,
+        "p95": 17.10374078581937
+      },
+      "paired_correction_after_px": {
+        "count": 277,
+        "median": 3.4264392351001414,
+        "p95": 13.570814146515023
+      },
+      "availability_changes": 0
+    }
+  ]
+}

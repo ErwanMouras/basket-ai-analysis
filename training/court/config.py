@@ -21,6 +21,7 @@ DEFAULTS = {
     "min_support_area_m2": 8.0,
     "max_propagation_seconds": 0.5,
     "max_temporal_jump_m": 1.5,
+    "smoothing_seconds": 0.15,  # motion-compensated absolute-fit correction; 0 disables
     "motion_width": 960,
     "motion_min_inliers": 12,
     "cut_pixel_difference": 0.30,
@@ -52,7 +53,7 @@ def settings(overrides=None):
         raise ValueError("court.resolution must be a multiple of 32; motion_width >= 160")
     for key in ("keypoint_confidence", "min_inlier_ratio", "ransac_pixels",
                 "max_reprojection_pixels", "min_support_area_m2", "max_propagation_seconds",
-                "max_temporal_jump_m", "cut_pixel_difference", "cut_histogram_distance",
+                "max_temporal_jump_m", "smoothing_seconds", "cut_pixel_difference", "cut_histogram_distance",
                 "min_player_confidence", "max_extrapolation_m", "court_margin_m"):
         value = cfg[key]
         if type(value) not in (int, float) or not math.isfinite(value) or value < 0:

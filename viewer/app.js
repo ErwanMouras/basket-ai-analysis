@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
-const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
+const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#65d9f2' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
   target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null, statsView: 'players' };
 const video = $('video');
@@ -111,7 +111,7 @@ function renderCourtLegend() {
 }
 function updateLayerSummary() {
   const on = filters();
-  const count = Number(on.players) + Number(on.referees && $('identityMode').value !== 'identified') + Number(on.ball) + Number(on.court);
+  const count = Number(on.players) + Number(on.referees && $('identityMode').value !== 'identified') + Number(on.ball) + Number(on.court || on.courtLandmarks);
   $('layerCount').textContent = count;
   $('layerSummary').textContent = count ? t('activeLayers', {count}) : t('noLayers');
   $('refereeOptions').disabled = $('identityMode').value === 'identified';
@@ -357,10 +357,101 @@ function drawSegmentation(row, on) {
     ctx.drawImage(surface,mask.roi[0],mask.roi[1]); ctx.restore();
   }
 }
+// Same nominal NBA ground-plane references as training/court/geometry.py.
+function courtMarkings() {
+  const L=28.6512, W=15.24, ft=.3048;
+  const lines=[[[0,0],[L,0],[L,W],[0,W],[0,0]], [[L/2,0],[L/2,W]]];
+  const arc=(cx,cy,r,a,b,n=120)=>Array.from({length:n+1},(_,i)=>{
+    const angle=a+(b-a)*i/n; return [cx+r*Math.cos(angle),cy+r*Math.sin(angle)];
+  });
+  for(const r of [6*ft,2*ft])lines.push(arc(L/2,W/2,r,0,Math.PI*2));
+  const rim=5.25*ft, foul=19*ft, radius=23.75*ft, angle=Math.asin(22*ft/radius);
+  const join=rim+Math.sqrt(radius**2-(22*ft)**2);
+  for(const mirrored of [false,true]) {
+    const half=[[[0,17*ft],[foul,17*ft],[foul,33*ft],[0,33*ft]],
+      arc(foul,W/2,6*ft,0,Math.PI*2), [[0,3*ft],[join,3*ft]],
+      [[0,47*ft],[join,47*ft]], arc(rim,W/2,radius,-angle,angle),
+      [[4*ft,W/2-4*ft],...arc(rim,W/2,4*ft,-Math.PI/2,Math.PI/2,60),[4*ft,W/2+4*ft]]];
+    lines.push(...half.map(line=>line.map(([px,py])=>[mirrored?L-px:px,py])));
+  }
+  return lines;
+}
+const projectedMarkings=courtMarkings();
+function inverseHomography(matrix) {
+  if(!Array.isArray(matrix)||matrix.length!==3||matrix.some(row=>!Array.isArray(row)||row.length!==3||!row.every(safeNumber)))return null;
+  const magnitude=Math.max(...matrix.flat().map(Math.abs));
+  if(!magnitude)return null;
+  const [a,b,c,d,e,f,g,h,i]=matrix.flat().map(value=>value/magnitude);
+  const cofactors=[e*i-f*h,c*h-b*i,b*f-c*e,f*g-d*i,a*i-c*g,c*d-a*f,d*h-e*g,b*g-a*h,a*e-b*d];
+  const det=a*cofactors[0]+b*cofactors[3]+c*cofactors[6];
+  return !Number.isFinite(det)||Math.abs(det)<1e-15?null:cofactors.map(value=>value/det);
+}
+function courtPixel(matrix, point) {
+  if(!Array.isArray(point)||point.length!==2||!point.every(safeNumber))return null;
+  const [px,py]=point, w=matrix[6]*px+matrix[7]*py+matrix[8];
+  if(!Number.isFinite(w)||Math.abs(w)<1e-9)return null;
+  const result=[(matrix[0]*px+matrix[1]*py+matrix[2])/w,(matrix[3]*px+matrix[4]*py+matrix[5])/w];
+  return result.every(value=>Number.isFinite(value)&&Math.abs(value)<1e6)?result:null;
+}
+function drawCourtOverlay(row, on) {
+  const record=row.court;
+  if(!record)return;
+  const calibrated=['fit','propagated'].includes(record.status);
+  const matrix=calibrated?inverseHomography(record.image_to_court):null;
+  const scale=Math.max(1,row.height/540);
+  ctx.save();
+  if(on.court && matrix) {
+    const corners=[[0,0],[28.6512,0],[28.6512,15.24],[0,15.24]];
+    const denominators=corners.map(([px,py])=>matrix[6]*px+matrix[7]*py+matrix[8]);
+    // Refuse a model crossing the projective horizon, including old artifacts.
+    if(Math.min(...denominators)*Math.max(...denominators)>0) {
+      const color=C.court;
+      const support=Array.isArray(record.support_polygon_m)?record.support_polygon_m.map(point=>courtPixel(matrix,point)):[];
+      if(support.length>=3 && support.every(Boolean)) {
+        ctx.beginPath();support.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();
+        ctx.fillStyle=color;ctx.globalAlpha=.09;ctx.fill();ctx.globalAlpha=1;
+      }
+      ctx.beginPath();
+      for(const line of projectedMarkings) {
+        let connected=false;
+        for(const point of line) {
+          const pixel=courtPixel(matrix,point);
+          if(!pixel){connected=false;continue;}
+          if(connected)ctx.lineTo(...pixel);else ctx.moveTo(...pixel);
+          connected=true;
+        }
+      }
+      ctx.lineJoin='round';ctx.lineCap='round';
+      // Keep the same appearance between detector frames: changing color or
+      // dash every five frames causes visible flashing during playback.
+      ctx.setLineDash([]);
+      ctx.strokeStyle='#081116';ctx.lineWidth=4*scale;ctx.stroke();
+      ctx.strokeStyle=color;ctx.lineWidth=1.8*scale;ctx.stroke();
+    }
+  }
+  if(on.courtLandmarks && Array.isArray(record.keypoints)) {
+    const fit=record.fit_attempt;
+    const inliers=new Set(fit?.inlier_ids || []);
+    record.keypoints.forEach((point,id)=>{
+      if(!Array.isArray(point)||point.length!==3||!point.every(safeNumber)||point[2]<.5||point[0]<=1||point[0]>=row.width-1||point[1]<=1||point[1]>=row.height-1)return;
+      const accepted=calibrated && !fit?.rejection && inliers.has(id);
+      const color=accepted?C.court:'#ff8e9a';
+      const [px,py]=point;
+      ctx.setLineDash([]);ctx.beginPath();ctx.arc(px,py,4*scale,0,Math.PI*2);
+      ctx.strokeStyle='#081116';ctx.lineWidth=3*scale;ctx.stroke();
+      ctx.strokeStyle=color;ctx.lineWidth=1.5*scale;ctx.stroke();
+      ctx.font=`bold ${10*scale}px Arial, sans-serif`;ctx.lineWidth=2.5*scale;
+      ctx.strokeStyle='#081116';ctx.strokeText(String(id+1),px+6*scale,py-5*scale);
+      ctx.fillStyle=color;ctx.fillText(String(id+1),px+6*scale,py-5*scale);
+    });
+  }
+  ctx.restore();
+}
 function drawOverlay(row) {
   resizeCanvasOnly(row);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const on = filters();
+  drawCourtOverlay(row, on);
   drawSegmentation(row,on);
   for (const person of row.persons || []) {
     const role = person.role;
@@ -426,11 +517,8 @@ function drawOverlay(row) {
     ctx.beginPath();ctx.arc(x,y,11,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
     ctx.beginPath();ctx.moveTo(x-18,y);ctx.lineTo(x-13,y);ctx.moveTo(x+13,y);ctx.lineTo(x+18,y);ctx.moveTo(x,y-18);ctx.lineTo(x,y-13);ctx.moveTo(x,y+13);ctx.lineTo(x,y+18);ctx.stroke();
   }
-  if (on.court && row.court?.keypoints) {
-    ctx.fillStyle = C.court;ctx.strokeStyle = C.court;ctx.lineWidth = 1.6;
-    row.court.keypoints.forEach(p => { if (!p || p[2] < .5) return;ctx.beginPath();ctx.arc(p[0],p[1],6,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(p[0],p[1],2,0,Math.PI*2);ctx.fill(); });
-  }
 }
+
 function resizeCanvasOnly(row) { if (canvas.width !== row.width || canvas.height !== row.height) { canvas.width = row.width; canvas.height = row.height; resizeOverlay(); } }
 function svg(tag, attrs, parent) { const el = document.createElementNS(SVG, tag); for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, String(v)); parent.append(el); return el; }
 const court = { L: 28.6512, W: 15.24, scale: 20.9, x0: 31, y0: 28 };

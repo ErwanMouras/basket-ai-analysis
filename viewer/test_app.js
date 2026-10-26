@@ -243,3 +243,34 @@ test('both languages cover the static interface and dynamic message catalog', as
   }
   assert.deepEqual(Object.keys(ui.json('messages.en')).sort(), Object.keys(ui.json('messages.fr')).sort());
 });
+
+test('court projection matches source pixels and refuses invalid transforms', async () => {
+  const ui=await app();
+  assert.deepEqual(ui.json('courtPixel(inverseHomography([[.1,0,-10],[0,.1,-20],[0,0,1]]),[5,7])'),[150,270]);
+  for(const matrix of ['null','[[1,0,0],[1,0,0],[0,0,1]]','[[1,0,0],[0,NaN,0],[0,0,1]]'])assert.equal(ui.run(`inverseHomography(${matrix})`),null);
+  assert.equal(ui.run('courtPixel([1,0,0,0,1,0,1,0,-1],[1,4])'),null);
+});
+
+test('court lines persist on propagated frames without stale detector points', async () => {
+  const ui=await app();
+  ui.run(`drawCourtOverlay({width:1280,height:720,court:{status:'propagated',image_to_court:[[.03,0,0],[0,.03,0],[0,0,1]],keypoints:null}}, {court:true,courtLandmarks:true})`);
+  assert.ok(ui.drawCalls.some(([name,...args])=>name==='setLineDash' && args[0].length===0));
+  assert.ok(ui.drawCalls.some(([name])=>name==='lineTo'));
+  assert.equal(ui.drawCalls.filter(([name])=>name==='arc').length,0);
+});
+
+test('unavailable, singular and horizon-crossing calibrations never draw court lines', async () => {
+  for(const [status,matrix] of [['unavailable','[[1,0,0],[0,1,0],[0,0,1]]'],['fit','[[0,0,0],[0,0,0],[0,0,0]]'],['fit','[[1,0,0],[0,1,0],[1,0,-1]]']]) {
+    const ui=await app();
+    ui.run(`drawCourtOverlay({width:1280,height:720,court:{status:'${status}',image_to_court:${matrix}}}, {court:true})`);
+    assert.equal(ui.drawCalls.filter(([name])=>name==='lineTo').length,0);
+  }
+});
+
+test('court landmark diagnostics are independent of lines and ignore malformed points', async () => {
+  const ui=await app();
+  ui.run(`drawCourtOverlay({width:1280,height:720,court:{status:'unavailable',keypoints:[[200,300,.9],[NaN,300,.9],[-4,5,.99],[10,10,.1]]}}, {court:false,courtLandmarks:true})`);
+  assert.equal(ui.drawCalls.filter(([name])=>name==='arc').length,1);
+  assert.equal(ui.drawCalls.filter(([name])=>name==='fillText').length,1);
+  assert.equal(ui.drawCalls.filter(([name])=>name==='lineTo').length,0);
+});

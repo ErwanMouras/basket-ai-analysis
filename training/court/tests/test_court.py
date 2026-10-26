@@ -8,7 +8,7 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from training.court.calibration import CourtCalibrator, fit_keypoints, motion_between
+from training.court.calibration import CourtCalibrator, fit_keypoints, motion_between, stabilize_fit
 from training.court.config import settings
 from training.court.geometry import (
     CORNERS, CORNER_DISTANCE, FREE_THROW_X, LANDMARKS, LANE_WIDTH, LENGTH,
@@ -125,6 +125,50 @@ class GeometryTests(unittest.TestCase):
 
 
 class TemporalTests(unittest.TestCase):
+    def test_motion_compensated_smoothing_reduces_noisy_recalibration(self):
+        image = texture()
+        # Exact pan/zoom motion, noisy absolute observations on the next frame.
+        motion = np.array([[1.008, -.002, 3], [.002, 1.008, -2], [0, 0, 1.]])
+        second = cv2.warpPerspective(image, motion, (1280, 720))
+        jitter = np.array([[1., 0, 2.], [0, 1, -1.], [0, 0, 1.]])
+        errors = []
+        for seconds in (0, .15):
+            c = CourtCalibrator(settings({"detect_every": 1, "smoothing_seconds": seconds}), fps=30,
+                                model=Model([keypoints(), keypoints(jitter @ motion @ MATRIX)]))
+            c.update(image, [], frame_index=0)
+            row = c.update(second, [], frame_index=1)
+            self.assertEqual(row["status"], "fit")
+            expected = project(motion @ MATRIX, LANDMARKS)
+            actual = project(np.linalg.inv(row["image_to_court"]), LANDMARKS)
+            errors.append(np.median(np.linalg.norm(actual - expected, axis=1)))
+            self.assertEqual(row["accepted_fit"]["smoothing_applied"], seconds != 0)
+        self.assertLess(errors[1], errors[0] * .4)
+
+    def test_smoothing_keeps_reprojection_bound_and_handles_reflected_labels(self):
+        reflection = np.array([[-1., 0, LENGTH], [0, 1, 0], [0, 0, 1]])
+        values = keypoints(MATRIX @ reflection)
+        for shift, expected_smoothed in ((2., True), (80., False)):
+            cfg = settings()
+            candidate, _ = fit_keypoints(values, SHAPE, cfg)
+            predicted, _ = fit_keypoints(keypoints(np.array([[1., 0, shift], [0, 1, 0], [0, 0, 1.]]) @ MATRIX), SHAPE, cfg)
+            original = candidate["image_to_court"].copy()
+            result = stabilize_fit(candidate, predicted, values, SHAPE, cfg, 1/30)
+            self.assertEqual(result["fit"]["smoothing_applied"], expected_smoothed)
+            if expected_smoothed:
+                self.assertLessEqual(result["fit"]["stabilized_reprojection_rmse_px"], cfg["max_reprojection_pixels"] * SHAPE[0]/1080)
+            else:
+                np.testing.assert_array_equal(result["image_to_court"], original)
+
+    def test_first_fit_after_cut_is_not_blended_with_previous_camera(self):
+        c = CourtCalibrator(settings({"detect_every": 1}), fps=30, model=Model())
+        image = texture()
+        c.update(image, [], frame_index=0)
+        row = c.update(image, [], frame_index=1, force_cut=True)
+        self.assertEqual(row["status"], "fit")
+        self.assertTrue(row["scene_cut"])
+        self.assertNotIn("smoothing_alpha", row["accepted_fit"])
+        np.testing.assert_allclose(row["image_to_court"], np.linalg.inv(MATRIX) / np.linalg.inv(MATRIX)[2, 2], atol=1e-5)
+
     def test_pan_and_zoom_propagate_in_the_correct_direction(self):
         model = Model([keypoints(), np.zeros((18, 3))])
         c = CourtCalibrator(settings({"detect_every": 100}), fps=30, model=model)
