@@ -39,7 +39,9 @@ jobs:
       - name: All offline regression suites (no training or annotation)
         run: .venv-players-cpu/bin/python -m mlops.checks --output runs/ci-poc
       - name: Viewer container build
-        run: docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
+        run: |
+          docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
+          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
       - name: Verify the public scripted sample
         run: .venv-players-cpu/bin/python -m mlops.demo --output examples/demo --ensure
       - uses: actions/upload-artifact@v4
@@ -52,6 +54,42 @@ jobs:
         run: |
           if test -f runs/ci-poc/summary.json; then cat runs/ci-poc/summary.json; fi
           find runs/ci-poc -name '*.log' -type f -exec tail -n 25 {} + 2>/dev/null || true
+
+  viewer-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+      - name: Install browser check dependencies
+        run: |
+          npm --prefix viewer ci
+          node viewer/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Check the scripted viewer in Chromium
+        env:
+          VIEWER_SCREENSHOTS: runs/viewer-browser
+        run: |
+          python -m viewer.server --port 8766 --runs-root examples/demo/runs --video-root examples/demo/videos > "$RUNNER_TEMP/viewer.log" 2>&1 &
+          VIEWER_PID=$!
+          trap 'kill "$VIEWER_PID"' EXIT
+          python -c "import time, urllib.request; time.sleep(1); urllib.request.urlopen('http://127.0.0.1:8766/api/runs', timeout=10)"
+          npm --prefix viewer run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: viewer-browser
+          path: |
+            runs/viewer-browser
+            ${{ runner.temp }}/viewer.log
 
   gpu-smoke:
     if: github.event_name == 'workflow_dispatch' && inputs.gpu_smoke

@@ -13,17 +13,19 @@ async function app() {
     const classes = new Set();
     const children = new Map();
     const handlers = new Map();
+    const attributes = new Map();
     return {
       textContent: '', hidden: false, value: '', checked: true, paused: true,
       width: 100, height: 50, currentTime: 0, style: { setProperty() {} },
       classList: {
-        add: name => classes.add(name), remove: name => classes.delete(name),
+        add: name => classes.add(name), remove: name => classes.delete(name), contains: name => classes.has(name),
         toggle(name, enabled) { if (enabled ?? !classes.has(name)) classes.add(name); else classes.delete(name); },
       },
       querySelector(name) { if (!children.has(name)) children.set(name, element()); return children.get(name); },
       replaceChildren() {}, append() {}, add() {},
       addEventListener(name, handler) { handlers.set(name, handler); },
-      dispatch(name) { handlers.get(name)?.(); }, setAttribute() {}, removeAttribute() {},
+      dispatch(name) { handlers.get(name)?.(); },
+      setAttribute(name, value) { attributes.set(name, value); }, getAttribute(name) { return attributes.get(name); }, removeAttribute(name) { attributes.delete(name); },
       pause() { this.paused = true; }, load() {}, requestVideoFrameCallback() {},
       getBoundingClientRect: () => ({ width: 100, height: 50, left: 0, top: 0 }),
       getContext: () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : (...args) => drawCalls.push([name,...args]) }),
@@ -32,15 +34,18 @@ async function app() {
   const byId = id => { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); };
   const context = vm.createContext({
     document: {
-      getElementById: byId, querySelectorAll: () => inputs, querySelector: byId,
+      getElementById: byId, querySelectorAll: selector => selector.includes('data-filter') ? inputs : [], querySelector: byId,
+      documentElement: {}, createTextNode: text => ({textContent: text}),
       createElement: element, createElementNS: element,
       addEventListener: (name, handler) => events.set(name, handler),
     },
     window: { addEventListener() {} }, location: { search: '' }, history: { replaceState() {} },
     ResizeObserver: class { observe() {} }, URLSearchParams,
     fetch: async () => ({ ok: true, json: async () => ({ runs: [] }) }),
+    Option: function(text, value) { return {textContent: text, value}; },
     setTimeout: () => 0, clearTimeout() {},
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'i18n.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8'), context);
   await new Promise(setImmediate);
   return { context, byId, events, drawCalls, inputs, run: source => vm.runInContext(source, context),
@@ -201,4 +206,40 @@ test('mask-only mode never falls back to boxes for an old run without masks', as
   ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
   assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
   assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
+});
+
+
+test('a destination presented before the seeking event keeps its synchronized overlay', async () => {
+  const ui = await app();
+  ui.run(`state.loaded=true; state.meta={timestamps:[0,.1],run:{source:{width:100,height:50}}};
+    state.cache.set(1,{observation:{frame_index:1,width:100,height:50,persons:[]}});
+    video.currentTime=.101; videoFrameLoop(0,{mediaTime:.1})`);
+  ui.byId('video').dispatch('seeking');
+  ui.byId('video').dispatch('seeked');
+  assert.equal(ui.run('state.current'), 1);
+  assert.equal(ui.run('state.presentedTime'), .1);
+});
+
+test('changing language preserves the playback position and category choices', async () => {
+  const ui = await app();
+  ui.run("video.currentTime=12.5; $('playerDisplay').value='segmentation'; $('identityMode').value='identified'; setLanguage('en')");
+  assert.equal(ui.run('video.currentTime'), 12.5);
+  assert.equal(ui.byId('playerDisplay').value, 'segmentation');
+  assert.equal(ui.byId('identityMode').value, 'identified');
+  assert.equal(ui.run('t("coverage")'), 'Tracking coverage');
+  assert.equal(ui.run('fmtDistance(12.5)'), '12.5');
+  ui.run("setLanguage('fr')");
+  assert.equal(ui.run('fmtDistance(12.5)'), '12,5');
+  assert.equal(ui.run('t("positions", {count: 1})'), '1 position sur le terrain');
+});
+
+test('both languages cover the static interface and dynamic message catalog', async () => {
+  const ui = await app();
+  const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  const keys = [...html.matchAll(/data-i18n(?:-aria|-title)?="([^"]+)"/g)].map(match => match[1]);
+  for (const lang of ['fr', 'en']) {
+    const catalog = ui.json(`messages.${lang}`);
+    for (const key of keys) assert.ok(catalog[key], `${lang}: ${key}`);
+  }
+  assert.deepEqual(Object.keys(ui.json('messages.en')).sort(), Object.keys(ui.json('messages.fr')).sort());
 });

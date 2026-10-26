@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
-  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null };
+  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null, statsView: 'players' };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
@@ -26,9 +26,9 @@ function personOptions(person, on) {
 const params = (values) => new URLSearchParams(values).toString();
 let toastTimer;
 function toast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 4200); }
-async function json(url) { const res = await fetch(url); const data = await res.json(); if (!res.ok) throw Error(data.error || `Erreur HTTP ${res.status}`); return data; }
+async function json(url) { const res = await fetch(url); const data = await res.json(); if (!res.ok) throw Error(data.error || t('httpError', {status: res.status})); return data; }
 const fmtTime = (n) => { n = Math.max(0, Number(n) || 0); return `${String(Math.floor(n / 60)).padStart(2, '0')}:${(n % 60).toFixed(2).padStart(5, '0')}`; };
-const fmtDistance = (n) => (n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const fmtDistance = (n) => (n || 0).toLocaleString(locale(), { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 const safeNumber = (n) => typeof n === 'number' && Number.isFinite(n);
 const shortName = (path) => path?.split('/').pop() || '—';
 function nearestFrame(time) {
@@ -52,58 +52,137 @@ function clearPresentation() {
   ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
 }
 function duration() { const a = state.meta?.timestamps || []; return a.length ? a[a.length - 1] : 0; }
+function renderRunOptions() {
+  const select = $('runSelect');
+  select.replaceChildren();
+  if (!state.runs.length) {
+    select.add(new Option(t('noRuns'), ''));
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  for (const run of [...state.runs].sort((a, b) => b.duration_s - a.duration_s || a.name.localeCompare(b.name))) {
+    select.add(new Option(`${run.match || run.video || t('matchAnalysis')} · ${fmtTime(run.duration_s)} · ${run.name}`, run.name));
+  }
+  if (state.name) select.value = state.name;
+}
+function setEmptyState(title, description, detail = '') {
+  state.empty = {title, description, detail};
+  $('videoEmpty').classList.remove('hidden');
+  renderEmptyState();
+}
+function renderEmptyState() {
+  if (!state.empty) return;
+  $('videoEmpty').querySelector('strong').textContent = t(state.empty.title);
+  $('videoEmpty').querySelector('span:last-child').textContent = state.empty.description ? t(state.empty.description) : state.empty.detail;
+}
+function renderMatchHeading() {
+  if (!state.meta) return;
+  const run = state.runs.find(item => item.name === state.name);
+  const teams = matchRoster()?.teams || [];
+  const title = $('matchTitle');
+  title.removeAttribute('data-i18n');
+  title.replaceChildren();
+  if (teams.length === 2) {
+    title.append(document.createTextNode(teams[0].name));
+    const separator = document.createElement('span');
+    separator.className = 'match-versus'; separator.textContent = ' / ';
+    title.append(separator, document.createTextNode(teams[1].name));
+  } else title.textContent = run?.match || t('matchAnalysis');
+  const count = (state.meta.statistics?.players || []).filter(player => player.identity_status === 'confirmed').length;
+  // Parse date-only metadata without allowing timezone conversion to move the day.
+  const date = run?.date && /^\d{4}-\d{2}-\d{2}$/.test(run.date)
+    ? new Date(`${run.date}T12:00:00`).toLocaleDateString(locale(), {day: 'numeric', month: 'long', year: 'numeric'}) : run?.date;
+  $('runMeta').textContent = [date, t(state.meta.roster ? 'matchRoster' : state.meta.reference_roster ? 'referenceRoster' : 'noRoster'), t('identifiedCount', {count})].filter(Boolean).join(' · ');
+}
+function renderCourtLegend() {
+  const legend = $('courtLegend');
+  legend.replaceChildren();
+  const entries = (matchRoster()?.teams || []).map(team => ({label: team.name, color: teamColor(team.team_id)}));
+  if (!entries.length) entries.push({label: t('players'), color: C.player});
+  entries.push({label: t('referees'), color: state.meta?.run?.display_colors?.referee || C.referee});
+  entries.push({label: t('calibratedArea'), color: '#b09b80'});
+  for (const entry of entries) {
+    const item = document.createElement('span');
+    const dot = document.createElement('i'); dot.className = 'legend-dot'; dot.setAttribute('aria-hidden', 'true');
+    dot.style.setProperty('--team-color', entry.color);
+    item.append(dot, document.createTextNode(entry.label)); legend.append(item);
+  }
+}
+function updateLayerSummary() {
+  const on = filters();
+  const count = Number(on.players) + Number(on.referees && $('identityMode').value !== 'identified') + Number(on.ball) + Number(on.court);
+  $('layerCount').textContent = count;
+  $('layerSummary').textContent = count ? t('activeLayers', {count}) : t('noLayers');
+  $('refereeOptions').disabled = $('identityMode').value === 'identified';
+  $('refereeHint').hidden = !$('refereeOptions').disabled;
+}
+function updateFocusLabel() {
+  const focused = $('workspace').classList.contains('focus-video');
+  $('focusLabel').textContent = t(focused ? 'showPanels' : 'expandVideo');
+  $('focusVideo').setAttribute('aria-pressed', String(focused));
+}
+function setLanguage(next) {
+  if (!Object.hasOwn(messages, next)) return;
+  language = next;
+  try { localStorage.setItem('vyneros.language', language); } catch { /* Keep the session usable without storage. */ }
+  translateDocument();
+  renderRunOptions(); renderMatchHeading(); renderEmptyState();
+  renderStatsPanel(); renderCourtLegend(); renderMarkers();
+  updateClock(); updateFocusLabel(); updateLayerSummary();
+  if (state.frame) render({observation: state.frame});
+  else if (state.name && !state.meta) $('runMeta').textContent = t('loadingMatch');
+}
 async function init() {
+  translateDocument(); updateLayerSummary(); renderCourtLegend(); updateClock();
   try {
-    const { runs } = await json('/api/runs'); state.runs = runs;
-    const select = $('runSelect'); select.replaceChildren();
-    if (!runs.length) { const opt = new Option('Aucun run terminé', ''); select.add(opt); $('videoEmpty').querySelector('span:last-child').textContent = 'Aucun run terminé dans runs/analysis.'; renderRosterPanel(); return; }
-    for (const run of [...runs].sort((a,b) => b.duration_s - a.duration_s || a.name.localeCompare(b.name)))
-      select.add(new Option(`${run.match || run.video || 'Vidéo'} · ${fmtTime(run.duration_s)} · ${run.name}`, run.name));
+    const {runs} = await json('/api/runs'); state.runs = runs;
+    renderRunOptions();
+    if (!runs.length) { setEmptyState('noRuns', 'noRunsHelp'); renderStatsPanel(); return; }
     const requested = new URLSearchParams(location.search).get('run');
-    const initial = runs.find(r => r.name === requested)?.name || [...runs].sort((a,b) => b.duration_s - a.duration_s)[0].name;
-    select.value = initial;
+    const initial = runs.find(run => run.name === requested)?.name || [...runs].sort((a,b) => b.duration_s - a.duration_s)[0].name;
+    $('runSelect').value = initial;
     await loadRun(initial);
-  } catch (err) { toast(err.message); }
+  } catch (err) { setEmptyState('loadError', null, err.message); toast(err.message); }
 }
 async function loadRun(name) {
   if (!name) return;
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
-  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
   maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
-  $('runMeta').textContent='Chargement du match…';
-  renderRosterPanel();
-  $('videoEmpty').classList.remove('hidden'); $('videoEmpty').querySelector('strong').textContent = 'Chargement du run…'; $('videoEmpty').querySelector('span:last-child').textContent = name;
+  $('runMeta').textContent = t('loadingMatch');
+  $('currentTime').textContent = fmtTime(0); $('totalTime').textContent = fmtTime(0);
+  $('frameDetails').textContent = '—'; $('courtStatus').textContent = t('loadingPositions');
+  $('courtStatusDot').classList.add('off'); $('calibrationDot').classList.add('off');
+  $('calibrationStatus').textContent = t('courtWaiting');
+  renderStatsPanel();
+  setEmptyState('loadingRun', null, name);
   try {
     const data = await json(`/api/run?${params({ name })}`);
     if (generation !== state.generation) return;
     state.meta = data;
     state.loaded = true;
     history.replaceState(null, '', `?${params({ run: name })}`);
-    const run = state.runs.find(r => r.name === name);
-    const named=(data.statistics?.players||[]).filter(player=>player.identity_status==='confirmed').length;
-    $('runMeta').textContent = [run?.match, run?.date,
-      data.roster ? 'Effectif du match' : data.reference_roster ? 'Effectif indicatif' : 'Sans effectif',
-      `${named} joueur${named>1?'s':''} identifié${named>1?'s':''}`].filter(Boolean).join(' · ');
-    renderRosterPanel();
+    renderMatchHeading(); renderCourtLegend();
+    renderStatsPanel();
     $('videoFilename').textContent = shortName(data.run.source?.path);
     $('totalTime').textContent = fmtTime(duration());
     $('seek').max = Math.max(duration(), .001);
     $('seek').value = 0;
     $('seekFill').style.width = '0%';
     if (data.video_available) { video.src = `/api/video?${params({ name })}`; video.load(); }
-    else { video.removeAttribute('src'); video.load(); $('videoEmpty').classList.remove('hidden'); $('videoEmpty').querySelector('strong').textContent = 'Vidéo source indisponible'; $('videoEmpty').querySelector('span:last-child').textContent = 'Vérifiez le chemin source et --video-root.'; }
+    else { video.removeAttribute('src'); video.load(); setEmptyState('videoUnavailable', 'videoUnavailableHelp'); }
     renderMarkers();
     await fetchBatch(0);
     if (generation !== state.generation) return;
-    if (data.video_available) $('videoEmpty').classList.add('hidden');
+    if (data.video_available) { state.empty = null; $('videoEmpty').classList.add('hidden'); }
     if (!data.video_available || !video.requestVideoFrameCallback) displayAt(0, true);
     else if (state.presentedTime !== null) displayAt(state.presentedTime, true, true);
   } catch (err) {
     if (generation !== state.generation) return;
-    $('videoEmpty').querySelector('strong').textContent = 'Impossible de charger le run';
-    $('videoEmpty').querySelector('span:last-child').textContent = err.message; toast(err.message);
+    setEmptyState('loadError', null, err.message); toast(err.message);
   }
 }
 async function fetchBatch(index) {
@@ -158,7 +237,8 @@ function updateClock(time = video.currentTime || 0) {
   $('currentTime').textContent = fmtTime(time);
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
-  $('playIcon').textContent = video.paused ? '▶' : '❚❚';
+  $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
+  $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
 }
 function videoFrameLoop(_now, metadata) {
@@ -307,11 +387,11 @@ function drawOverlay(row) {
     }
     if (options.labels) {
       const number=personNumber(person,row.segment_id);
-      const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
+      const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? t('referee') : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
         && !person.jersey_number_suppressed && person.jersey?.team_group
         ? `${base} · G${person.jersey.team_group.slice(-1)}` : base;
-      ctx.font = 'bold 15px Manrope, sans-serif';
+      ctx.font = 'bold 15px Arial, sans-serif';
       const labelW = ctx.measureText(title).width + 18;
       const top = Math.max(0, y1 - 27);
       ctx.fillStyle = '#0c1512eb'; ctx.fillRect(x1, top, labelW, 24);
@@ -358,7 +438,7 @@ const x = m => court.x0 + m * court.scale;
 const y = m => court.y0 + m * court.scale;
 function drawCourtLines() {
   const g = $('courtLines'); g.replaceChildren();
-  const line = { fill:'none',stroke:'#afd692', 'stroke-width':1.6, opacity:.72 };
+  const line = { fill:'none',stroke:'#b8a48a', 'stroke-width':1.6, opacity:.72 };
   svg('rect', { x:x(0), y:y(0), width:court.L*court.scale, height:court.W*court.scale, rx:1, ...line }, g);
   svg('line', { x1:x(court.L/2), x2:x(court.L/2), y1:y(0), y2:y(court.W), ...line }, g);
   svg('circle', { cx:x(court.L/2), cy:y(court.W/2), r:1.8288*court.scale, ...line }, g);
@@ -383,7 +463,7 @@ function renderCourt(row) {
   const g=$('courtPoints');g.replaceChildren();
   const on=filters();
   const support=row.court?.support_polygon_m;
-  if (Array.isArray(support) && support.length>2) svg('polygon',{points:support.filter(p=>safeNumber(p?.[0])&&safeNumber(p?.[1])).map(p=>`${x(p[0])},${y(p[1])}`).join(' '),fill:'#c8f57e',opacity:.09,stroke:'#c8f57e','stroke-width':2},g);
+  if (Array.isArray(support) && support.length>2) svg('polygon',{points:support.filter(p=>safeNumber(p?.[0])&&safeNumber(p?.[1])).map(p=>`${x(p[0])},${y(p[1])}`).join(' '),fill:'#b09b80',opacity:.12,stroke:'#b09b80','stroke-width':2},g);
   let points=0;
   for(const person of row.persons||[]) {
     if (!visiblePerson(person, row.segment_id, on)) continue;
@@ -395,11 +475,11 @@ function renderCourt(row) {
     const clickable=Boolean(identifiedSubject(person,row.segment_id));
     const selected=state.selected?.subject===subject;
     svg('circle',{cx:px,cy:py,r:9,fill:color,opacity:.14},g);
-    const point=svg('circle',{cx:px,cy:py,r:selected?7:4.2,fill:color,stroke:'#132216','stroke-width':1.5,class:clickable?'court-point':''},g);
+    const point=svg('circle',{cx:px,cy:py,r:selected?7:4.2,fill:color,stroke:'#211d19','stroke-width':1.5,class:clickable?'court-point':''},g);
     if(clickable)point.addEventListener('click',()=>selectSubject(subject));
-    if(person.track_id!=null) svg('text',{x:px+8,y:py-7,fill:'#e6f5d7','font-size':9,'font-weight':800},g).textContent=personNumber(person,row.segment_id) ? `#${personNumber(person,row.segment_id)}` : $('identityMode').value==='all' ? String(person.track_id) : '';
+    if(person.track_id!=null) svg('text',{x:px+8,y:py-7,fill:'#f3f0ea','font-size':9,'font-weight':800},g).textContent=personNumber(person,row.segment_id) ? `#${personNumber(person,row.segment_id)}` : $('identityMode').value==='all' ? String(person.track_id) : '';
   }
-  $('courtStatus').textContent=points?`${points} position${points>1?'s':''} sur le terrain`:'Aucune position sur le terrain à cet instant';
+  $('courtStatus').textContent = points ? t('positions', {count: points}) : t('noPositions');
   $('courtStatusDot').classList.toggle('off',!points);
 }
 function matchRoster() { return state.meta?.roster || state.meta?.reference_roster || null; }
@@ -431,12 +511,65 @@ function finalPlayerStats(teamId, number) {
     coverage_ratio:tracked>0 && duration!=null ? duration/tracked : null};
 }
 const FINAL_PLAYER_METRICS=[
-  {key:'observed_distance_m',label:'DISTANCE OBSERVÉE',unit:'m',format:fmtDistance},
-  {key:'measured_duration_s',label:'DURÉE MESURÉE',unit:'s',format:fmtDistance},
-  {key:'coverage_ratio',label:'COUVERTURE',unit:'%',format:value=>(100*value).toLocaleString('fr-FR',{maximumFractionDigits:0})},
+  {key:'observed_distance_m',label:'distance',unit:'m',format:fmtDistance},
+  {key:'measured_duration_s',label:'measuredDuration',unit:'s',format:fmtDistance},
+  {key:'coverage_ratio',label:'coverage',unit:'%',format:value=>(100*value).toLocaleString(locale(),{maximumFractionDigits:0})},
 ];
-function renderRosterPanel() {
+function setStatsView(view) {
+  if (!['players', 'team'].includes(view)) return;
+  state.statsView = view;
+  renderStatsPanel();
+}
+function selectTeam(teamId) {
+  if (!matchRoster()?.teams?.some(team => team.team_id === teamId)) return;
+  const restoreFocus = document.activeElement && $('teamToggle').contains(document.activeElement);
+  state.teamId = teamId;
+  const selected = state.selected && rosterPlayer(state.selected.subject);
+  if (selected && selected.team.team_id !== teamId) state.selected = null;
+  renderStatsPanel();
+  if (restoreFocus) $('teamToggle').querySelector('[aria-pressed="true"]')?.focus();
+  if (state.frame) { drawOverlay(state.frame); renderCourt(state.frame); }
+}
+function renderTeamSelector(teams) {
+  const toggle = $('teamToggle');
+  toggle.replaceChildren();
+  for (const team of teams) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'team-option';
+    button.classList.toggle('active', team.team_id === state.teamId);
+    button.setAttribute('aria-pressed', String(team.team_id === state.teamId));
+    button.style.setProperty('--team-color', teamColor(team.team_id));
+    const dot = document.createElement('i'); dot.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('span'); name.textContent = team.name;
+    button.append(dot, name);
+    button.addEventListener('click', () => selectTeam(team.team_id));
+    toggle.append(button);
+  }
+}
+function renderStatsNavigation(teams) {
+  if (!teams.some(team => team.team_id === state.teamId)) state.teamId = teams[0]?.team_id || null;
+  const teamView = state.statsView === 'team';
+  $('playersPanel').hidden = teamView;
+  $('teamPanel').hidden = !teamView;
+  for (const view of ['players', 'team']) {
+    const tab = $(view === 'players' ? 'playersTab' : 'teamTab');
+    const active = state.statsView === view;
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  }
+  renderTeamSelector(teams);
+  const team = teams.find(item => item.team_id === state.teamId);
+  $('teamHero').hidden = !team;
+  if (team) {
+    $('teamHero').style.setProperty('--team-color', teamColor(team.team_id));
+    $('teamName').textContent = team.name;
+    $('teamRosterCount').textContent = t('playerCount', {count: Array.isArray(team.players) ? team.players.length : 0});
+  }
+  $('teamStatsNote').textContent = t(team ? 'teamStatsEmpty' : 'noTeamStats');
+}
+function renderStatsPanel() {
   const roster=matchRoster();
+  renderStatsNavigation(roster?.teams || []);
   const selected=state.selected ? rosterPlayer(state.selected.subject) : null;
   $('rosterBrowse').hidden=Boolean(selected);
   $('rosterDetail').hidden=!selected;
@@ -450,7 +583,7 @@ function renderRosterPanel() {
     const tiles=$('finalStats');tiles.replaceChildren();
     for (const metric of FINAL_PLAYER_METRICS) {
       const tile=document.createElement('div');tile.className='final-stat';
-      const label=document.createElement('span');label.className='final-stat-label';label.textContent=metric.label;
+      const label=document.createElement('span');label.className='final-stat-label';label.textContent=t(metric.label);
       const value=document.createElement('strong');value.className='final-stat-value';
       const measured=stats[metric.key];value.textContent=measured==null?'—':metric.format(measured);
       tile.append(label,value);
@@ -458,40 +591,27 @@ function renderRosterPanel() {
       tiles.append(tile);
     }
     $('finalStatsNote').textContent=!state.meta?.roster
-      ? 'Effectif indicatif : aucune statistique attribuée sans identification validée.'
-      : stats.observed_distance_m==null ? 'Aucune distance mesurée pour ce joueur.'
-      : 'Bilan de l’extrait. La couverture porte sur les intervalles suivis ; les déplacements hors champ ne sont pas mesurés.';
+      ? t('referenceNote')
+      : stats.observed_distance_m==null ? t('noDistance') : t('statsNote');
     return;
   }
-  const toggle=$('teamToggle'),heading=$('rosterTeamHeading'),list=$('rosterList');
-  toggle.replaceChildren();heading.replaceChildren();list.replaceChildren();
+  const heading=$('rosterTeamHeading'),list=$('rosterList');
+  heading.replaceChildren();list.replaceChildren();
   if (!roster?.teams?.length) {
-    heading.textContent='Aucun effectif disponible';
-    list.textContent='Aucun joueur associé à ce match.';
+    heading.textContent=t('noRosterHeading');
+    list.textContent=t('noRosterHelp');
     return;
-  }
-  if (!roster.teams.some(team=>team.team_id===state.teamId)) state.teamId=roster.teams[0].team_id;
-  for (const team of roster.teams) {
-    const button=document.createElement('button');button.type='button';button.className='team-option';
-    button.classList.toggle('active',team.team_id===state.teamId);
-    button.setAttribute('aria-pressed',String(team.team_id===state.teamId));
-    button.style.setProperty('--team-color',teamColor(team.team_id));
-    const dot=document.createElement('i');dot.setAttribute('aria-hidden','true');
-    const name=document.createElement('span');name.textContent=team.name;
-    button.append(dot,name);
-    button.addEventListener('click',()=>{state.teamId=team.team_id;renderRosterPanel();});
-    toggle.append(button);
   }
   const team=roster.teams.find(item=>item.team_id===state.teamId);
   const players=Array.isArray(team.players) ? team.players : [];
   const name=document.createElement('h3');name.textContent=team.name;
-  const count=document.createElement('span');count.textContent=players.length+' joueurs';
+  const count=document.createElement('span');count.textContent=t('playerCount', {count: players.length});
   heading.append(name,count);
   for (const player of players) {
     const button=document.createElement('button');button.type='button';button.className='roster-player';
     button.style.setProperty('--team-color',teamColor(team.team_id));
-    button.setAttribute('aria-label','Voir le bilan final de '+player.name);
-    const badge=document.createElement('span');badge.className='roster-number';badge.textContent='#'+player.number;
+    button.setAttribute('aria-label',t('playerSummary', {name: player.name}));
+    const badge=document.createElement('span');badge.className='roster-number';badge.textContent=player.number;
     const playerName=document.createElement('span');playerName.className='roster-player-name';playerName.textContent=player.name;
     const arrow=document.createElement('span');arrow.className='roster-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='›';
     button.append(badge,playerName,arrow);
@@ -501,8 +621,10 @@ function renderRosterPanel() {
 }
 function render(data){
   const row=data.observation;
-  $('calibrationStatus').textContent=row.court?.status==='fit'?'Terrain détecté':row.court?.status==='propagated'?'Terrain suivi':'Terrain indisponible';
-  $('frameDetails').textContent=`${row.persons?.length||0} personnes détectées${row.included?'':' · hors analyse'}`;
+  const calibrated = ['fit', 'propagated'].includes(row.court?.status);
+  $('calibrationDot').classList.toggle('off', !calibrated);
+  $('calibrationStatus').textContent = t(row.court?.status === 'fit' ? 'courtDetected' : row.court?.status === 'propagated' ? 'courtTracked' : 'courtUnavailable');
+  $('frameDetails').textContent = t('detections', {count: row.persons?.length || 0}) + (row.included ? '' : ` · ${t('excluded')}`);
   drawOverlay(row);renderCourt(row);
 }
 function renderMarkers(){
@@ -512,7 +634,7 @@ function renderMarkers(){
     const key=`${marker.index}:${marker.type}`;if(used.has(key))continue;used.add(key);
     const button=document.createElement('button');button.className=marker.type;button.type='button';
     button.style.left=`${100*marker.time/Math.max(duration(),.001)}%`;
-    button.title=`${fmtTime(marker.time)} · ${marker.label}`;button.setAttribute('aria-label',button.title);
+    button.title=`${fmtTime(marker.time)} · ${t('sceneCut')}`;button.setAttribute('aria-label',button.title);
     button.addEventListener('click',()=>seekToFrame(marker.index));target.append(button);
   }
 }
@@ -537,22 +659,42 @@ function selectSubject(subject){
   const location=rosterPlayer(subject);
   if (!location) return;
   state.selected={subject};
+  state.statsView = 'players';
   state.teamId=location.team.team_id;
-  renderRosterPanel();
+  renderStatsPanel();
   if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
 }
 function backToRoster(){
   state.selected=null;
-  renderRosterPanel();
+  renderStatsPanel();
   if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
+}
+for (const [id, view] of [['playersTab', 'players'], ['teamTab', 'team']]) {
+  const tab = $(id);
+  tab.addEventListener('click', () => setStatsView(view));
+  tab.addEventListener('keydown', event => {
+    let next;
+    if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') next = view === 'players' ? 'team' : 'players';
+    else if (event.code === 'Home') next = 'players';
+    else if (event.code === 'End') next = 'team';
+    if (!next) return;
+    event.preventDefault();
+    setStatsView(next);
+    $(next === 'players' ? 'playersTab' : 'teamTab').focus();
+  });
 }
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
 $('rosterBack').addEventListener('click',backToRoster);
-$('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast('Vidéo source indisponible.');if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
+$('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast(t('videoUnavailable'));if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
 video.addEventListener('play',()=>updateClock());
 video.addEventListener('pause',()=>updateClock());
 video.addEventListener('timeupdate',()=>updateClock());
-video.addEventListener('seeking',clearPresentation);
+video.addEventListener('seeking', () => {
+  // Chromium may present the destination before dispatching `seeking` after a resize.
+  // Keep that already-presented frame; clearing it would leave paused overlays empty.
+  if (state.presentedTime !== null && nearestFrame(state.presentedTime) === frameAtTime(video.currentTime)) return;
+  clearPresentation();
+});
 video.addEventListener('seeked',()=>{
   updateClock();
   // A seek may finish before or after the presentation callback. Never overwrite its PTS
@@ -561,13 +703,13 @@ video.addEventListener('seeked',()=>{
   else if (state.presentedTime !== null) displayAt(state.presentedTime,true,true);
 });
 video.addEventListener('loadedmetadata',resizeOverlay);
-video.addEventListener('error',()=>{if(state.loaded)toast('La vidéo ne peut pas être lue par ce navigateur.');});
+video.addEventListener('error',()=>{if(state.loaded)toast(t('videoError'));});
 $('seek').addEventListener('input',e=>{clearPresentation();video.currentTime=Number(e.target.value);updateClock();});
 $('prevFrame').addEventListener('click',()=>stepFrame(-1));
 $('nextFrame').addEventListener('click',()=>stepFrame(1));
 $('prevMarker').addEventListener('click',()=>stepMarker(-1));
 $('nextMarker').addEventListener('click',()=>stepMarker(1));
-$('focusVideo').addEventListener('click',()=>{const focused=$('workspace').classList.toggle('focus-video');$('focusVideo').textContent=focused?'Afficher les panneaux':'Agrandir la vidéo';$('focusVideo').setAttribute('aria-pressed',String(focused));resizeOverlay();});
+$('focusVideo').addEventListener('click',()=>{$('workspace').classList.toggle('focus-video');updateFocusLabel();resizeOverlay();});
 canvas.addEventListener('click',e=>{
   if(!state.frame)return;
   const bounds=canvas.getBoundingClientRect(), px=(e.clientX-bounds.left)*canvas.width/bounds.width, py=(e.clientY-bounds.top)*canvas.height/bounds.height;
@@ -579,11 +721,26 @@ $('speed').addEventListener('change',e=>video.playbackRate=Number(e.target.value
 $('fullscreen').addEventListener('click',()=>{const el=$('videoStage');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen?.();});
 document.addEventListener('fullscreenchange',resizeOverlay);window.addEventListener('resize',resizeOverlay);
 new ResizeObserver(resizeOverlay).observe($('videoStage'));
-document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
-$('identityMode').addEventListener('change',()=>{$('refereeOptions').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
-document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(document.activeElement?.tagName))return;
+document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
+$('identityMode').addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
+document.addEventListener('keydown',e=>{
+  if (e.code === 'Escape' && $('layersMenu').open) {
+    $('layersMenu').open = false; $('layersMenu').querySelector('summary').focus(); return;
+  }
+  if(['INPUT','SELECT','BUTTON','TEXTAREA','SUMMARY'].includes(document.activeElement?.tagName))return;
   if(e.code==='Space'){e.preventDefault();$('playButton').click();}
   else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime+(e.code==='ArrowRight'?1:-1)));}
   else if(e.code==='KeyN'){stepMarker(1);}else if(e.code==='KeyP'){stepMarker(-1);}
+});
+document.querySelectorAll('[data-language]').forEach(button => button.addEventListener('click', () => setLanguage(button.dataset.language)));
+$('closeLayers').addEventListener('click', () => { $('layersMenu').open = false; $('layersMenu').querySelector('summary').focus(); });
+$('resetLayers').addEventListener('click', () => {
+  document.querySelectorAll('[data-filter]').forEach(input => { input.checked = input.defaultChecked; });
+  $('playerDisplay').value = 'bbox'; $('refereeDisplay').value = 'bbox'; $('identityMode').value = 'all';
+  updateLayerSummary();
+  if (state.frame) render({observation: state.frame});
+});
+document.addEventListener('pointerdown', event => {
+  if (!$('layersMenu').contains(event.target)) $('layersMenu').open = false;
 });
 drawCourtLines();init();

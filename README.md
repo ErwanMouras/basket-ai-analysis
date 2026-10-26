@@ -53,7 +53,11 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 <details>
 <summary>Preview of the included interface sample</summary>
 
-![Vyneros viewer displaying synthetic, scripted outputs](imagesReadMe/demo-synthetic.gif)
+![Vyneros Film room displaying synthetic, scripted outputs](imagesReadMe/viewer-studio-fr.png)
+
+Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
+and a dedicated space for future team statistics.
+The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
 </details>
 
@@ -238,7 +242,7 @@ model was reloaded and used for inference.
 | Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
 
 Local validation on **26 October 2026**: **371 Python tests passed**, 28 optional tests
-skipped, plus **14 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
+skipped, plus **17 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
 The pre-merge real-model check completed 30 source frames with all six capabilities
 available, no stage errors and 434 valid player/referee masks. Browser checks found
 no synchronization mismatch across 120 presented frames at 1×/2×, frame stepping,
