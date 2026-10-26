@@ -168,7 +168,9 @@ n’est jamais projeté au sol pour choisir le porteur.
 Les contacts doivent se répéter dans une fenêtre temporelle de 0,8 s, avec au
 moins 0,16 s de soutien sur plusieurs images et 80 % d’accord entre les contacts attribués. Les indices
 ne traversent ni coupes détectées, ni frames absentes, ni périodes exclues ou
-grands écarts temporels. Les longues absences de balle restent non classées.
+grands écarts temporels. Les longues absences de balle ne sont pas remplies par
+continuité du contrôle ; le contexte du terrain peut désormais compléter le rôle
+attaque/défense si les conditions ci-dessous sont réunies.
 Ce réglage est expérimental : ce n’est ni un pourcentage de confiance, ni un
 comptage officiel des possessions.
 
@@ -279,7 +281,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_court_context -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -390,7 +392,8 @@ de période. En NBA, le changement de panier intervient à la mi-temps et les
 prolongations conservent le sens de la seconde mi-temps
 ([règle NBA 4, section I](https://official.nba.com/rule-no-4-definitions/)).
 Sans QT confirmé, le repère local par plan reste utilisé. Verrouiller les côtés
-ne transforme pas une absence de contrôle de balle en possession connue.
+ne transforme pas une absence de contrôle de balle en possession connue. Il permet
+cependant la classification de contexte décrite ci-dessous.
 
 Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
 **Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
@@ -401,3 +404,41 @@ normalisation du panier à droite restent disponibles.
 L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
 la couverture des lectures, les points contrôlés et leurs limites. La démo
 publique contient un bandeau et une coupe QT1 → QT3 explicitement scénarisés.
+
+### Classifier aussi à partir des côtés et de la zone occupée
+
+Quand le QT et son sens sont établis, **la zone du terrain peut désormais classer
+Attaque / Défense**, même sans contact balle–joueur utilisable. Si Houston attaque
+à gauche et que les deux équipes sont regroupées à droite, le contexte est une
+attaque des Lakers et une défense de Houston ; à gauche, l’attribution s’inverse.
+
+La règle demande une calibration utilisable, au moins deux joueurs distincts de
+chaque équipe, les deux médianes longitudinales dans le même tiers extérieur,
+et au moins 80 % des joueurs localisés dans ce demi-terrain, avec une marge près
+du milieu. Le regroupement doit être confirmé pendant 0,35 s sur au moins trois
+images dans la fenêtre de 0,8 s, avec 90 % d’accord spatial. Les phases de
+transition au milieu, projections indisponibles et identités ambiguës ne
+fournissent pas ce soutien.
+
+Le contexte ne remplace **jamais** une attribution déjà fondée sur le ballon et
+ne contribue jamais à apprendre les côtés eux-mêmes. Un contact avec l’équipe
+contraire dans un voisinage de ±1 s empêche la déduction spatiale. Les contacts
+actuels avec arbitre, joueur non attribué ou balle disputée restent non classés.
+Les fenêtres ne traversent ni coupe, ni exclusion, ni frame manquante, ni QT.
+
+Autour d’une mise à jour observée du score, la déduction spatiale est suspendue
+pendant **2 s avant et 0,75 s après**. Le bandeau pouvant être retardé, c’est une
+exclusion prudente : elle ne date pas le panier et ne retourne pas automatiquement
+la possession. Les attributions fondées sur le ballon restent prioritaires.
+
+Sous la vidéo, le libellé **« LAL en attaque · zone du terrain »** distingue cette
+origine de **« … · ballon »** lorsque le bandeau est disponible. L’adversaire est
+en défense. Le bilan des heatmaps sépare aussi les secondes issues du ballon de
+celles ajoutées par la zone, dans la plage sélectionnée. L’API `/api/run` expose
+la même timeline compacte via `phase_timeline` ; les intervalles restent ouverts
+à droite et les trous ne sont pas prolongés.
+
+Les absences prolongées de ballon peuvent donc être classées par contexte ; ce
+n’est pas une possession officielle ni une détection des tirs, arrêts ou ralentis.
+Le [rapport de comparaison](../reports/court-context-2026-10-26/README.md) documente
+le gain mesuré et le cas de remise en jeu qui a motivé l’exclusion autour du score.

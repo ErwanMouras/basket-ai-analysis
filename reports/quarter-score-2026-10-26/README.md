@@ -1,5 +1,8 @@
 # Quart-temps, sens d’attaque et score dans la timeline
 
+> Première étape : les côtés stabilisent ici l’orientation. Le [complément de classification par zone](../court-context-2026-10-26/README.md)
+> les utilise ensuite pour compléter réellement Attaque / Défense en l’absence de contact fiable.
+
 Le viewer lit maintenant un bandeau NBA préparé hors lecture : **score, QT,
 chronomètre**, puis repères de score cliquables. Les heatmaps proposent une
 **plage par quart-temps** avant de choisir un passage d’attaque ou de défense.
