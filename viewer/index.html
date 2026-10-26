@@ -4,60 +4,45 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#111214" />
-    <title>Vyneros — Film room</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 28 28%27%3E%3Cpath fill=%27%23f28b50%27 d=%27m3 5 9 19h4l9-19h-6l-5 12L9 5Z%27/%3E%3C/svg%3E"
-    />
+    <title>Film room</title>
+    <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/style.css" />
     <script src="/i18n.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Vyneros"
-          ><svg viewBox="0 0 28 28" aria-hidden="true">
-            <path d="m3 5 9 19h4l9-19h-6l-5 12L9 5Z" fill="currentColor" /></svg
-          >VYNEROS<span class="brand-divider"></span
-          ><span class="brand-section">FILM ROOM</span></a
-        >
-        <div class="topbar-right">
-          <span class="studio-label" data-i18n="studio"
-            >STUDIO D’ANALYSE BASKET</span
-          >
-          <div class="language-switch" role="group" data-i18n-aria="language">
-            <button
-              type="button"
-              data-language="fr"
-              lang="fr"
-              aria-pressed="true"
-              aria-label="Français"
-            >
-              FR</button
-            ><button
-              type="button"
-              data-language="en"
-              lang="en"
-              aria-pressed="false"
-              aria-label="English"
-            >
-              EN
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div class="page-heading">
+      <header class="page-heading">
         <div class="match-heading">
           <div class="eyebrow" data-i18n="session">LA SALLE VIDÉO</div>
           <h1 id="matchTitle" data-i18n="matchAnalysis">Analyse de match</h1>
           <div id="runMeta" class="run-meta">—</div>
         </div>
         <div class="run-picker">
-          <label for="runSelect" data-i18n="chooseSequence"
-            >EXTRAIT À ÉTUDIER</label
-          >
+          <div class="run-picker-heading">
+            <label for="runSelect" data-i18n="chooseSequence"
+              >EXTRAIT À ÉTUDIER</label
+            >
+            <div class="language-switch" role="group" data-i18n-aria="language">
+              <button
+                type="button"
+                data-language="fr"
+                lang="fr"
+                aria-pressed="true"
+                aria-label="Français"
+              >
+                FR</button
+              ><button
+                type="button"
+                data-language="en"
+                lang="en"
+                aria-pressed="false"
+                aria-label="English"
+              >
+                EN
+              </button>
+            </div>
+          </div>
           <div class="select-wrap">
             <select
               id="runSelect"
@@ -66,7 +51,7 @@
             ></select>
           </div>
         </div>
-      </div>
+      </header>
 
       <main class="workspace" id="workspace">
         <section
@@ -132,14 +117,12 @@
                           data-display
                           data-i18n-aria="playerDisplay"
                         >
-                          <option value="bbox" data-i18n="boxes">
-                            Contours
-                          </option>
+                          <option value="bbox" data-i18n="boxes">Bbox</option>
                           <option value="segmentation" data-i18n="masks">
-                            Silhouettes
+                            Segmentation
                           </option>
                           <option value="both" data-i18n="boxesMasks">
-                            Contours + silhouettes
+                            Bbox + Segmentation
                           </option>
                           <option value="hidden" data-i18n="hidden">
                             Masqués
@@ -171,14 +154,12 @@
                           data-display
                           data-i18n-aria="refereeDisplay"
                         >
-                          <option value="bbox" data-i18n="boxes">
-                            Contours
-                          </option>
+                          <option value="bbox" data-i18n="boxes">Bbox</option>
                           <option value="segmentation" data-i18n="masks">
-                            Silhouettes
+                            Segmentation
                           </option>
                           <option value="both" data-i18n="boxesMasks">
-                            Contours + silhouettes
+                            Bbox + Segmentation
                           </option>
                           <option value="hidden" data-i18n="hidden">
                             Masqués
@@ -444,64 +425,126 @@
           <section
             class="roster-panel panel"
             data-i18n-aria="rosterAndStats"
-            aria-label="Joueurs et statistiques"
+            aria-label="Statistiques des joueurs et des équipes"
           >
-            <div id="rosterBrowse">
-              <div class="panel-title-row">
-                <div class="panel-heading">
-                  <span class="section-number">03</span>
-                  <h2 data-i18n="playerStats">Les joueurs</h2>
-                </div>
-                <span class="panel-tag" data-i18n="roster">EFFECTIF</span>
+            <div class="panel-title-row stats-heading">
+              <div class="panel-heading">
+                <span class="section-number">03</span>
+                <h2 data-i18n="statistics">Statistiques</h2>
               </div>
-              <p class="section-desc" data-i18n="rosterHelp">
-                Un joueur. Son match en chiffres.
-              </p>
               <div
-                id="teamToggle"
-                class="team-toggle"
-                role="group"
-                data-i18n-aria="chooseTeam"
-              ></div>
-              <div id="rosterTeamHeading" class="roster-team-heading"></div>
-              <div id="rosterList" class="roster-list"></div>
-              <p class="roster-hint" data-i18n="selectPlayer">
-                Sélectionnez un joueur pour explorer ses statistiques.
-              </p>
-            </div>
-            <div id="rosterDetail" class="roster-detail" hidden>
-              <div class="detail-topline">
-                <button id="rosterBack" class="roster-back" type="button">
-                  <span aria-hidden="true">←</span
-                  ><span data-i18n="backToRoster">Effectif</span></button
-                ><span class="panel-tag" data-i18n="clipSummary"
-                  >BILAN DE L’EXTRAIT</span
+                class="stats-tabs"
+                role="tablist"
+                data-i18n-aria="statsViews"
+              >
+                <button
+                  type="button"
+                  id="playersTab"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="playersPanel"
+                  tabindex="0"
+                  data-stats-view="players"
+                  data-i18n="players"
                 >
+                  Joueurs
+                </button>
+                <button
+                  type="button"
+                  id="teamTab"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="teamPanel"
+                  tabindex="-1"
+                  data-stats-view="team"
+                  data-i18n="team"
+                >
+                  Équipe
+                </button>
               </div>
-              <div id="playerHero" class="player-hero">
-                <span id="detailNumber" class="detail-number">—</span>
+            </div>
+            <div
+              id="teamToggle"
+              class="team-toggle"
+              role="group"
+              data-i18n-aria="chooseTeam"
+            ></div>
+            <div
+              id="playersPanel"
+              class="stats-pane"
+              role="tabpanel"
+              aria-labelledby="playersTab"
+            >
+              <div id="rosterBrowse">
+                <div id="rosterTeamHeading" class="roster-team-heading"></div>
+                <div id="rosterList" class="roster-list"></div>
+                <p class="roster-hint" data-i18n="selectPlayer">
+                  Sélectionnez un joueur pour explorer ses statistiques.
+                </p>
+              </div>
+              <div id="rosterDetail" class="roster-detail" hidden>
+                <div class="detail-topline">
+                  <button id="rosterBack" class="roster-back" type="button">
+                    <span aria-hidden="true">←</span
+                    ><span data-i18n="backToRoster">Effectif</span></button
+                  ><span class="panel-tag" data-i18n="clipSummary"
+                    >BILAN DE L’EXTRAIT</span
+                  >
+                </div>
+                <div id="playerHero" class="player-hero">
+                  <span id="detailNumber" class="detail-number">—</span>
+                  <div>
+                    <div id="detailTeam" class="detail-team">—</div>
+                    <h2 id="detailName">—</h2>
+                  </div>
+                </div>
+                <div class="stats-section">
+                  <div class="detail-stats-heading">
+                    <h3 data-i18n="movement">Déplacements</h3>
+                    <span data-i18n="finalStats">MESURES FINALES</span>
+                  </div>
+                  <div id="finalStats" class="final-stats"></div>
+                </div>
+                <p id="finalStatsNote" class="final-stats-note"></p>
+              </div>
+            </div>
+            <div
+              id="teamPanel"
+              class="stats-pane team-overview"
+              role="tabpanel"
+              aria-labelledby="teamTab"
+              tabindex="0"
+              hidden
+            >
+              <div id="teamHero" class="team-hero">
+                <span class="team-color-mark" aria-hidden="true"></span>
                 <div>
-                  <div id="detailTeam" class="detail-team">—</div>
-                  <h2 id="detailName">—</h2>
+                  <h3 id="teamName">—</h3>
+                  <span id="teamRosterCount"></span>
                 </div>
               </div>
-              <div class="stats-section">
-                <div class="detail-stats-heading">
-                  <h3 data-i18n="movement">Déplacements</h3>
-                  <span data-i18n="finalStats">MESURES FINALES</span>
-                </div>
-                <div id="finalStats" class="final-stats"></div>
+              <div id="teamStatsContent" class="team-stats-content">
+                <svg
+                  class="team-empty-icon"
+                  viewBox="0 0 48 32"
+                  aria-hidden="true"
+                >
+                  <rect x="1" y="1" width="46" height="30" rx="1" />
+                  <path d="M24 1v30M1 9h9v14H1m46-14h-9v14h9" />
+                  <circle cx="24" cy="16" r="6" />
+                </svg>
+                <h4 data-i18n="teamStatsTitle">Le collectif, en chiffres.</h4>
+                <p id="teamStatsNote" data-i18n="teamStatsEmpty">
+                  Les statistiques de cette équipe apparaîtront ici lorsqu’elles
+                  seront disponibles.
+                </p>
               </div>
-              <p id="finalStatsNote" class="final-stats-note"></p>
             </div>
           </section>
         </aside>
       </main>
       <footer class="workspace-footer">
-        <span class="footer-signature"
-          >VYNEROS <span>/</span>
-          <span data-i18n="readTheGame">LIRE LE JEU.</span></span
-        ><span class="keyboard-hints"
+        <span class="keyboard-hints"
           ><kbd data-i18n="space">Espace</kbd
           ><span data-i18n="playPause">Lecture / pause</span><kbd>← →</kbd
           ><span data-i18n="oneSecond">1 seconde</span><kbd>⇧ ← →</kbd

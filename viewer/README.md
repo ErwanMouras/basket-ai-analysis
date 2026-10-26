@@ -1,4 +1,4 @@
-# Vyneros — Salle vidéo / Film room
+# Salle vidéo / Film room
 
 Studio local en lecture seule pour explorer les analyses terminées du pipeline :
 vidéo source, détections, positions projetées et statistiques finales des joueurs.
@@ -35,14 +35,15 @@ progressives.
 ## Se repérer
 
 Les trois panneaux gardent une place stable : **le match à gauche**, **la vue
-tactique en haut à droite**, **les joueurs et leurs statistiques en bas à droite**.
+tactique en haut à droite**, **les statistiques en bas à droite**.
+La barre de marque a été supprimée ; FR/EN se trouve à côté du sélecteur d’extrait.
 Le titre affiche les équipes de l’effectif. L’identité visuelle utilise un fond
 charbon, un accent orange et une typographie de titre condensée.
 
 **Calques** ouvre les réglages détaillés ; le nombre à côté indique les catégories
 actuellement affichées. Les cases indiquent l’état de chaque option. Échap ou un
 clic à l’extérieur ferme le panneau. **Rétablir l’affichage par défaut** réactive
-les contours et étiquettes joueurs/arbitres, le ballon et sa traînée, et masque
+les Bbox et étiquettes joueurs/arbitres, le ballon et sa traînée, et masque
 les poses et les repères terrain. **Agrandir** replie les deux panneaux de droite.
 
 Le bouton **FR / EN** traduit les commandes, descriptions, états, statistiques,
@@ -59,11 +60,11 @@ la hauteur disponible est inférieure à 640 px.
 
 ## Calques et synchronisation
 
-**Joueurs** et **Arbitres** ont chacun un choix **Contours**, **Silhouettes**,
-**Contours + silhouettes** ou **Masqués**, plus leurs propres cases **Pose** et
-**Noms / numéros**. « Contours » correspond aux bbox ; « Silhouettes » aux masques
-de segmentation. Les étiquettes peuvent accompagner les masques seuls. Un ancien
-run sans masques n’affiche aucune bbox de repli en mode silhouettes.
+**Joueurs** et **Arbitres** ont chacun un choix **Bbox**, **Segmentation**,
+**Bbox + Segmentation** ou **Masqués**, plus leurs propres cases **Pose** et
+**Noms / numéros**. Les termes Bbox et Segmentation restent identiques en français
+et en anglais. Les étiquettes peuvent accompagner les masques seuls. Un ancien
+run sans masques n’affiche aucune bbox de repli en mode Segmentation.
 
 **Ballon** commande son affichage et sa traînée sur les cinq images précédentes,
 limitée au plan courant. **Terrain** commande les repères dans la vidéo.
@@ -87,13 +88,30 @@ conservée si elle correspond à la destination. Sans cette API, le studio atten
 Les masques stockés restent découpés aux bbox du pipeline ; voir l’[audit de
 segmentation](../reports/segmentation-display-audit-2026-10-25/README.md).
 
-## Joueurs et statistiques
+## Statistiques : Joueurs / Équipe
+
+Les deux onglets du panneau **Statistiques** partagent le même sélecteur d’équipe.
+Ils occupent la même zone sans ajouter de panneau sur la vidéo ou le terrain.
+Flèches gauche/droite, Début et Fin permettent de naviguer entre les onglets au
+clavier. Le choix de langue conserve l’onglet et l’équipe sélectionnés.
+
+**Équipe** affiche le nom et le nombre de joueurs de l’effectif sélectionné,
+ainsi qu’un espace explicite pour les futures statistiques collectives. Aucun
+chiffre collectif n’est actuellement calculé ni déduit des statistiques joueur.
+La future intégration pourra remplacer le contenu de `#teamStatsContent`, dans
+une zone qui défile quand nécessaire, une fois les données d’équipe définies.
+
+**Joueurs** conserve la fiche du joueur quand on consulte l’onglet Équipe puis
+revient. Changer d’équipe efface la sélection d’un joueur de l’autre équipe.
+Sélectionner un joueur depuis la vidéo ou le terrain ouvre automatiquement sa
+fiche dans l’onglet Joueurs. Une nouvelle analyse revient à la liste des joueurs.
 
 Choisir une équipe, puis un joueur, ouvre son **bilan de l’extrait complet**.
 Le groupe **Déplacements** présente la distance observée, la durée mesurée et la
 couverture du suivi issues de `statistics.json`, indépendamment de la lecture.
 La flèche **Effectif** revient à la liste. La fiche défile pour pouvoir accueillir
-d’autres groupes de statistiques sans réduire le lecteur.
+d’autres groupes de statistiques sans réduire le lecteur. Dans les fenêtres de
+faible hauteur, les trois mesures se présentent sur une même ligne.
 
 La couverture rapporte la durée mesurée aux intervalles suivis ; elle ne mesure
 pas la présence réelle hors champ. Les valeurs absentes restent `—`, et une
@@ -140,7 +158,8 @@ npm --prefix viewer run test:browser
 ```
 
 Le test utilise Chromium et axe-core uniquement pour le développement. Il couvre
-huit résolutions, les contrôles au clavier, les contrastes et libellés, les calques,
+huit résolutions, les contrôles au clavier, les contrastes et libellés, les onglets Joueurs/Équipe,
+les termes Bbox/Segmentation dans les deux langues, les calques,
 la langue persistante pendant la lecture, la sélection joueur, les listes longues,
 les données absentes et le repli sans callbacks de présentation. Les contrôles
 automatiques d’accessibilité ne remplacent pas une revue manuelle.

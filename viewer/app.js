@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
-  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null };
+  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null, statsView: 'players' };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
@@ -128,7 +128,7 @@ function setLanguage(next) {
   try { localStorage.setItem('vyneros.language', language); } catch { /* Keep the session usable without storage. */ }
   translateDocument();
   renderRunOptions(); renderMatchHeading(); renderEmptyState();
-  renderRosterPanel(); renderCourtLegend(); renderMarkers();
+  renderStatsPanel(); renderCourtLegend(); renderMarkers();
   updateClock(); updateFocusLabel(); updateLayerSummary();
   if (state.frame) render({observation: state.frame});
   else if (state.name && !state.meta) $('runMeta').textContent = t('loadingMatch');
@@ -138,7 +138,7 @@ async function init() {
   try {
     const {runs} = await json('/api/runs'); state.runs = runs;
     renderRunOptions();
-    if (!runs.length) { setEmptyState('noRuns', 'noRunsHelp'); renderRosterPanel(); return; }
+    if (!runs.length) { setEmptyState('noRuns', 'noRunsHelp'); renderStatsPanel(); return; }
     const requested = new URLSearchParams(location.search).get('run');
     const initial = runs.find(run => run.name === requested)?.name || [...runs].sort((a,b) => b.duration_s - a.duration_s)[0].name;
     $('runSelect').value = initial;
@@ -148,7 +148,7 @@ async function init() {
 async function loadRun(name) {
   if (!name) return;
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
-  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
   maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
@@ -157,7 +157,7 @@ async function loadRun(name) {
   $('frameDetails').textContent = '—'; $('courtStatus').textContent = t('loadingPositions');
   $('courtStatusDot').classList.add('off'); $('calibrationDot').classList.add('off');
   $('calibrationStatus').textContent = t('courtWaiting');
-  renderRosterPanel();
+  renderStatsPanel();
   setEmptyState('loadingRun', null, name);
   try {
     const data = await json(`/api/run?${params({ name })}`);
@@ -166,7 +166,7 @@ async function loadRun(name) {
     state.loaded = true;
     history.replaceState(null, '', `?${params({ run: name })}`);
     renderMatchHeading(); renderCourtLegend();
-    renderRosterPanel();
+    renderStatsPanel();
     $('videoFilename').textContent = shortName(data.run.source?.path);
     $('totalTime').textContent = fmtTime(duration());
     $('seek').max = Math.max(duration(), .001);
@@ -515,8 +515,61 @@ const FINAL_PLAYER_METRICS=[
   {key:'measured_duration_s',label:'measuredDuration',unit:'s',format:fmtDistance},
   {key:'coverage_ratio',label:'coverage',unit:'%',format:value=>(100*value).toLocaleString(locale(),{maximumFractionDigits:0})},
 ];
-function renderRosterPanel() {
+function setStatsView(view) {
+  if (!['players', 'team'].includes(view)) return;
+  state.statsView = view;
+  renderStatsPanel();
+}
+function selectTeam(teamId) {
+  if (!matchRoster()?.teams?.some(team => team.team_id === teamId)) return;
+  const restoreFocus = document.activeElement && $('teamToggle').contains(document.activeElement);
+  state.teamId = teamId;
+  const selected = state.selected && rosterPlayer(state.selected.subject);
+  if (selected && selected.team.team_id !== teamId) state.selected = null;
+  renderStatsPanel();
+  if (restoreFocus) $('teamToggle').querySelector('[aria-pressed="true"]')?.focus();
+  if (state.frame) { drawOverlay(state.frame); renderCourt(state.frame); }
+}
+function renderTeamSelector(teams) {
+  const toggle = $('teamToggle');
+  toggle.replaceChildren();
+  for (const team of teams) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'team-option';
+    button.classList.toggle('active', team.team_id === state.teamId);
+    button.setAttribute('aria-pressed', String(team.team_id === state.teamId));
+    button.style.setProperty('--team-color', teamColor(team.team_id));
+    const dot = document.createElement('i'); dot.setAttribute('aria-hidden', 'true');
+    const name = document.createElement('span'); name.textContent = team.name;
+    button.append(dot, name);
+    button.addEventListener('click', () => selectTeam(team.team_id));
+    toggle.append(button);
+  }
+}
+function renderStatsNavigation(teams) {
+  if (!teams.some(team => team.team_id === state.teamId)) state.teamId = teams[0]?.team_id || null;
+  const teamView = state.statsView === 'team';
+  $('playersPanel').hidden = teamView;
+  $('teamPanel').hidden = !teamView;
+  for (const view of ['players', 'team']) {
+    const tab = $(view === 'players' ? 'playersTab' : 'teamTab');
+    const active = state.statsView === view;
+    tab.setAttribute('aria-selected', String(active));
+    tab.tabIndex = active ? 0 : -1;
+  }
+  renderTeamSelector(teams);
+  const team = teams.find(item => item.team_id === state.teamId);
+  $('teamHero').hidden = !team;
+  if (team) {
+    $('teamHero').style.setProperty('--team-color', teamColor(team.team_id));
+    $('teamName').textContent = team.name;
+    $('teamRosterCount').textContent = t('playerCount', {count: Array.isArray(team.players) ? team.players.length : 0});
+  }
+  $('teamStatsNote').textContent = t(team ? 'teamStatsEmpty' : 'noTeamStats');
+}
+function renderStatsPanel() {
   const roster=matchRoster();
+  renderStatsNavigation(roster?.teams || []);
   const selected=state.selected ? rosterPlayer(state.selected.subject) : null;
   $('rosterBrowse').hidden=Boolean(selected);
   $('rosterDetail').hidden=!selected;
@@ -542,24 +595,12 @@ function renderRosterPanel() {
       : stats.observed_distance_m==null ? t('noDistance') : t('statsNote');
     return;
   }
-  const toggle=$('teamToggle'),heading=$('rosterTeamHeading'),list=$('rosterList');
-  toggle.replaceChildren();heading.replaceChildren();list.replaceChildren();
+  const heading=$('rosterTeamHeading'),list=$('rosterList');
+  heading.replaceChildren();list.replaceChildren();
   if (!roster?.teams?.length) {
     heading.textContent=t('noRosterHeading');
     list.textContent=t('noRosterHelp');
     return;
-  }
-  if (!roster.teams.some(team=>team.team_id===state.teamId)) state.teamId=roster.teams[0].team_id;
-  for (const team of roster.teams) {
-    const button=document.createElement('button');button.type='button';button.className='team-option';
-    button.classList.toggle('active',team.team_id===state.teamId);
-    button.setAttribute('aria-pressed',String(team.team_id===state.teamId));
-    button.style.setProperty('--team-color',teamColor(team.team_id));
-    const dot=document.createElement('i');dot.setAttribute('aria-hidden','true');
-    const name=document.createElement('span');name.textContent=team.name;
-    button.append(dot,name);
-    button.addEventListener('click',()=>{state.teamId=team.team_id;renderRosterPanel();});
-    toggle.append(button);
   }
   const team=roster.teams.find(item=>item.team_id===state.teamId);
   const players=Array.isArray(team.players) ? team.players : [];
@@ -618,14 +659,29 @@ function selectSubject(subject){
   const location=rosterPlayer(subject);
   if (!location) return;
   state.selected={subject};
+  state.statsView = 'players';
   state.teamId=location.team.team_id;
-  renderRosterPanel();
+  renderStatsPanel();
   if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
 }
 function backToRoster(){
   state.selected=null;
-  renderRosterPanel();
+  renderStatsPanel();
   if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
+}
+for (const [id, view] of [['playersTab', 'players'], ['teamTab', 'team']]) {
+  const tab = $(id);
+  tab.addEventListener('click', () => setStatsView(view));
+  tab.addEventListener('keydown', event => {
+    let next;
+    if (event.code === 'ArrowRight' || event.code === 'ArrowLeft') next = view === 'players' ? 'team' : 'players';
+    else if (event.code === 'Home') next = 'players';
+    else if (event.code === 'End') next = 'team';
+    if (!next) return;
+    event.preventDefault();
+    setStatsView(next);
+    $(next === 'players' ? 'playersTab' : 'teamTab').focus();
+  });
 }
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
 $('rosterBack').addEventListener('click',backToRoster);

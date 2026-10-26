@@ -55,7 +55,8 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 
 ![Vyneros Film room displaying synthetic, scripted outputs](imagesReadMe/viewer-studio-fr.png)
 
-Basketball-inspired Film room with FR/EN controls, category overlays and player summaries.
+Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
+and a dedicated space for future team statistics.
 The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
 </details>

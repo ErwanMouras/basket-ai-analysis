@@ -152,12 +152,94 @@ async function main() {
     );
     await page.keyboard.press("Escape");
     await page.locator("body").click({ position: { x: 1, y: 1 } });
+    assert.equal(await page.locator(".topbar").count(), 0);
+    assert.equal(
+      await page.locator(".run-picker-heading .language-switch").count(),
+      1,
+    );
+    assert.doesNotMatch(await page.locator("body").innerText(), /vyneros/i);
+    assert.doesNotMatch(await page.title(), /vyneros/i);
+    const displayTerms = ["Bbox", "Segmentation", "Bbox + Segmentation"];
+    const terms = () =>
+      page
+        .locator('#playerDisplay option:not([value="hidden"])')
+        .allTextContents();
+    assert.deepEqual(
+      (await terms()).map((value) => value.trim()),
+      displayTerms,
+    );
     await capture(page, "studio-fr");
     await checkAccessibility(page);
     await page.locator(".roster-player").first().click();
     assert.equal(await page.locator("#detailName").textContent(), "Example A");
     const original = await page.locator(".final-stat-value").allTextContents();
     const selection = await page.evaluate(() => state.selected.subject);
+    const beforeTabs = await page.evaluate(() => video.currentTime);
+    await page.getByRole("tab", { name: "Équipe", exact: true }).click();
+    assert.equal(await page.locator("#teamName").textContent(), "Example Blue");
+    assert.equal(await page.evaluate(() => state.selected.subject), selection);
+    assert.equal(await page.evaluate(() => video.currentTime), beforeTabs);
+    assert.equal(await page.locator("#playersPanel").isVisible(), false);
+    assert.equal(
+      await page.locator("#teamPanel .final-stat-value").count(),
+      0,
+      "team metrics are not fabricated from player statistics",
+    );
+    await capture(page, "team-fr");
+    await checkAccessibility(page);
+    await page.getByRole("tab", { name: "Équipe", exact: true }).focus();
+    await page.keyboard.press("Home");
+    assert.equal(
+      await page.locator("#playersTab").getAttribute("aria-selected"),
+      "true",
+    );
+    assert.equal(await page.locator("#detailName").textContent(), "Example A");
+    await page.keyboard.press("ArrowRight");
+    assert.equal(
+      await page.locator("#teamTab").getAttribute("aria-selected"),
+      "true",
+    );
+    await page.locator('[data-language="en"]').click();
+    assert.equal(
+      await page.locator("#teamTab").getAttribute("aria-selected"),
+      "true",
+    );
+    assert.match(
+      await page.locator("#teamStatsNote").textContent(),
+      /when available/,
+    );
+    assert.deepEqual(
+      (await terms()).map((value) => value.trim()),
+      displayTerms,
+    );
+    await page.locator("#teamToggle button").last().click();
+    assert.equal(await page.locator("#teamName").textContent(), "Example Pink");
+    assert.equal(
+      await page
+        .locator('#teamToggle button[aria-pressed="true"]')
+        .evaluate((el) => el === document.activeElement),
+      true,
+      "team changes preserve keyboard focus",
+    );
+    assert.equal(await page.evaluate(() => state.selected), null);
+    await page.getByRole("tab", { name: "Players", exact: true }).click();
+    assert.equal(
+      await page.locator("#rosterTeamHeading h3").textContent(),
+      "Example Pink",
+    );
+    await page.getByRole("tab", { name: "Team", exact: true }).click();
+    await page.evaluate(() => selectSubject("roster:blue:7"));
+    assert.equal(
+      await page.locator("#playersTab").getAttribute("aria-selected"),
+      "true",
+      "selecting a player from the video opens the player tab",
+    );
+    assert.equal(await page.locator("#detailName").textContent(), "Example A");
+    assert.equal(await page.evaluate(() => video.currentTime), beforeTabs);
+    await page.locator('[data-language="fr"]').click();
+    console.log(
+      "Team/player navigation, shared team context and invariant detection terms: passed",
+    );
     await page.locator("#layersMenu summary").click();
     await page.locator("#playerDisplay").selectOption("segmentation");
     await page.locator('[data-filter="playerPose"]').check();
@@ -290,6 +372,10 @@ async function main() {
       () => document.querySelector("#runSelect").disabled,
     );
     await empty.locator('[data-language="en"]').click();
+    await empty.getByRole("tab", { name: "Team", exact: true }).click();
+    assert.match(await empty.locator("#teamStatsNote").textContent(), /roster/);
+    assert.equal(await empty.locator("#teamHero").isVisible(), false);
+    await checkAccessibility(empty);
     assert.equal(
       await empty.locator("#videoEmpty strong").textContent(),
       "No analyses available",

@@ -1,7 +1,6 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
-    studio: "STUDIO D’ANALYSE BASKET",
     language: "Langue de l’interface",
     session: "LA SALLE VIDÉO",
     matchAnalysis: "Analyse de match",
@@ -22,9 +21,9 @@ const messages = {
     referee: "Arbitre",
     playerDisplay: "Affichage des joueurs",
     refereeDisplay: "Affichage des arbitres",
-    boxes: "Contours",
-    masks: "Silhouettes",
-    boxesMasks: "Contours + silhouettes",
+    boxes: "Bbox",
+    masks: "Segmentation",
+    boxesMasks: "Bbox + Segmentation",
     hidden: "Masqués",
     pose: "Pose",
     labels: "Noms / numéros",
@@ -57,7 +56,15 @@ const messages = {
     topView: "VUE DU DESSUS",
     courtPositions: "Terrain et positions des joueurs",
     positionsWaiting: "En attente des positions",
-    rosterAndStats: "Joueurs et statistiques",
+    rosterAndStats: "Statistiques des joueurs et des équipes",
+    statistics: "Statistiques",
+    statsViews: "Type de statistiques",
+    team: "Équipe",
+    teamStatsTitle: "Le collectif, en chiffres.",
+    teamStatsEmpty:
+      "Les statistiques de cette équipe apparaîtront ici lorsqu’elles seront disponibles.",
+    noTeamStats:
+      "Sélectionnez une analyse avec un effectif pour retrouver ses équipes.",
     playerStats: "Les joueurs",
     roster: "EFFECTIF",
     rosterHelp: "Un joueur. Son match en chiffres.",
@@ -67,7 +74,6 @@ const messages = {
     clipSummary: "BILAN DE L’EXTRAIT",
     movement: "Déplacements",
     finalStats: "MESURES FINALES",
-    readTheGame: "LIRE LE JEU.",
     space: "Espace",
     playPause: "Lecture / pause",
     oneSecond: "1 seconde",
@@ -114,7 +120,6 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
-    studio: "BASKETBALL ANALYSIS STUDIO",
     language: "Interface language",
     session: "THE FILM ROOM",
     matchAnalysis: "Game analysis",
@@ -135,9 +140,9 @@ const messages = {
     referee: "Referee",
     playerDisplay: "Player display",
     refereeDisplay: "Referee display",
-    boxes: "Boxes",
-    masks: "Silhouettes",
-    boxesMasks: "Boxes + silhouettes",
+    boxes: "Bbox",
+    masks: "Segmentation",
+    boxesMasks: "Bbox + Segmentation",
     hidden: "Hidden",
     pose: "Pose",
     labels: "Names / numbers",
@@ -169,7 +174,13 @@ const messages = {
     topView: "TOP VIEW",
     courtPositions: "Court and player positions",
     positionsWaiting: "Waiting for positions",
-    rosterAndStats: "Players and statistics",
+    rosterAndStats: "Player and team statistics",
+    statistics: "Statistics",
+    statsViews: "Statistics view",
+    team: "Team",
+    teamStatsTitle: "The team, in numbers.",
+    teamStatsEmpty: "Statistics for this team will appear here when available.",
+    noTeamStats: "Choose an analysis with a roster to find its teams.",
     playerStats: "The players",
     roster: "ROSTER",
     rosterHelp: "One player. Their game in numbers.",
@@ -179,7 +190,6 @@ const messages = {
     clipSummary: "CLIP SUMMARY",
     movement: "Movement",
     finalStats: "FINAL MEASUREMENTS",
-    readTheGame: "READ THE GAME.",
     space: "Space",
     playPause: "Play / pause",
     oneSecond: "1 second",
@@ -237,8 +247,7 @@ function t(key, values = {}) {
 }
 function translateDocument() {
   document.documentElement.lang = language;
-  document.title =
-    language === "en" ? "Vyneros — Film room" : "Vyneros — Salle vidéo";
+  document.title = language === "en" ? "Film room" : "Salle vidéo";
   for (const [attribute, target] of [
     ["data-i18n", null],
     ["data-i18n-aria", "aria-label"],

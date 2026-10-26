@@ -7,17 +7,23 @@ the footage priority, with a basketball-inspired charcoal/orange identity.
 
 ## Behavior to review
 
-- The header identifies the matchup from the roster. The local Barlow Condensed
+- The header identifies the matchup from the roster. The branding bar has been
+  removed and FR/EN now sits beside the clip selector. The local Barlow Condensed
   title font provides the sports identity without a CDN dependency.
 - **Layers / Calques** groups category settings in a dismissible disclosure.
   A category count remains visible. Players and referees retain independent
-  boxes, silhouettes, pose and label settings. Identified-player mode explains
+  Bbox, Segmentation, pose and label settings. Bbox and Segmentation are kept
+  unchanged in both languages. Identified-player mode explains
   why referees are hidden. Reset restores the original defaults.
 - **FR / EN** changes static copy, dynamic statuses, accessible labels, dates and
   numbers in place. It preserves playback, position, selected player and layers.
   Storage failure does not prevent using the interface.
 - The tactical court uses roster team colors in its legend. It still excludes
   the ball, which has no metric ground projection in the artifacts.
+- The Statistics panel shares its team selector between **Players** and **Team**
+  tabs. The Team tab reserves a scrollable space for future collective statistics,
+  with an explicit empty state and no fabricated team metrics. Switching tabs
+  preserves the player card; choosing another team clears an unrelated player.
 - The player card groups final movement statistics under a named section and
   can scroll as more metric sections are added. Missing values remain unavailable;
   a reference-only roster never receives confirmed-player statistics.
@@ -38,6 +44,8 @@ predictions or NBA footage.
 
 ![English player summary with scripted sample](../../imagesReadMe/viewer-player-en.png)
 
+![Team statistics space with scripted sample](../../imagesReadMe/viewer-team-fr.png)
+
 Real HOU–LAL footage was also checked locally at 1600 × 1000 and 1280 × 720.
 Local before/after, player and layers captures live in the ignored
 `release/viewer-review/` directory; they are not published with the source.
@@ -55,11 +63,13 @@ Local before/after, player and layers captures live in the ignored
 - Interaction checks: disclosure keyboard activation, Escape and focus return,
   outside click, independent layer settings, reset, identified-player mode,
   focus mode, player and team selection, paused seeking and frame stepping,
-  language changes during playback, and language persistence after reload.
+  language changes during playback, and language persistence after reload. Player/Team
+  tabs share context, support keyboard navigation, preserve player selection and
+  return to the player view when a person is selected from the footage.
 - Edge cases: 35-player roster with long names, missing statistics, no analyses,
   missing source video, reference roster and seeking without presentation callbacks.
 - axe-core checks against WCAG 2 A/AA and 2.1 AA tags found **no automated
-  violations** on the roster, layer controls and player summary. This is not a
+  violations** on the roster, layer controls, player summary and team view. This is not a
   complete manual accessibility audit or a cross-browser certification.
 - The `viewer-browser` GitHub Actions job installs the locked development-only
   dependencies, starts the scripted viewer and repeats the browser checks.
