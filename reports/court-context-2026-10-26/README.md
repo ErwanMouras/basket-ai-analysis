@@ -1,5 +1,8 @@
 # Classifier Attaque / Défense avec les côtés du quart-temps
 
+> Étape historique : le [modèle de jeu installé](../settled-play-2026-10-26/README.md)
+> remplace ce complément par un état neutre après changement de possession, exclu du viewer et des cartes.
+
 Les côtés connus servent désormais **à attribuer la situation**, en complément
 des contacts avec le ballon. Exemple sur le QT1 de HOU–LAL : Houston attaque à
 gauche, les Lakers à droite. Un regroupement stable des deux équipes dans la

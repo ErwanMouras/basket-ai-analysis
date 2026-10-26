@@ -145,48 +145,49 @@ panneaux du lecteur. Les fiches **Joueurs** et **Équipe** proposent aussi un ac
 direct au sujet sélectionné. La vidéo se met en pause. Échap ou le bouton de
 fermeture rend le focus au bouton d’origine ; la lecture ne redémarre pas seule.
 
-Choisir un **joueur ou une équipe**, puis une situation : **Attaque**, **Défense**
-ou **Non classé**. Les cartes cumulent par défaut tous les passages classés dans
-la situation choisie, sur l’extrait complet. Le sélecteur **Passage de jeu** et les
-bornes temporelles permettent ensuite de cibler une période. Un passage peut
-contenir de courts trous non classés : ces trous restent exclus du calcul.
+Choisir un **joueur ou une équipe**, puis **Attaque** ou **Défense**. Les cartes
+ne retiennent que le jeu installé dans un camp. Un changement de possession
+confirmé termine la phase ; la récupération sous son propre panier et la
+remontée du terrain restent neutres jusqu’à l’arrivée dans le camp attaqué.
+Ces intervalles sont exclus des cartes, des passages et des libellés du viewer.
 
-La barre Attaque / Défense / Non classé indique des **secondes de vidéo**, distinctes
-des secondes-joueurs des cartes collectives. Ses boutons changent la situation.
-**Revoir les passages** ferme la fenêtre et positionne la vidéo, en pause, au début
-du passage choisi. La vue Non classé expose les intervalles d’au moins 0,2 s à
-revoir, sans leur imposer une heatmap orientée.
+La barre Attaque / Défense indique des **secondes de vidéo**, distinctes des
+secondes-joueurs collectives. Le quart-temps, les passages et les bornes temporelles
+permettent de cibler un moment. Les passages sont continus : ils ne regroupent pas
+deux attaques séparées par une transition. **Revoir les passages** ferme la
+fenêtre et positionne la vidéo, en pause, au début du passage choisi.
 
-### Comment le découpage est estimé
+### Comment les phases installées sont estimées
 
-Le détecteur recherche des contacts balle–mains en pixels source, avec une
-proximité rapportée à la taille du joueur. Sans poignets utilisables, un contact
-corporel plus restrictif peut fournir un indice. Un adversaire, un arbitre ou un
-joueur non attribué proche de la balle peut bloquer la décision. Le ballon élevé
-n’est jamais projeté au sol pour choisir le porteur.
+Le sens des paniers est appris à partir des contacts balle–mains et de la position
+d’au moins deux défenseurs, puis conservé sur le quart-temps. Un angle inversé
+confirmé garde son repère propre ; sans QT lisible, le repère local du plan peut
+servir. Le ballon n’est pas projeté au sol.
 
-Les contacts doivent se répéter dans une fenêtre temporelle de 0,8 s, avec au
-moins 0,16 s de soutien sur plusieurs images et 80 % d’accord entre les contacts attribués. Les indices
-ne traversent ni coupes détectées, ni frames absentes, ni périodes exclues ou
-grands écarts temporels. Les longues absences de balle ne sont pas remplies par
-continuité du contrôle ; le contexte du terrain peut désormais compléter le rôle
-attaque/défense si les conditions ci-dessous sont réunies.
-Ce réglage est expérimental : ce n’est ni un pourcentage de confiance, ni un
-comptage officiel des possessions.
+Un état simple distingue une attaque installée de chaque équipe et une transition
+neutre. Les contacts répétés confirment le contrôle dans une fenêtre passée de
+0,4 s (au moins 0,16 s sur deux images, 80 % d’accord). Un nouveau contrôleur
+termine l’attaque précédente ; il ne démarre pas son attaque sous son propre
+panier. Il faut atteindre son demi-terrain attaqué, par un porteur localisé au-delà
+de la bande centrale ou un regroupement spatial stable.
 
-Le sens est estimé séparément, à partir des contacts en jeu placé et de la position
-d’au moins deux défenseurs. Un porteur près d’une ligne de fond ne fixe pas le sens
-à lui seul : il pourrait remettre en jeu sous son propre panier. Des indices
-insuffisants ou contradictoires laissent le sens inconnu. Avec un bandeau préparé,
-le sens est conservé sur le QT, avec vérification des angles inversés ; sans QT
-confirmé, les indices restent locaux au plan caméra (détails ci-dessous).
+Une attaque établie survit à une disparition du ballon. Les votes de contact et
+de terrain repartent à zéro aux coupes et trous du suivi ; une transition déjà
+confirmée reste toutefois en attente du même nouveau contrôleur après une coupe
+continue du même QT. Une calibration non exploitable ou un contact ambigu masque
+le libellé. Une mise à jour observée du score termine la phase courante sans
+attribuer automatiquement l’attaque à l’autre équipe, et sans antidater le panier.
+
+Sous la vidéo, **« LAL attaque · HOU défense »** n’apparaît que pendant une phase
+installée ; aucun libellé neutre ne le remplace. Les durées internes non retenues
+restent disponibles pour les audits, sans être proposées comme vue d’analyse.
 
 Les passages exploitables sont ensuite remis dans le même sens, avec une rotation
 de 180° si nécessaire : **panier attaqué à droite en Attaque**, **panier défendu à
 droite en Défense**. Les cartes peuvent alors cumuler plusieurs plans sans
 superposer des sens opposés. Gauche et droite correspondent aux côtés en regardant
-vers ce panier de référence. Les périodes classées mais sans sens établi restent
-écartées des cartes et leur durée est signalée.
+vers ce panier de référence. Sans repère de panier exploitable, aucun intervalle
+n’entre dans une carte Attaque ou Défense.
 
 La comparaison applique la situation à **chaque sujet**. Deux équipes en Attaque
 sont comparées sur leurs propres passages offensifs, à des moments potentiellement
@@ -281,7 +282,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_court_context -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -303,7 +304,7 @@ les termes Bbox/Segmentation dans les deux langues, les calques,
 la langue persistante pendant la lecture, la sélection joueur, les listes longues,
 les données absentes et le repli sans callbacks de présentation. Un second scénario
 couvre les cinq angles pour joueur et équipe dans les deux situations, les périodes,
-les passages, le retour à la vidéo depuis Non classé et les exports,
+les passages, les transitions masquées et les exports,
 la traduction dans la fenêtre, les réponses réseau tardives et les comparaisons
 sans données. Le basculement entre zones continues et mailles vérifie que les
 mesures restent identiques, sans requête supplémentaire. Il vérifie aussi
@@ -405,40 +406,10 @@ L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) d
 la couverture des lectures, les points contrôlés et leurs limites. La démo
 publique contient un bandeau et une coupe QT1 → QT3 explicitement scénarisés.
 
-### Classifier aussi à partir des côtés et de la zone occupée
+### Modèle de phases courant
 
-Quand le QT et son sens sont établis, **la zone du terrain peut désormais classer
-Attaque / Défense**, même sans contact balle–joueur utilisable. Si Houston attaque
-à gauche et que les deux équipes sont regroupées à droite, le contexte est une
-attaque des Lakers et une défense de Houston ; à gauche, l’attribution s’inverse.
-
-La règle demande une calibration utilisable, au moins deux joueurs distincts de
-chaque équipe, les deux médianes longitudinales dans le même tiers extérieur,
-et au moins 80 % des joueurs localisés dans ce demi-terrain, avec une marge près
-du milieu. Le regroupement doit être confirmé pendant 0,35 s sur au moins trois
-images dans la fenêtre de 0,8 s, avec 90 % d’accord spatial. Les phases de
-transition au milieu, projections indisponibles et identités ambiguës ne
-fournissent pas ce soutien.
-
-Le contexte ne remplace **jamais** une attribution déjà fondée sur le ballon et
-ne contribue jamais à apprendre les côtés eux-mêmes. Un contact avec l’équipe
-contraire dans un voisinage de ±1 s empêche la déduction spatiale. Les contacts
-actuels avec arbitre, joueur non attribué ou balle disputée restent non classés.
-Les fenêtres ne traversent ni coupe, ni exclusion, ni frame manquante, ni QT.
-
-Autour d’une mise à jour observée du score, la déduction spatiale est suspendue
-pendant **2 s avant et 0,75 s après**. Le bandeau pouvant être retardé, c’est une
-exclusion prudente : elle ne date pas le panier et ne retourne pas automatiquement
-la possession. Les attributions fondées sur le ballon restent prioritaires.
-
-Sous la vidéo, le libellé **« LAL en attaque · zone du terrain »** distingue cette
-origine de **« … · ballon »** lorsque le bandeau est disponible. L’adversaire est
-en défense. Le bilan des heatmaps sépare aussi les secondes issues du ballon de
-celles ajoutées par la zone, dans la plage sélectionnée. L’API `/api/run` expose
-la même timeline compacte via `phase_timeline` ; les intervalles restent ouverts
-à droite et les trous ne sont pas prolongés.
-
-Les absences prolongées de ballon peuvent donc être classées par contexte ; ce
-n’est pas une possession officielle ni une détection des tirs, arrêts ou ralentis.
-Le [rapport de comparaison](../reports/court-context-2026-10-26/README.md) documente
-le gain mesuré et le cas de remise en jeu qui a motivé l’exclusion autour du score.
+Le [rapport des phases installées](../reports/settled-play-2026-10-26/README.md)
+remplace le précédent complément par zone. Le contrôle du ballon sert à confirmer
+les changements ; l’arrivée dans le camp attaqué détermine quand une nouvelle
+attaque/défense peut entrer dans les heatmaps. Les transitions restent internes
+et ne sont jamais proposées dans le sélecteur ni affichées sous la vidéo.
