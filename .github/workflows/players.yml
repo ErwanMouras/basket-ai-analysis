@@ -41,7 +41,7 @@ jobs:
       - name: Viewer container build
         run: |
           docker build -f deploy/Dockerfile.viewer -t vyneros-viewer:ci .
-          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
+          docker run --rm vyneros-viewer:ci python -c "from pathlib import Path; root = Path('/app/viewer'); assert all((root / name).is_file() for name in ('i18n.js', 'heatmaps.js', 'heatmaps.py', 'BarlowCondensed-Bold.ttf', 'BarlowCondensed-OFL.txt'))"
       - name: Verify the public scripted sample
         run: .venv-players-cpu/bin/python -m mlops.demo --output examples/demo --ensure
       - uses: actions/upload-artifact@v4
@@ -76,7 +76,7 @@ jobs:
           node viewer/node_modules/playwright/cli.js install --with-deps chromium
       - name: Check the scripted viewer in Chromium
         env:
-          VIEWER_SCREENSHOTS: runs/viewer-browser
+          VIEWER_SCREENSHOTS: ${{ github.workspace }}/runs/viewer-browser
         run: |
           python -m viewer.server --port 8766 --runs-root examples/demo/runs --video-root examples/demo/videos > "$RUNNER_TEMP/viewer.log" 2>&1 &
           VIEWER_PID=$!

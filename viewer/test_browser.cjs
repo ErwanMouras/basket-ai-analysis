@@ -206,7 +206,7 @@ async function main() {
     );
     assert.match(
       await page.locator("#teamStatsNote").textContent(),
-      /when available/,
+      /presence/,
     );
     assert.deepEqual(
       (await terms()).map((value) => value.trim()),

@@ -1,6 +1,107 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    hmOpen: "Heatmaps",
+    hmPlayerOpen: "Explorer les heatmaps du joueur",
+    hmTeamOpen: "Explorer les heatmaps de l’équipe",
+    hmKicker: "EXPLORATION SPATIALE",
+    hmTitle: "Le jeu, dans l’espace.",
+    hmControls: "Réglages des heatmaps",
+    hmResults: "Résultats des heatmaps",
+    hmSubject: "Joueur ou équipe",
+    hmPlan: "Plan caméra",
+    hmStart: "Début · s",
+    hmEnd: "Fin · s",
+    hmAngles: "CINQ ANGLES DE LECTURE",
+    hmPresence: "Présence",
+    hmPresenceShort: "Où passe-t-on du temps ?",
+    hmMovement: "Déplacements",
+    hmMovementShort: "Où sont mesurés les mètres ?",
+    hmZones: "Zones",
+    hmZonesShort: "Neuf zones, une répartition.",
+    hmComparison: "Comparaison",
+    hmComparisonShort: "Deux profils, le même terrain.",
+    hmEvolution: "Évolution",
+    hmEvolutionShort: "Première et seconde moitié.",
+    hmCompareWith: "Comparer avec",
+    hmSmooth: "Lissage visuel",
+    hmPlanNote:
+      "Un plan à la fois. L’orientation du terrain peut changer entre les coupes.",
+    hmData: "Lire les valeurs par zone",
+    hmLimits:
+      "Ces cartes décrivent les positions observées, pas les espaces réellement libres. Les joueurs hors champ, les positions non projetables et les ralentis peuvent modifier la lecture. Les ralentis ne sont pas exclus automatiquement.",
+    hmPresenceHelp:
+      "La chaleur représente la part du temps localisé dans chaque maille. Pour une équipe, les temps des joueurs observables sont cumulés : ce sont des secondes-joueurs.",
+    hmMovementHelp:
+      "La chaleur montre où se répartissent les mètres mesurés. Une zone peut être très fréquentée sans concentrer beaucoup de déplacements. Les intervalles sans mesure de distance sont exclus.",
+    hmZonesHelp:
+      "Le même temps de présence, réparti sur neuf grandes zones. Les pourcentages portent sur le temps localisé, sans attribuer de rôle offensif ou défensif aux côtés du terrain.",
+    hmComparisonHelp:
+      "Chaque profil est ramené à 100 % de son propre temps localisé. La troisième carte montre l’écart en points de pourcentage, avec une échelle commune pour les deux premières. Ce n’est pas une mesure de domination.",
+    hmEvolutionHelp:
+      "La période choisie est divisée en deux durées égales. Chaque moitié est normalisée par son propre temps localisé ; l’échelle commune permet de comparer les changements de présence.",
+    hmLoading: "Calcul de la répartition…",
+    hmError: "Impossible de charger les heatmaps.",
+    hmNoRun: "Choisissez d’abord une analyse.",
+    hmNoGeometry:
+      "Ce run ne déclare pas les dimensions du terrain. Aucune carte métrique ne peut être construite.",
+    hmNoRoster:
+      "Un effectif fourni au pipeline est nécessaire pour les heatmaps nominatives et par équipe. Un effectif indicatif ne suffit pas.",
+    hmNoData:
+      "Aucun intervalle localisable pour ce sujet sur cette période. Les zones sombres ne signifient pas une absence réelle.",
+    hmNoMovement: "Aucun déplacement mesuré sur les intervalles disponibles.",
+    hmNoPair:
+      "Choisissez un autre sujet du même type pour comparer les répartitions.",
+    hmBadRange: "Choisissez une fin après le début, à l’intérieur du plan.",
+    hmFirst: "Première moitié",
+    hmSecond: "Seconde moitié",
+    hmDifference: "Écart des répartitions",
+    hmMaxDifference: "Amplitude de l’écart",
+    hmPlanLabel: "Plan {count}",
+    hmTotal: "Temps localisé",
+    hmTotalMovement: "Distance répartie",
+    hmCoverage: "Suivi localisable",
+    hmVideoTime: "Vidéo documentée",
+    hmSeconds: "s",
+    hmPlayerSeconds: "s-joueurs",
+    hmMetres: "m",
+    hmPercent: "%",
+    hmCoverageHelp:
+      "Temps localisé / temps de suivi attribué. Ce taux ne couvre pas les absences hors champ.",
+    hmVideoHelp:
+      "Durée vidéo avec au moins une position mesurable pour le sujet. Pour une équipe, cela ne signifie pas que les cinq joueurs sont visibles.",
+    hmMovementCoverage:
+      "{value} % du temps localisé dispose d’une mesure de distance.",
+    hmLegend: "Part du temps localisé par maille · %",
+    hmMovementLegend: "Part de la distance mesurée par maille · %",
+    hmZonesLegend: "Part du temps localisé par zone · %",
+    hmDifferenceLegend:
+      "Orange : A davantage représenté · Bleu : B davantage représenté · points de %",
+    hmHover:
+      "Survolez une maille pour lire sa valeur. Le tableau propose aussi une lecture par grandes zones.",
+    hmCell: "Maille {x} / {y} · {value} {unit} · {share} %",
+    hmDeltaCell: "Maille {x} / {y} · écart A − B : {value} points de %",
+    hmExport: "PNG",
+    hmExportLabel: "Exporter cette carte en PNG",
+    hmExportCaveat:
+      "Positions observées uniquement · Ralentis non exclus automatiquement · Orientation propre au plan",
+    hmZone: "Zone",
+    hmValue: "Mesure",
+    hmShare: "Part observée",
+    hmNoDifference:
+      "Les deux profils doivent avoir des positions mesurables pour calculer un écart.",
+    hmSideFar: "CÔTÉ ÉLOIGNÉ",
+    hmSideNear: "CÔTÉ PROCHE",
+    hmCloseLanguage: "Passer en anglais",
+    hmZone0: "Gauche · éloigné",
+    hmZone1: "Centre · éloigné",
+    hmZone2: "Droite · éloigné",
+    hmZone3: "Gauche · milieu",
+    hmZone4: "Centre",
+    hmZone5: "Droite · milieu",
+    hmZone6: "Gauche · proche",
+    hmZone7: "Centre · proche",
+    hmZone8: "Droite · proche",
     language: "Langue de l’interface",
     session: "LA SALLE VIDÉO",
     matchAnalysis: "Analyse de match",
@@ -33,7 +134,8 @@ const messages = {
     court: "Terrain",
     landmarks: "Repères détectés",
     courtLines: "Lignes projetées",
-    courtOverlayHint: "Lignes cyan : projection du terrain. Zone teintée : support des repères. Repères roses : non retenus.",
+    courtOverlayHint:
+      "Lignes cyan : projection du terrain. Zone teintée : support des repères. Repères roses : non retenus.",
     refereeHint:
       "Les arbitres sont masqués dans le mode « Joueurs identifiés ».",
     resetLayers: "Rétablir l’affichage par défaut",
@@ -62,9 +164,9 @@ const messages = {
     statistics: "Statistiques",
     statsViews: "Type de statistiques",
     team: "Équipe",
-    teamStatsTitle: "Le collectif, en chiffres.",
+    teamStatsTitle: "Occupation du terrain",
     teamStatsEmpty:
-      "Les statistiques de cette équipe apparaîtront ici lorsqu’elles seront disponibles.",
+      "Explorez la présence, les déplacements et la répartition spatiale de cette équipe.",
     noTeamStats:
       "Sélectionnez une analyse avec un effectif pour retrouver ses équipes.",
     playerStats: "Les joueurs",
@@ -122,6 +224,107 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    hmOpen: "Heatmaps",
+    hmPlayerOpen: "Explore player heatmaps",
+    hmTeamOpen: "Explore team heatmaps",
+    hmKicker: "SPATIAL EXPLORATION",
+    hmTitle: "The shape of the game.",
+    hmControls: "Heatmap settings",
+    hmResults: "Heatmap results",
+    hmSubject: "Player or team",
+    hmPlan: "Camera shot",
+    hmStart: "Start · s",
+    hmEnd: "End · s",
+    hmAngles: "FIVE WAYS TO READ THE GAME",
+    hmPresence: "Presence",
+    hmPresenceShort: "Where is time spent?",
+    hmMovement: "Movement",
+    hmMovementShort: "Where are metres measured?",
+    hmZones: "Zones",
+    hmZonesShort: "Nine zones, one distribution.",
+    hmComparison: "Comparison",
+    hmComparisonShort: "Two profiles, the same court.",
+    hmEvolution: "Evolution",
+    hmEvolutionShort: "First half and second half.",
+    hmCompareWith: "Compare with",
+    hmSmooth: "Visual smoothing",
+    hmPlanNote:
+      "One camera shot at a time. Court orientation may change between cuts.",
+    hmData: "Read the values by zone",
+    hmLimits:
+      "These maps describe observed positions, not genuinely free space. Off-screen players, unavailable projections and replays may affect the interpretation. Replays are not automatically excluded.",
+    hmPresenceHelp:
+      "Heat represents the share of localized time in each cell. For teams, observable player times are added together: these are player-seconds.",
+    hmMovementHelp:
+      "Heat shows where measured metres accumulate. A frequently occupied zone need not contain much movement. Intervals without a distance measurement are excluded.",
+    hmZonesHelp:
+      "The same presence time, distributed across nine broad zones. Percentages use localized time, without assigning offensive or defensive roles to either side.",
+    hmComparisonHelp:
+      "Each profile is normalized to 100% of its own localized time. The third map shows the difference in percentage points, with a shared scale for the first two. This is not a measure of dominance.",
+    hmEvolutionHelp:
+      "The selected period is split into two equal durations. Each half uses its own localized time as denominator; a shared scale highlights shifts in presence.",
+    hmLoading: "Computing the distribution…",
+    hmError: "Unable to load heatmaps.",
+    hmNoRun: "Choose an analysis first.",
+    hmNoGeometry:
+      "This run does not declare court dimensions. A metric map cannot be built.",
+    hmNoRoster:
+      "A roster supplied to the pipeline is required for named player and team heatmaps. A reference-only roster is insufficient.",
+    hmNoData:
+      "No localizable interval for this subject in this period. Dark areas do not mean a true absence.",
+    hmNoMovement: "No movement measured in the available intervals.",
+    hmNoPair:
+      "Choose another subject of the same kind to compare distributions.",
+    hmBadRange: "Choose an end after the start, within this camera shot.",
+    hmFirst: "First half",
+    hmSecond: "Second half",
+    hmDifference: "Distribution difference",
+    hmMaxDifference: "Difference range",
+    hmPlanLabel: "Shot {count}",
+    hmTotal: "Localized time",
+    hmTotalMovement: "Mapped distance",
+    hmCoverage: "Localizable tracking",
+    hmVideoTime: "Documented video",
+    hmSeconds: "s",
+    hmPlayerSeconds: "player-s",
+    hmMetres: "m",
+    hmPercent: "%",
+    hmCoverageHelp:
+      "Localized time / attributed tracked time. This rate does not cover off-screen absences.",
+    hmVideoHelp:
+      "Video duration with at least one measurable position for the subject. For a team, this does not imply that all five players are visible.",
+    hmMovementCoverage:
+      "{value}% of localized time has a distance measurement.",
+    hmLegend: "Share of localized time per cell · %",
+    hmMovementLegend: "Share of measured distance per cell · %",
+    hmZonesLegend: "Share of localized time per zone · %",
+    hmDifferenceLegend:
+      "Orange: A more represented · Blue: B more represented · percentage points",
+    hmHover:
+      "Hover over a cell to read its value. The table also provides a broad-zone view.",
+    hmCell: "Cell {x} / {y} · {value} {unit} · {share}%",
+    hmDeltaCell: "Cell {x} / {y} · A − B difference: {value} percentage points",
+    hmExport: "PNG",
+    hmExportLabel: "Export this map as PNG",
+    hmExportCaveat:
+      "Observed positions only · Replays not excluded automatically · Orientation specific to this camera plan",
+    hmZone: "Zone",
+    hmValue: "Measure",
+    hmShare: "Observed share",
+    hmNoDifference:
+      "Both profiles need measurable positions to calculate a difference.",
+    hmSideFar: "FAR SIDE",
+    hmSideNear: "NEAR SIDE",
+    hmCloseLanguage: "Switch to French",
+    hmZone0: "Left · far",
+    hmZone1: "Centre · far",
+    hmZone2: "Right · far",
+    hmZone3: "Left · middle",
+    hmZone4: "Centre",
+    hmZone5: "Right · middle",
+    hmZone6: "Left · near",
+    hmZone7: "Centre · near",
+    hmZone8: "Right · near",
     language: "Interface language",
     session: "THE FILM ROOM",
     matchAnalysis: "Game analysis",
@@ -154,7 +357,8 @@ const messages = {
     court: "Court",
     landmarks: "Detected landmarks",
     courtLines: "Projected lines",
-    courtOverlayHint: "Cyan lines: projected court. Shaded area: landmark support. Pink landmarks: not accepted.",
+    courtOverlayHint:
+      "Cyan lines: projected court. Shaded area: landmark support. Pink landmarks: not accepted.",
     refereeHint: "Referees are hidden in “Identified players” mode.",
     resetLayers: "Reset to default display",
     expandVideo: "Expand",
@@ -182,8 +386,9 @@ const messages = {
     statistics: "Statistics",
     statsViews: "Statistics view",
     team: "Team",
-    teamStatsTitle: "The team, in numbers.",
-    teamStatsEmpty: "Statistics for this team will appear here when available.",
+    teamStatsTitle: "Court occupation",
+    teamStatsEmpty:
+      "Explore this team’s presence, movement and spatial distribution.",
     noTeamStats: "Choose an analysis with a roster to find its teams.",
     playerStats: "The players",
     roster: "ROSTER",

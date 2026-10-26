@@ -130,6 +130,7 @@ function setLanguage(next) {
   renderRunOptions(); renderMatchHeading(); renderEmptyState();
   renderStatsPanel(); renderCourtLegend(); renderMarkers();
   updateClock(); updateFocusLabel(); updateLayerSummary();
+  window.heatmapStudio?.translate();
   if (state.frame) render({observation: state.frame});
   else if (state.name && !state.meta) $('runMeta').textContent = t('loadingMatch');
 }
@@ -147,6 +148,7 @@ async function init() {
 }
 async function loadRun(name) {
   if (!name) return;
+  window.heatmapStudio?.reset();
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
@@ -648,6 +650,7 @@ function renderStatsNavigation(teams) {
   renderTeamSelector(teams);
   const team = teams.find(item => item.team_id === state.teamId);
   $('teamHero').hidden = !team;
+  $('openTeamHeatmaps').disabled = !team || !state.meta?.roster;
   if (team) {
     $('teamHero').style.setProperty('--team-color', teamColor(team.team_id));
     $('teamName').textContent = team.name;
@@ -663,6 +666,7 @@ function renderStatsPanel() {
   $('rosterDetail').hidden=!selected;
   if (selected) {
     const {team,player}=selected;
+    $('openPlayerHeatmaps').disabled = !state.meta?.roster;
     $('playerHero').style.setProperty('--team-color',teamColor(team.team_id));
     $('detailNumber').textContent='#'+player.number;
     $('detailTeam').textContent=team.name;
@@ -812,6 +816,7 @@ new ResizeObserver(resizeOverlay).observe($('videoStage'));
 document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
 $('identityMode').addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{
+  if ($('heatmapDialog')?.open) return;
   if (e.code === 'Escape' && $('layersMenu').open) {
     $('layersMenu').open = false; $('layersMenu').querySelector('summary').focus(); return;
   }
