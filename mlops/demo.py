@@ -30,6 +30,10 @@ def create_demo(output):
     roster = {"schema_version": 1, "match": {"match_id": "SYNTHETIC DEMO — scripted outputs"}, "teams": [
         {"team_id": "blue", "name": "Example Blue", "color": "#45C7F5", "players": [{"number": "7", "name": "Example A"}]},
         {"team_id": "pink", "name": "Example Pink", "color": "#F279C8", "players": [{"number": "12", "name": "Example B"}]}]}
+    for team_index, team in enumerate(roster["teams"]):
+        for extra in (1, 2):
+            team["players"].append({"number": str((7 if team_index == 0 else 12) + extra),
+                                    "name": f"Example {'A' if team_index == 0 else 'B'}{extra + 1}"})
     palette = display_colors(roster)
     metric = Distance({"smoothing_tau_s": 0.0, "deadband_m": 0.0,
                        "max_speed_m_s": 12., "max_gap_s": .2}, "synthetic-demo")
@@ -44,23 +48,40 @@ def create_demo(output):
             cv2.putText(image, "No model inference or accuracy claim", (22, 47), cv2.FONT_HERSHEY_SIMPLEX, .45, (210, 210, 210), 1)
             available = not 60 <= i < 75
             persons = []
-            for j, team in enumerate(roster["teams"]):
-                x, y = 100 + j * 260 + i * (0.5 if j == 0 else -.35), 150 + j * 50
-                cv2.rectangle(image, (round(x), y), (round(x + 26), y + 55), (240, 180, 50) if j == 0 else (200, 120, 240), -1)
-                cv2.putText(image, team["players"][0]["number"], (round(x), y + 30), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0), 1)
-                persons.append({"observation_id": f"synthetic-demo:{i}:{j}", "track_id": j + 1,
-                                "role": "player", "confidence": 1., "bbox": [x, y, x + 26, y + 55],
-                                "position_m": [(x - 20) / 600 * 28.6512, (y + 55 - 60) / 280 * 15.24] if available else None,
-                                "position_status": "projected" if available else "calibration_unavailable",
-                                "ground_point_px": [x, y + 55],
-                                "ground_point_method": "scripted", "pose": None,
-                                "display_color": team["color"],
-                                "jersey": {"number": team["players"][0]["number"], "status": "confirmed",
-                                           "identity_status": "unique_number", "team_id": team["team_id"],
-                                           "player_name": team["players"][0]["name"]}})
-            point = [320 + 50 * math.sin(i / 25), 150 + 30 * math.cos(i / 20)] if i % 90 >= 2 else None
+            owner = (i // 45) % 2
+            for team_index, team in enumerate(roster["teams"]):
+                for player_index, player in enumerate(team["players"]):
+                    x = ((240, 315, 365) if team_index == 0 else (415, 465, 480))[player_index] + (i % 90) * .15
+                    y = (150, 100, 215)[player_index]
+                    if i >= 90:
+                        x, y = 640 - (x + 13) - 13, 400 - (y + 55) - 55
+                    cx = x + 13
+                    keypoints = [[cx, y+6], [cx-3, y+4], [cx+3, y+4], [cx-8, y+6], [cx+8, y+6],
+                                 [cx-9, y+16], [cx+9, y+16], [cx-14, y+26], [cx+14, y+26],
+                                 [cx-15, y+32], [cx+15, y+32], [cx-6, y+33], [cx+6, y+33],
+                                 [cx-8, y+44], [cx+8, y+44], [cx-8, y+55], [cx+8, y+55]]
+                    cv2.rectangle(image, (round(x), y), (round(x + 26), y + 55),
+                                  (240, 180, 50) if team_index == 0 else (200, 120, 240), -1)
+                    cv2.putText(image, player["number"], (round(x), y + 30), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0), 1)
+                    persons.append({"observation_id": f"synthetic-demo:{i}:{team_index}:{player_index}",
+                                    "track_id": 1 + team_index * 3 + player_index,
+                                    "role": "player", "confidence": 1., "bbox": [x, y, x + 26, y + 55],
+                                    "position_m": [(cx - 20) / 600 * 28.6512, (y + 55 - 60) / 280 * 15.24] if available else None,
+                                    "position_status": "projected" if available else "calibration_unavailable",
+                                    "ground_point_px": [cx, y + 55], "ground_point_method": "scripted",
+                                    "pose": {"format": "coco17", "coordinate_space": "source", "keypoints": keypoints,
+                                             "scores": [1.] * 17, "valid": [True] * 17},
+                                    "display_color": team["color"],
+                                    "jersey": {"number": player["number"], "status": "confirmed",
+                                               "identity_status": "unique_number", "team_id": team["team_id"],
+                                               "player_name": player["name"]}})
+            carrier = persons[owner * 3]
+            point = [carrier["pose"]["keypoints"][9][0] + 2 * math.sin(i / 3),
+                     carrier["pose"]["keypoints"][9][1]] if not 20 <= i < 41 else None
             if point:
                 cv2.circle(image, tuple(round(v) for v in point), 5, (40, 140, 250), -1)
+            cv2.putText(image, f"Scripted control: {'Blue' if owner == 0 else 'Pink'}", (22, 355),
+                        cv2.FONT_HERSHEY_SIMPLEX, .45, (255, 255, 255), 1)
             if not available:
                 cv2.putText(image, "Calibration unavailable", (170, 325), cv2.FONT_HERSHEY_SIMPLEX, .6, (100, 180, 255), 1)
             writer.write(image)
