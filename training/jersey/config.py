@@ -38,6 +38,8 @@ DEFAULTS = {
     "min_sharpness": 25.0,
     "min_contrast": 12.0,
     "max_overlap": 0.4,
+    "mask_policy": "disabled",
+    "min_mask_coverage": 0.5,
 }
 
 
@@ -45,6 +47,8 @@ def settings(overrides=None):
     cfg = merge_settings(DEFAULTS, {} if overrides is None else overrides)
     if type(cfg["enabled"]) is not bool:
         raise ValueError("jersey.enabled must be boolean")
+    if cfg["mask_policy"] not in ("disabled", "background_neutral", "require_mask"):
+        raise ValueError("Invalid jersey.mask_policy")
     if not isinstance(cfg["device"], str) or not re.fullmatch(
         r"cpu|cuda:\d+", cfg["device"]
     ):
@@ -78,6 +82,7 @@ def settings(overrides=None):
         "min_ocr_confidence",
         "min_detection_confidence",
         "max_overlap",
+        "min_mask_coverage",
     ):
         if cfg[name] > 1:
             raise ValueError(f"jersey.{name} must be <= 1")

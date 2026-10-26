@@ -20,9 +20,26 @@ python -m viewer.server --runs-root /chemin/vers/runs --video-root /chemin/vers/
 
 `--video-root` délimite les vidéos que le serveur peut lire. Le chemin de la vidéo vient du champ `source.path` dans `run.json`. Il doit exister et se trouver sous ce dossier. Les artefacts du run doivent contenir `run.json`, `observations.jsonl` et `statistics.json`; `tracks.jsonl` fournit les distances progressives.
 
+Les options vidéo sont regroupées par catégorie. **Joueurs** et **Arbitres** ont
+chacun un choix **Bbox**, **Segmentation**, **Bbox + segmentation** ou **Masqués**,
+ainsi que leurs propres boutons **Pose** et **Étiquettes**. Il est donc possible
+de voir seulement les masques des joueurs tout en conservant les bbox arbitres.
+Les étiquettes peuvent accompagner les masques sans afficher les boîtes.
+Le mode segmentation seule ne dessine aucune bbox de repli si un ancien run n’a
+pas de masque. Le décodage RLE et son cache restent bornés.
+**Ballon** commande son affichage et sa traînée ; **Terrain** commande ses repères.
+
 La vue terrain montre seulement les personnes dotées d'une `position_m` valide. Le ballon est affiché sur la vidéo avec une traînée décroissante sur les cinq images précédentes, dans la limite du plan courant. Il n'est pas projeté au sol : les artefacts ne contiennent pas sa projection métrique.
 
-Les calques se commandent dans la barre du lecteur, à côté d'« Agrandir la vidéo ». Le choix « Toutes les détections / Personnes identifiées » agit sur les boîtes et les positions du terrain ; le second mode ne montre que les joueurs reconnus par le run. Les boîtes sont synchronisées sur le temps des images vidéo affichées, préchargées par paquets et effacées si l'observation correspondante manque encore. Les joueurs identifiés prennent la couleur de leur équipe dans le roster, ou celle attribuée par le pipeline. La couleur d'équipe des autres joueurs provient du vote majoritaire sur leur torse quand il est concluant.
+Les calques se commandent dans la barre du lecteur, à côté d'« Agrandir la vidéo ». Le choix « Toutes les détections / Personnes identifiées » agit sur les personnes visibles dans la vidéo et sur le terrain ; le second mode ne montre que les joueurs reconnus par le run. Les calques sont synchronisés sur le temps des images vidéo affichées, préchargées par paquets et effacées si l'observation correspondante manque encore. Les joueurs identifiés prennent la couleur de leur équipe dans le roster, ou celle attribuée par le pipeline. La couleur d'équipe des autres joueurs provient du vote majoritaire sur leur torse quand il est concluant.
+
+Quand le navigateur fournit `requestVideoFrameCallback`, son `mediaTime` désigne
+l’image présentée et commande les calques, y compris après une recherche en pause.
+La destination de recherche ne dessine aucun masque avant cette présentation.
+Sans cette API, le studio utilise le dernier timestamp inférieur ou égal au temps
+vidéo et attend la fin de recherche. Les masques stockés restent découpés aux bbox
+du pipeline ; une silhouette tronquée ou une mauvaise catégorie peut donc venir
+des prédictions. Voir l’[audit du décalage à 51,60 s](../reports/segmentation-display-audit-2026-10-25/README.md).
 
 La mise en page tient dans la hauteur de la fenêtre : le lecteur occupe environ deux tiers de la largeur, avec la vue tactique et les effectifs à droite.
 

@@ -7,9 +7,12 @@ const path = require('node:path');
 async function app() {
   const elements = new Map();
   const events = new Map();
+  const drawCalls = [];
+  const inputs = [];
   function element() {
     const classes = new Set();
     const children = new Map();
+    const handlers = new Map();
     return {
       textContent: '', hidden: false, value: '', checked: true, paused: true,
       width: 100, height: 50, currentTime: 0, style: { setProperty() {} },
@@ -18,16 +21,18 @@ async function app() {
         toggle(name, enabled) { if (enabled ?? !classes.has(name)) classes.add(name); else classes.delete(name); },
       },
       querySelector(name) { if (!children.has(name)) children.set(name, element()); return children.get(name); },
-      replaceChildren() {}, append() {}, add() {}, addEventListener() {}, setAttribute() {}, removeAttribute() {},
+      replaceChildren() {}, append() {}, add() {},
+      addEventListener(name, handler) { handlers.set(name, handler); },
+      dispatch(name) { handlers.get(name)?.(); }, setAttribute() {}, removeAttribute() {},
       pause() { this.paused = true; }, load() {}, requestVideoFrameCallback() {},
       getBoundingClientRect: () => ({ width: 100, height: 50, left: 0, top: 0 }),
-      getContext: () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : () => {} }),
+      getContext: () => new Proxy({}, { get: (_, name) => name === 'measureText' ? () => ({ width: 20 }) : (...args) => drawCalls.push([name,...args]) }),
     };
   }
   const byId = id => { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); };
   const context = vm.createContext({
     document: {
-      getElementById: byId, querySelectorAll: () => [], querySelector: byId,
+      getElementById: byId, querySelectorAll: () => inputs, querySelector: byId,
       createElement: element, createElementNS: element,
       addEventListener: (name, handler) => events.set(name, handler),
     },
@@ -38,7 +43,7 @@ async function app() {
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8'), context);
   await new Promise(setImmediate);
-  return { context, byId, events, run: source => vm.runInContext(source, context),
+  return { context, byId, events, drawCalls, inputs, run: source => vm.runInContext(source, context),
     json: source => JSON.parse(vm.runInContext(`JSON.stringify(${source})`, context)) };
 }
 
@@ -75,14 +80,18 @@ test('zero distance is preserved and missing durations stay unavailable', async 
   });
 });
 
-test('seeking to a cached frame immediately restores its overlays while paused', async () => {
+test('cached masks wait for the newly presented image after seeking', async () => {
   const ui = await app();
   ui.run(`state.meta = {timestamps:[0,.1], run:{source:{width:100,height:50}}};
     state.cache.set(1,{observation:{frame_index:1,segment_id:0,width:100,height:50,persons:[]}});
     seekToFrame(1)`);
+  ui.byId('video').dispatch('seeked');
+  assert.equal(ui.run('state.current'), -1);
+  assert.equal(ui.run('state.frame'), null);
+  assert.ok(ui.run('video.currentTime > .1 && video.currentTime < .2'));
+  ui.run('state.loaded=true; videoFrameLoop(0,{mediaTime:.1})');
   assert.equal(ui.run('state.current'), 1);
   assert.equal(ui.run('state.frame.frame_index'), 1);
-  assert.ok(ui.run('video.currentTime > .1 && video.currentTime < .2'));
 });
 
 test('arrow navigation advances one source second regardless of frame rate', async () => {
@@ -90,8 +99,31 @@ test('arrow navigation advances one source second regardless of frame rate', asy
   ui.run(`state.meta={timestamps:Array.from({length:20},(_,i)=>i/10),run:{source:{width:100,height:50}}};
     for(let i=0;i<20;i++)state.cache.set(i,{observation:{frame_index:i,segment_id:0,width:100,height:50,persons:[]}})`);
   ui.events.get('keydown')({ code: 'ArrowRight', shiftKey: false, preventDefault() {} });
-  assert.equal(ui.run('state.current'), 10);
+  assert.equal(ui.run('state.current'), -1);
   assert.ok(ui.run('video.currentTime >= 1 && video.currentTime < 1.1'));
+});
+
+test('seeked keeps the presented PTS even when currentTime rounds toward the next frame', async () => {
+  const ui=await app();
+  ui.run(`state.loaded=true;state.meta={timestamps:[51.6,51.6333333333],run:{source:{width:100,height:50}}};
+    state.cache.set(0,{observation:{frame_index:0,width:100,height:50,persons:[]}});
+    video.currentTime=51.619;videoFrameLoop(0,{mediaTime:51.6})`);
+  ui.byId('video').dispatch('seeked');
+  assert.equal(ui.run('state.current'),0);
+  assert.equal(ui.run('frameAtTime(51.619)'),0);
+  assert.equal(ui.run('frameAtTime(51.633333)'),1);
+});
+
+test('a late annotation response during a seek cannot restore the previous mask', async () => {
+  const ui=await app();let resolve;
+  ui.context.fetch=()=>new Promise(done=>{resolve=done;});
+  ui.run('state.meta={timestamps:[0,.1]};state.target=0');
+  const pending=ui.run('fetchOne(0)');
+  ui.byId('video').dispatch('seeking');
+  resolve({ok:true,json:async()=>({observation:{frame_index:0}})});
+  await pending;
+  assert.equal(ui.run('state.current'),-1);
+  assert.equal(ui.run('state.frame'),null);
 });
 
 test('a failed old run cannot replace the current loading state', async () => {
@@ -117,4 +149,56 @@ test('a failed old batch cannot evict the current run batch', async () => {
   reject(new Error('Old batch failed'));
   await pending;
   assert.equal(ui.run('state.batches.get(0)'), 'current batch');
+});
+
+
+test('ROI RLE foreground spans rows in source order and malformed masks are ignored', async () => {
+  const ui=await app(); ui.drawCalls.length=0;
+  assert.equal(ui.run("maskSurface({encoding:'roi_rle_c',roi:[2,3,6,6],counts:[2,5,5]},'#ff0000',10,10).width"),4);
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='fillRect'),[['fillRect',2,0,2,1],['fillRect',0,1,3,1]]);
+  assert.equal(ui.run("maskSurface({encoding:'roi_rle_c',roi:[0,0,4,3],counts:[1,99]},'#ff0000',10,10)"),null);
+});
+
+function layerFrame(ui) {
+  ui.run("state.meta={run:{source:{width:10,height:10}}};state.frame={width:10,height:10,segment_id:0,persons:[{role:'player',bbox:[1,1,5,5],track_id:1,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[1,1,5,5],counts:[0,16]}}},{role:'referee',bbox:[5,1,9,5],track_id:2,segmentation:{status:'ok',mask:{encoding:'roi_rle_c',roi:[5,1,9,5],counts:[0,16]}}}]}");
+  ui.byId('overlay').width=10;ui.byId('overlay').height=10;
+  ui.drawCalls.length=0;
+}
+
+test('players can show segmentation alone while referees keep their boxes', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';
+  ui.byId('refereeDisplay').value='bbox';
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='strokeRect'),[['strokeRect',5,1,4,4]]);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='fillText').length,0);
+});
+
+test('both representations and hidden categories are independent', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='both';
+  ui.byId('refereeDisplay').value='hidden';
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
+  assert.deepEqual(ui.drawCalls.filter(c=>c[0]==='strokeRect'),[['strokeRect',1,1,4,4]]);
+  assert.equal(ui.run('visiblePerson(state.frame.persons[1],0,filters())'),false);
+});
+
+test('labels can accompany masks without boxes and remain category specific', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';
+  ui.byId('refereeDisplay').value='hidden';
+  ui.inputs.push({dataset:{filter:'playerLabels'},checked:true},{dataset:{filter:'refereeLabels'},checked:true});
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='fillText').length,1);
+});
+
+test('mask-only mode never falls back to boxes for an old run without masks', async () => {
+  const ui=await app();layerFrame(ui);
+  ui.byId('playerDisplay').value='segmentation';ui.byId('refereeDisplay').value='hidden';
+  ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
 });

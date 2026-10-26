@@ -9,7 +9,7 @@ import resource
 import time
 from uuid import uuid4
 
-from pipeline.adapters import Ball, People, RoleTracker
+from pipeline.adapters import Ball, People, RoleTracker, YoloBall
 from pipeline.config import included
 from pipeline.contracts import validate_frame, validate_statistics
 from pipeline.distance import Distance
@@ -54,7 +54,11 @@ class Models:
                 continue
             if not c.get("enabled", True) or not c.get("weights") or not Path(c["weights"]).is_file():
                 raise ValueError(f"Required capability {name} has no enabled local checkpoint")
-        self.people = People(config["people"])
+        if config["segmentation"]["strategy"] == "disabled":
+            self.people = People(config["people"])
+        else:
+            from training.segmentation.adapters import SegmentedPeople
+            self.people = SegmentedPeople(config["people"], config["segmentation"])
         self.provenance["people"] = self.people.provenance
         self.capabilities["players"] = "ok" if "player" in self.people.roles.values() else "unavailable"
         self.capabilities["referees"] = "ok" if "referee" in self.people.roles.values() else "unavailable"
@@ -94,7 +98,8 @@ class Models:
             self.jersey = initialize("jersey", lambda: JerseyRecognizer(
                 config["jersey"], roster=roster,
                 reader=ParseqReader(config["jersey"], manage_threads=False), clock=lambda: self.clock))
-            self.ball = initialize("ball", lambda: Ball(config["ball"], config["cpu_threads"]))
+            self.ball = initialize("ball", lambda: (YoloBall if config["ball"]["adapter"] == "yolo" else Ball)(
+                config["ball"], config["cpu_threads"]))
             for name in config["required"]:
                 if self.capabilities[name] != "ok":
                     raise ValueError(f"Required capability unavailable: {name}")
@@ -143,7 +148,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 "warnings": [], "artifacts": {}, "display_colors": palette}
     root = Path(__file__).resolve().parents[1]
     manifest["code_sha256"] = {str(path.relative_to(root)): file_hash(path)
-                               for folder in ("pipeline", "mlops", "training/players", "training/court", "training/jersey", "training/ball", "training/common")
+                               for folder in ("pipeline", "mlops", "training/players", "training/segmentation", "training/court", "training/jersey", "training/ball", "training/common")
                                for path in sorted((root / folder).rglob("*.py")) if "tests" not in path.parts}
     write_json(output / "run.json", manifest)
     if roster:
@@ -230,7 +235,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 tracked = models.tracker.update(detections, frame.image, frame_index=frame.index, scene_cut=cut)
                 history.append(frame)
                 ball_future = None
-                if models.ball and "ball" not in stage_failures and len(history) == 3:
+                if models.ball and "ball" not in stage_failures and len(history) >= getattr(models.ball, "context_frames", 3):
                     ball_future = runtime.call("ball", config["ball"]["device"], models.ball.predict, list(history))
                 stages = {name: {"status": status} for name, status in models.capabilities.items()}
                 if pose_future:

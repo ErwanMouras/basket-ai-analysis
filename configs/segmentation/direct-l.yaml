@@ -1,0 +1,18 @@
+# Experimental generic person proxy: includes spectators and missed referees.
+mode: sequential
+required: [players, referees, pose, jersey]
+people:
+  device: cuda:0
+  resolution: 640
+  confidence: 0.25
+segmentation:
+  strategy: direct
+  weights: models/segmentation/yolo26l-seg.pt
+  resolution: 640
+  class_roles: {"0": player}
+  person_role_policy: non_referee_person_proxy
+  referee_iou: 0.5
+ball: {enabled: false}
+court: {enabled: false}
+pose: {device: cuda:0}
+jersey: {mask_policy: background_neutral}

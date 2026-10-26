@@ -12,6 +12,7 @@ from training.court.config import DEFAULTS as COURT_DEFAULTS, settings as court_
 from training.jersey.config import DEFAULTS as JERSEY_DEFAULTS, settings as jersey_settings
 from training.players.pose import DEFAULTS as POSE_DEFAULTS, settings as pose_settings
 from training.players.tracking import DEFAULTS as TRACKING_DEFAULTS, settings as tracking_settings
+from training.segmentation.config import DEFAULTS as SEGMENTATION_DEFAULTS, settings as segmentation_settings
 
 DEFAULTS = {
     "mode": "parallel", "workers": 4, "prefetch": 2, "cpu_threads": 4,
@@ -25,10 +26,12 @@ DEFAULTS = {
                "variant": "rfdetr_nano"},
     "ball": {"enabled": True, "adapter": "tracknet_v5", "weights": None,
              "reference_root": ".external/tracknet_v5", "device": "cpu",
-             "threshold": 0.5},
+             "threshold": 0.5, "confidence": 0.25, "iou": 0.7,
+             "input_width": 512, "input_height": 288, "checkpoint_sha256": None},
     "court": {**COURT_DEFAULTS, "enabled": True, "overlay": False, "minimap": False},
     "pose": {**POSE_DEFAULTS, "enabled": True}, "jersey": {**JERSEY_DEFAULTS, "enabled": True},
     "tracking": TRACKING_DEFAULTS,
+    "segmentation": SEGMENTATION_DEFAULTS,
     "distance": {"smoothing_tau_s": 0.12, "deadband_m": 0.025,
                  "max_speed_m_s": 12.0, "max_gap_s": 0.2},
 }
@@ -77,6 +80,9 @@ def load_config(path=None, overrides=None):
     cfg["pose"] = pose_settings(cfg["pose"])
     cfg["jersey"] = jersey_settings(cfg["jersey"])
     cfg["tracking"] = tracking_settings(cfg["tracking"])
+    cfg["segmentation"] = segmentation_settings(cfg["segmentation"])
+    if cfg["segmentation"]["strategy"] == "direct" and cfg["people"]["adapter"] != "yolo":
+        raise ValueError("Direct segmentation currently requires the YOLO referee adapter")
     cfg["tracking"]["enabled"] = True
     for key, value in cfg["distance"].items():
         positive(value, key, zero=key in ("smoothing_tau_s", "deadband_m"))
@@ -88,8 +94,19 @@ def load_config(path=None, overrides=None):
     roles = cfg["people"]["class_roles"]
     if not roles or any(not k.isdigit() or v not in ("player", "referee", "unknown") for k, v in roles.items()):
         raise ValueError("class_roles maps model class IDs to player/referee/unknown")
-    if cfg["ball"]["adapter"] != "tracknet_v5":
-        raise ValueError("Supported ball adapter: tracknet_v5 (including TOTNet checkpoints)")
+    if cfg["ball"]["adapter"] not in ("tracknet_v5", "yolo"):
+        raise ValueError("Supported ball adapters: tracknet_v5 or yolo")
+    for key in ("confidence", "iou"):
+        positive(cfg["ball"][key], f"ball.{key}")
+        if cfg["ball"][key] > 1:
+            raise ValueError(f"ball.{key} must be <= 1")
+    for key in ("input_width", "input_height"):
+        value = cfg["ball"][key]
+        if type(value) is not int or value < 32 or value % 32:
+            raise ValueError(f"ball.{key} must be a multiple of 32")
+    digest = cfg["ball"]["checkpoint_sha256"]
+    if digest is not None and (not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+        raise ValueError("Invalid ball.checkpoint_sha256")
     if type(cfg["ball"]["enabled"]) is not bool:
         raise ValueError("ball.enabled must be boolean")
     for name, key in (("people", "confidence"), ("ball", "threshold")):

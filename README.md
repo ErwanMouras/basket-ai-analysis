@@ -81,14 +81,16 @@ flowchart LR
     end
 ```
 
-Perception combines people detection, TrackNet ball localization, RTMPose-M,
+Perception combines people detection, TrackNet or YOLO ball localization, RTMPose-M,
 court landmarks and PARSeq OCR. Tracking is separated by role; identity uses
 jersey numbers, roster and color evidence. Movement statistics preserve coverage
 and the reasons intervals were excluded.
 
 Local-checkpoint inference needs no MLflow server. Registry loading is optional
-for people models. The integrated ball adapter supports V5/V5+TOTNet; V3 and
-YOLO ball integration remains to be implemented.
+for people models. The integrated ball adapters support V5/V5+TOTNet and the
+fine-tuned YOLO26 ball checkpoints; V3 integration remains to be implemented.
+Optional people segmentation supports detector boxes prompted into SAM 2.1 or
+direct YOLO26 L/X instances. The standard profile keeps bbox detection.
 
 ## Results
 
@@ -151,8 +153,10 @@ decoded RGB windows, excluding disk access, loading and other pipeline stages.
 
 **Development candidate: YOLO26L `best_f1.pt` (epoch 30)** — F1 **0.9451**,
 versus **0.9219** for V5+TOTNet, with about **71% lower adapter latency**.
-The next step is its ball-adapter integration and raw-video validation; the current
-video recipe still uses the historical V5 checkpoint.
+Its single-frame ball adapter is integrated and has run on raw HOU–LAL footage
+alongside E-BARD + SAM, pose, court and OCR. The dedicated
+[studio profile](configs/segmentation/studio-sam-yolo26l-ball.yaml) pins the selected
+checkpoint SHA-256. The standard video recipe still uses the historical V5 checkpoint.
 
 ![Ball localization quality versus adapter latency](reports/ball-comparison-2026-10-25/quality-latency.png)
 
@@ -164,6 +168,44 @@ differ, so the ranking compares complete configurations at the stated settings.
 
 [Protocol, all checkpoints, per-match results and limitations](reports/ball-comparison-2026-10-25/README.md)
 · [Reproduce the comparison](training/ball/EVALUATION.md)
+
+### Segmentation comparison and reviewed studio
+
+Two opt-in strategies were compared on **626 verified train/validation images**
+with **5,844 player boxes**, without segmentation fine-tuning: E-BARD bbox →
+SAM 2.1 Tiny (players and referees), or direct YOLO26 L/X segmentation (referees
+stay in detection only).
+
+| Configuration | Player precision / recall, IoU .50 | Bbox AP@50:95, validation | Perception median (ms) |
+| --- | ---: | ---: | ---: |
+| E-BARD baseline | 91.21% / 95.29% | 0.7296 | 3.75 |
+| E-BARD → SAM | 91.21% / 95.29% | 0.7296 | 50.53 |
+| YOLO26 L segmentation | 70.93% / 90.02% | 0.7325 | 19.95 |
+| YOLO26 X segmentation | 86.13% / 87.25% | 0.7617 | 28.68 |
+
+Precision/recall use all 626 images at score .25; AP uses the 401 validation
+images. Timings measure perception only, on an RTX 5080, FP32, batch 1, YOLO at
+640 and SAM at 1024. SAM preserves detector boxes, scores and roles. Direct COCO
+person segmentation includes extra people near the court. Masked OCR showed no
+demonstrated accuracy gain; mask quality still requires reviewed mask labels.
+[Protocol, per-split results, OCR and limitations](reports/segmentation-comparison-2026-10-25/README.md).
+
+The complete **E-BARD + SAM / fine-tuned YOLO26L ball** profile processed all
+**1,842 decoded HOU–LAL frames**, with all six capabilities available and no stage
+errors: **318.49 s processing**, **320.94 s total**, **5.78 frames/s**. The container
+declares 1,843 frames; decoding and source PTS checks both found 1,842. This is a
+development clip and a specific profile, not an independent accuracy benchmark.
+
+The studio offers **bbox, segmentation, both or hidden per category**, with
+independent pose and label controls for players and referees. Masks follow the
+presented video frame, including paused seeking and frame stepping. The
+[display audit](reports/segmentation-display-audit-2026-10-25/README.md) documents
+the corrected one-frame offset, pixel-exact RLE checks and remaining mask limits.
+
+**Review accepted by Erwan on 26 October 2026:** visual playback, segmentation
+display and category controls approved for integration. This confirms the reviewed
+functionality; the comparison does not establish a segmentation/OCR accuracy gain
+or promote a segmentation profile to the default.
 
 ### Full-pipeline validation to complete
 
@@ -195,8 +237,12 @@ model was reloaded and used for inference.
 | Run diagnostics | `health.json` records integrity, availability, exclusions, timings and resources |
 | Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
 
-Local validation on **25 October 2026**: **344 Python tests passed**, 28 optional tests
-skipped, plus **7 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
+Local validation on **26 October 2026**: **371 Python tests passed**, 28 optional tests
+skipped, plus **14 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
+The pre-merge real-model check completed 30 source frames with all six capabilities
+available, no stage errors and 434 valid player/referee masks. Browser checks found
+no synchronization mismatch across 120 presented frames at 1×/2×, frame stepping,
+delayed annotations and the fallback without video presentation callbacks.
 The [CI workflow](.github/workflows/players.yml) runs the regression suites and
 builds the viewer container. Run checks in the configured players environment
 with a new output folder:
@@ -241,6 +287,11 @@ make view-analysis
 ```
 
 Open **http://127.0.0.1:8765**. Each analysis needs a new output directory.
+For the reviewed SAM + YOLO26L ball configuration, install the segmentation
+checkpoints with `.venv-players/bin/python -m training.segmentation.setup`, then
+pass `ANALYSIS_CONFIG=configs/segmentation/studio-sam-yolo26l-ball.yaml` to
+`make analyze-video`. Its ball checkpoint must already exist locally at
+`ball.weights` with the pinned SHA-256; see the [segmentation guide](training/segmentation/README.md).
 For CPU setup, use `requirements-cpu.lock` with `--torch-backend cpu` and set each
 model's device to `cpu` in the analysis configuration.
 
@@ -291,7 +342,8 @@ applies to people; ball positions remain in image coordinates.
 The [implementation plan](docs/ROADMAP.md) tracks the remaining work and completion criteria.
 
 - [x] Compare ball checkpoints using a common causal evaluation; select YOLO26L for integration.
-- [ ] Integrate the selected ball checkpoint into the video pipeline and validate on raw footage.
+- [x] Integrate the selected ball checkpoint into the video pipeline and validate on raw footage.
+- [x] Compare segmentation strategies and review category-specific studio overlays.
 - [ ] Publish the 30-second real-inference demo and reviewed examples.
 - [ ] Add independent test clips and report tracking, identity and geometry quality.
 - [ ] Publish a consistent source/data release and verify remote CI.
@@ -304,6 +356,7 @@ The [implementation plan](docs/ROADMAP.md) tracks the remaining work and complet
 | Pipeline, configuration and output contracts | [Pipeline](pipeline/README.md) |
 | Training and evaluating people detectors | [Training](training/players/TRAINING.md) · [Evaluation](training/players/EVALUATION.md) |
 | Ball evaluation and temporal policies | [Ball evaluation](training/ball/EVALUATION.md) |
+| Segmentation strategies, masks and OCR | [Segmentation](training/segmentation/README.md) · [Comparison](reports/segmentation-comparison-2026-10-25/README.md) · [Display audit](reports/segmentation-display-audit-2026-10-25/README.md) |
 | Jersey recognition and court geometry | [Jersey OCR](training/jersey/README.md) · [Court calibration](training/court/README.md) |
 | Registry, release and reproducibility | [Model registry](training/players/PIPELINE.md) · [Evaluation and release](docs/EVALUATION_AND_RELEASE.md) |
 | Viewer controls | [Viewer](viewer/README.md) |

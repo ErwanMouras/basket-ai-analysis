@@ -1,0 +1,206 @@
+{
+  "training_executed": false,
+  "annotation_sources_modified": false,
+  "suites": [
+    {
+      "name": "players",
+      "returncode": 0,
+      "tests": 154,
+      "skipped": 10,
+      "seconds": 19.239796575999208
+    },
+    {
+      "name": "ball",
+      "returncode": 0,
+      "tests": 84,
+      "skipped": 17,
+      "seconds": 3.7081054099999164
+    },
+    {
+      "name": "court",
+      "returncode": 0,
+      "tests": 21,
+      "skipped": 0,
+      "seconds": 1.3799717309993866
+    },
+    {
+      "name": "jersey",
+      "returncode": 0,
+      "tests": 31,
+      "skipped": 1,
+      "seconds": 0.8325427620002301
+    },
+    {
+      "name": "segmentation",
+      "returncode": 0,
+      "tests": 23,
+      "skipped": 0,
+      "seconds": 0.8018426989983709
+    },
+    {
+      "name": "analysis",
+      "returncode": 0,
+      "tests": 58,
+      "skipped": 0,
+      "seconds": 1.610018110000965
+    },
+    {
+      "name": "mlops",
+      "returncode": 0,
+      "tests": 16,
+      "skipped": 0,
+      "seconds": 0.7647502230011014
+    },
+    {
+      "name": "viewer",
+      "returncode": 0,
+      "tests": 8,
+      "skipped": 0,
+      "seconds": 4.075824104000276
+    }
+  ],
+  "status": "passed",
+  "javascript_returncode": 0,
+  "javascript_tests": {
+    "returncode": 0,
+    "tests": 7
+  },
+  "segmentation_cpu_suite": {
+    "tests": 23,
+    "passed": 23,
+    "skipped": 0,
+    "log": "runs/segmentation-cpu-tests.log"
+  },
+  "real_model_smokes": {
+    "status": "passed",
+    "device": "cuda:0",
+    "results": [
+      {
+        "recipe": "box-prompt",
+        "status": "partial",
+        "frames": 30,
+        "masks": 400,
+        "player_observations": 310,
+        "referee_observations": 90,
+        "referee_masks": 90,
+        "recompute": "passed",
+        "timings": {
+          "load_s": 1.5864319629999954,
+          "processing_s": 8.432754363999948,
+          "total_s": 10.0260553789999,
+          "fps": 3.557556488076093,
+          "stages": {
+            "people": {
+              "calls": 30,
+              "seconds": 1.8307719879996966,
+              "wait_seconds": 9.165399910671113e-05
+            },
+            "pose": {
+              "calls": 30,
+              "seconds": 0.7584059389989761,
+              "wait_seconds": 0.00020241000061105296
+            },
+            "jersey": {
+              "calls": 30,
+              "seconds": 0.40378468600056294,
+              "wait_seconds": 0.00020519699933174707
+            }
+          },
+          "finalization_s": 0.006868711999914012
+        },
+        "resources": {
+          "main_peak_rss_mb": 3100.3671875,
+          "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+          "main_peak_torch_cuda_allocated_mb": {
+            "0": 825.7333984375
+          }
+        }
+      },
+      {
+        "recipe": "direct-l",
+        "status": "partial",
+        "frames": 30,
+        "masks": 338,
+        "player_observations": 338,
+        "referee_observations": 90,
+        "referee_masks": 0,
+        "recompute": "passed",
+        "timings": {
+          "load_s": 0.24917634799999178,
+          "processing_s": 8.057454292000102,
+          "total_s": 8.312377276999996,
+          "fps": 3.7232603391601864,
+          "stages": {
+            "people": {
+              "calls": 30,
+              "seconds": 0.5846197349997055,
+              "wait_seconds": 8.318500067616696e-05
+            },
+            "pose": {
+              "calls": 30,
+              "seconds": 0.7170665750004446,
+              "wait_seconds": 0.00019421599904489995
+            },
+            "jersey": {
+              "calls": 30,
+              "seconds": 0.29491252300044835,
+              "wait_seconds": 0.00020338799981800548
+            }
+          },
+          "finalization_s": 0.005746236000049976
+        },
+        "resources": {
+          "main_peak_rss_mb": 3525.13671875,
+          "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+          "main_peak_torch_cuda_allocated_mb": {
+            "0": 753.9658203125
+          }
+        }
+      },
+      {
+        "recipe": "direct-x",
+        "status": "partial",
+        "frames": 30,
+        "masks": 283,
+        "player_observations": 283,
+        "referee_observations": 90,
+        "referee_masks": 0,
+        "recompute": "passed",
+        "timings": {
+          "load_s": 0.43140291600002456,
+          "processing_s": 6.6212447039999915,
+          "total_s": 7.059358511000028,
+          "fps": 4.530870152235358,
+          "stages": {
+            "people": {
+              "calls": 30,
+              "seconds": 0.7541839850000542,
+              "wait_seconds": 8.434700043835619e-05
+            },
+            "pose": {
+              "calls": 30,
+              "seconds": 0.6556063489999815,
+              "wait_seconds": 0.00017722500001582375
+            },
+            "jersey": {
+              "calls": 30,
+              "seconds": 0.2812503029999789,
+              "wait_seconds": 0.00021655200043824152
+            }
+          },
+          "finalization_s": 0.006710660999942775
+        },
+        "resources": {
+          "main_peak_rss_mb": 3578.94921875,
+          "cuda_scope": "PyTorch allocations only; excludes ONNX Runtime and CUDA contexts",
+          "main_peak_torch_cuda_allocated_mb": {
+            "0": 555.49072265625
+          }
+        }
+      }
+    ]
+  },
+  "video_comparison": "video-comparison.json",
+  "video_frames_per_recipe": 150,
+  "video_recipes": 4
+}

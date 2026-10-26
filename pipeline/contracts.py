@@ -41,6 +41,12 @@ def validate_frame(row):
             raise ValueError("Invalid metric position")
         if type(p["confidence"]) not in (float, int) or not 0 <= p["confidence"] <= 1:
             raise ValueError("Invalid confidence")
+        if p.get("segmentation") is not None:
+            from training.segmentation.masks import validate
+            segmentation = p["segmentation"]
+            if segmentation.get("status") not in ("ok", "empty"):
+                raise ValueError("Invalid segmentation status")
+            validate(segmentation["mask"], row["width"], row["height"])
         pose = p.get("pose")
         if pose is not None and (pose["format"] != "coco17" or len(pose["keypoints"]) != 17 or
                                  any(v is not None and not finite_point(v, 2) for v in pose["keypoints"])):

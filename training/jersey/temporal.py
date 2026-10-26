@@ -303,6 +303,7 @@ class JerseyRecognizer:
                         "timestamp_seconds": crop["timestamp_seconds"],
                         "crop_bbox": crop["bbox"],
                         "region": crop["region"],
+                        "mask_audit": crop.get("mask_audit"),
                         "quality": crop["quality"],
                         "text": result["text"],
                         "number": n if permitted else None,

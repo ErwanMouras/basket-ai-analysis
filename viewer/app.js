@@ -2,11 +2,27 @@ const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#e3b1ab' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
-  target: -1, current: -1, generation: 0, loaded: false, selected: null, teamId: null };
+  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
-const filters = () => Object.fromEntries([...document.querySelectorAll('[data-filter]')].map(input => [input.dataset.filter, input.checked]));
+const maskCache = new Map();
+let maskCachePixels = 0;
+function filters() {
+  const options=Object.fromEntries([...document.querySelectorAll('[data-filter]')].map(input=>[input.dataset.filter,input.checked]));
+  options.playerMode=$('playerDisplay').value || 'bbox';
+  options.refereeMode=$('refereeDisplay').value || 'bbox';
+  options.players=options.playerMode !== 'hidden';
+  options.referees=options.refereeMode !== 'hidden';
+  return options;
+}
+function personOptions(person, on) {
+  const prefix=person.role === 'referee' ? 'referee' : 'player';
+  const mode=on[`${prefix}Mode`];
+  return {bbox:mode === 'bbox' || mode === 'both',
+    segmentation:mode === 'segmentation' || mode === 'both',
+    pose:on[`${prefix}Pose`],labels:on[`${prefix}Labels`]};
+}
 const params = (values) => new URLSearchParams(values).toString();
 let toastTimer;
 function toast(message) { const el = $('toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 4200); }
@@ -22,6 +38,18 @@ function nearestFrame(time) {
   while (lo < hi) { const mid = (lo + hi) >> 1; if (a[mid] < time) lo = mid + 1; else hi = mid; }
   if (lo >= a.length) return a.length - 1;
   return lo > 0 && time - a[lo - 1] <= a[lo] - time ? lo - 1 : lo;
+}
+// currentTime can lie inside a frame; its nearest timestamp may belong to the next image.
+function frameAtTime(time) {
+  const a = state.meta?.timestamps || [];
+  if (!a.length) return -1;
+  let lo = 0, hi = a.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (a[mid] <= time + 1e-6) lo = mid + 1; else hi = mid; }
+  return Math.max(0, lo - 1);
+}
+function clearPresentation() {
+  state.presentedTime = null; state.target = -1; state.current = -1; state.frame = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
 }
 function duration() { const a = state.meta?.timestamps || []; return a.length ? a[a.length - 1] : 0; }
 async function init() {
@@ -41,6 +69,8 @@ async function loadRun(name) {
   if (!name) return;
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null;
+  state.presentedTime = null;
+  maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
   $('runMeta').textContent='Chargement du match…';
   renderRosterPanel();
@@ -68,7 +98,8 @@ async function loadRun(name) {
     await fetchBatch(0);
     if (generation !== state.generation) return;
     if (data.video_available) $('videoEmpty').classList.add('hidden');
-    displayAt(0, true);
+    if (!data.video_available || !video.requestVideoFrameCallback) displayAt(0, true);
+    else if (state.presentedTime !== null) displayAt(state.presentedTime, true, true);
   } catch (err) {
     if (generation !== state.generation) return;
     $('videoEmpty').querySelector('strong').textContent = 'Impossible de charger le run';
@@ -87,7 +118,7 @@ async function fetchBatch(index) {
       const oldest=state.cache.keys().next().value;
       state.cache.delete(oldest);state.batches.delete(Math.floor(oldest/30)*30);
     }
-    if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true);
+    if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true, true);
     else if (state.current >= start && state.current < start + 35 && state.frame) drawOverlay(state.frame);
   }).catch(err => {
     if (generation !== state.generation) return;
@@ -102,11 +133,11 @@ async function fetchOne(index) {
     const data = await json(`/api/frame?${params({ name: state.name, index })}`);
     if (generation !== state.generation) return;
     state.cache.set(index, data);
-    if (state.target === index) displayAt(state.meta.timestamps[index], true);
+    if (state.target === index) displayAt(state.meta.timestamps[index], true, true);
   } catch (err) { if (generation === state.generation) toast(err.message); }
 }
-function displayAt(time, force = false) {
-  const index = nearestFrame(time);
+function displayAt(time, force = false, presented = false) {
+  const index = presented ? nearestFrame(time) : frameAtTime(time);
   if (index < 0) return;
   state.target = index;
   const data = state.cache.get(index);
@@ -131,11 +162,14 @@ function updateClock(time = video.currentTime || 0) {
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
 }
 function videoFrameLoop(_now, metadata) {
-  if (state.loaded) { updateClock(metadata.mediaTime); displayAt(metadata.mediaTime); }
+  if (state.loaded) {
+    state.presentedTime = metadata.mediaTime;
+    updateClock(metadata.mediaTime); displayAt(metadata.mediaTime, false, true);
+  }
   video.requestVideoFrameCallback(videoFrameLoop);
 }
 if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(videoFrameLoop);
-else { const fallback = () => { if (state.loaded && !video.paused) { updateClock(); displayAt(video.currentTime); } requestAnimationFrame(fallback); }; requestAnimationFrame(fallback); }
+else { const fallback = () => { if (state.loaded && !video.paused && !video.seeking) { updateClock(); displayAt(video.currentTime); } requestAnimationFrame(fallback); }; requestAnimationFrame(fallback); }
 function resizeOverlay() {
   const stage = $('videoStage').getBoundingClientRect();
   const w = video.videoWidth || state.meta?.run.source?.width || 1920;
@@ -203,14 +237,56 @@ function personColor(person, segment) {
     ||palette.teams?.[candidates[0].team_id]||C.player;
   return person.display_color || C.player;
 }
+function maskSurface(mask, color, width, height) {
+  if (mask?.encoding !== 'roi_rle_c') return null;
+  const roi = mask.roi, counts = mask.counts;
+  if (!Array.isArray(roi) || roi.length !== 4 || !roi.every(Number.isInteger)) return null;
+  const [a,b,c,d] = roi, w = c-a, h = d-b, pixels = w*h;
+  if (!(a>=0 && b>=0 && w>0 && h>0 && c<=width && d<=height && pixels<=8388608)) return null;
+  const cached = maskCache.get(mask);
+  if (cached?.color === color) return cached.surface;
+  if (!Array.isArray(counts) || !counts.length || !counts.every(n=>Number.isInteger(n) && n>=0)
+      || counts.reduce((sum,n)=>sum+n,0) !== pixels) return null;
+  if (cached) { maskCache.delete(mask); maskCachePixels -= cached.pixels; }
+  while (maskCache.size && (maskCachePixels + pixels > 8388608 || maskCache.size >= 64)) {
+    const key = maskCache.keys().next().value;
+    maskCachePixels -= maskCache.get(key).pixels; maskCache.delete(key);
+  }
+  const surface = document.createElement('canvas'); surface.width=w; surface.height=h;
+  const paint=surface.getContext('2d'); paint.fillStyle=color;
+  let offset=0;
+  counts.forEach((count,index)=>{
+    const end=offset+count;
+    if (index%2) {
+      while (offset<end) {
+        const x=offset%w, y=Math.floor(offset/w), length=Math.min(w-x,end-offset);
+        paint.fillRect(x,y,length,1); offset+=length;
+      }
+    } else offset=end;
+  });
+  maskCache.set(mask,{surface,color,pixels}); maskCachePixels+=pixels;
+  return surface;
+}
+function drawSegmentation(row, on) {
+  for (const person of row.persons || []) {
+    if (!visiblePerson(person,row.segment_id,on) || !personOptions(person,on).segmentation || person.segmentation?.status !== 'ok') continue;
+    const mask=person.segmentation.mask;
+    const surface=maskSurface(mask,personColor(person,row.segment_id),row.width,row.height);
+    if (!surface) continue;
+    ctx.save(); ctx.globalAlpha=.38;
+    ctx.drawImage(surface,mask.roi[0],mask.roi[1]); ctx.restore();
+  }
+}
 function drawOverlay(row) {
   resizeCanvasOnly(row);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const on = filters();
+  drawSegmentation(row,on);
   for (const person of row.persons || []) {
     const role = person.role;
     if (!visiblePerson(person, row.segment_id, on)) continue;
-    const showBox = true;
+    const options=personOptions(person,on);
+    const showBox = options.bbox;
     const box = person.bbox;
     if (!Array.isArray(box) || box.length !== 4) continue;
     const color = personColor(person,row.segment_id);
@@ -229,7 +305,7 @@ function drawOverlay(row) {
       // Draw short corners so the frame remains legible over game footage.
       ctx.beginPath(); ctx.moveTo(x1+size,y1);ctx.lineTo(x1,y1);ctx.lineTo(x1,y1+size);ctx.moveTo(x2-size,y1);ctx.lineTo(x2,y1);ctx.lineTo(x2,y1+size);ctx.moveTo(x1,y2-size);ctx.lineTo(x1,y2);ctx.lineTo(x1+size,y2);ctx.moveTo(x2-size,y2);ctx.lineTo(x2,y2);ctx.lineTo(x2,y2-size);ctx.stroke();
     }
-    if (on.labels && showBox) {
+    if (options.labels) {
       const number=personNumber(person,row.segment_id);
       const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? 'Arbitre' : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
@@ -241,7 +317,7 @@ function drawOverlay(row) {
       ctx.fillStyle = '#0c1512eb'; ctx.fillRect(x1, top, labelW, 24);
       ctx.fillStyle = color; ctx.fillText(title, x1+9, top+17);
     }
-    if (on.pose && person.pose?.keypoints) {
+    if (options.pose && person.pose?.keypoints) {
       const kp = person.pose.keypoints, valid = person.pose.valid || [];
       ctx.strokeStyle = C.pose; ctx.lineWidth = 2; ctx.globalAlpha = .85;
       for (const [a,b] of SKELETON) if (valid[a] && valid[b] && kp[a] && kp[b]) { ctx.beginPath();ctx.moveTo(...kp[a]);ctx.lineTo(...kp[b]);ctx.stroke(); }
@@ -252,7 +328,7 @@ function drawOverlay(row) {
   }
   if (on.ball && row.ball?.position_px) {
     const current = row.frame_index;
-    for (let age = 5; age >= 1; age--) {
+    for (let age = on.ballTrail ? 5 : 0; age >= 1; age--) {
       const previous = state.cache.get(current - age)?.observation;
       if (!previous || previous.segment_id !== row.segment_id) continue;
       // A scene cut ends the visible trail even when segment IDs are absent in older runs.
@@ -446,9 +522,9 @@ function seekToFrame(index){
   const timestamp=state.meta.timestamps[index], next=state.meta.timestamps[index+1];
   // Seek inside the frame: browser timestamp rounding can otherwise select its predecessor.
   const margin=next==null ? .001 : Math.min(.001,(next-timestamp)/2);
+  clearPresentation();
   video.currentTime=timestamp+margin;updateClock();
-  state.current=-1;
-  displayAt(state.meta.timestamps[index], true);
+  fetchBatch(index);
 }
 function stepFrame(delta){video.pause();seekToFrame((state.current>=0?state.current:nearestFrame(video.currentTime))+delta);}
 function stepMarker(delta){
@@ -473,13 +549,20 @@ function backToRoster(){
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
 $('rosterBack').addEventListener('click',backToRoster);
 $('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast('Vidéo source indisponible.');if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
-video.addEventListener('play',()=>{updateClock();displayAt(video.currentTime);});
+video.addEventListener('play',()=>updateClock());
 video.addEventListener('pause',()=>updateClock());
 video.addEventListener('timeupdate',()=>updateClock());
-video.addEventListener('seeked',()=>{updateClock();displayAt(video.currentTime,true);});
+video.addEventListener('seeking',clearPresentation);
+video.addEventListener('seeked',()=>{
+  updateClock();
+  // A seek may finish before or after the presentation callback. Never overwrite its PTS
+  // with the requested currentTime, nor paint a requested mask over the previous image.
+  if (!video.requestVideoFrameCallback) displayAt(video.currentTime,true);
+  else if (state.presentedTime !== null) displayAt(state.presentedTime,true,true);
+});
 video.addEventListener('loadedmetadata',resizeOverlay);
 video.addEventListener('error',()=>{if(state.loaded)toast('La vidéo ne peut pas être lue par ce navigateur.');});
-$('seek').addEventListener('input',e=>{video.currentTime=Number(e.target.value);updateClock();ctx.clearRect(0,0,canvas.width,canvas.height);});
+$('seek').addEventListener('input',e=>{clearPresentation();video.currentTime=Number(e.target.value);updateClock();});
 $('prevFrame').addEventListener('click',()=>stepFrame(-1));
 $('nextFrame').addEventListener('click',()=>stepFrame(1));
 $('prevMarker').addEventListener('click',()=>stepMarker(-1));
@@ -496,8 +579,8 @@ $('speed').addEventListener('change',e=>video.playbackRate=Number(e.target.value
 $('fullscreen').addEventListener('click',()=>{const el=$('videoStage');if(document.fullscreenElement)document.exitFullscreen();else el.requestFullscreen?.();});
 document.addEventListener('fullscreenchange',resizeOverlay);window.addEventListener('resize',resizeOverlay);
 new ResizeObserver(resizeOverlay).observe($('videoStage'));
-document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
-$('identityMode').addEventListener('change',()=>{document.querySelector('[data-filter="referees"]').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
+document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
+$('identityMode').addEventListener('change',()=>{$('refereeOptions').disabled=$('identityMode').value==='identified';if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','BUTTON','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.code==='Space'){e.preventDefault();$('playButton').click();}
   else if(e.code==='ArrowRight'||e.code==='ArrowLeft'){e.preventDefault();if(e.shiftKey)stepFrame(e.code==='ArrowRight'?1:-1);else seekToFrame(nearestFrame(video.currentTime+(e.code==='ArrowRight'?1:-1)));}

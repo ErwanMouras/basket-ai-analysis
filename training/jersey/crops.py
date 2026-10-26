@@ -74,6 +74,7 @@ def candidate(image, detection, others, config, *, variant="lower"):
     if overlap > config["max_overlap"]:
         return None
     crop = image[b:d, a:c]
+    mask_audit = {"policy": config.get("mask_policy", "disabled"), "status": "disabled", "coverage": None}
     # Bound quality work even on 4K closeups.
     scale = min(1, 160 / max(crop.shape[:2]))
     gray = cv2.cvtColor(cv2.resize(crop, None, fx=scale, fy=scale), cv2.COLOR_BGR2GRAY)
@@ -88,6 +89,21 @@ def candidate(image, detection, others, config, *, variant="lower"):
         + 0.3 * min(1, contrast / 48)
         + 0.3 * min(1, area**0.5 / 96)
     ) * (1 - overlap)
+    # Evaluate quality on original pixels: synthetic mask edges must not improve
+    # sharpness or contrast. Preserve bbox/pose framing for the paired ablation.
+    if mask_audit["policy"] != "disabled":
+        from training.segmentation.masks import crop_mask
+        segmentation = detection.get("segmentation")
+        usable = segmentation is not None and segmentation["status"] == "ok"
+        foreground = crop_mask(segmentation["mask"], [a, b, c, d]) if usable else None
+        coverage = float(foreground.mean()) if usable else None
+        usable = usable and coverage >= config["min_mask_coverage"]
+        mask_audit.update(coverage=coverage, status="applied" if usable else "raw_fallback")
+        if not usable and mask_audit["policy"] == "require_mask":
+            return None
+        if usable:
+            crop = crop.copy()
+            crop[~foreground] = 127
     rgb = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)).resize(
         (128, 32), Image.Resampling.BICUBIC
     )
@@ -106,4 +122,5 @@ def candidate(image, detection, others, config, *, variant="lower"):
         "sharpness": sharpness,
         "contrast": contrast,
         "overlap": overlap,
+        "mask_audit": mask_audit,
     }

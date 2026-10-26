@@ -25,6 +25,7 @@ def main():
               ("ball", ["discover", "-s", "training/ball/tests"]),
               ("court", ["discover", "-s", "training/court/tests"]),
               ("jersey", ["discover", "-s", "training/jersey/tests"]),
+              ("segmentation", ["discover", "-s", "training/segmentation/tests"]),
               ("analysis", ["discover", "-s", "pipeline/tests"]),
               ("mlops", ["discover", "-s", "mlops/tests"]), ("viewer", ["viewer.test_server"])]
     report = {"training_executed": False, "annotation_sources_modified": False, "suites": [], "status": "running"}

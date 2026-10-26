@@ -1,0 +1,66 @@
+[
+  {
+    "file": "hou_lal_g1-first-f0.jpg",
+    "frame_id": "5137abb208e3d71860aecf9deb42b68700e2cd8e3981ae09d7bcbe7ccfcff087",
+    "frame_index": 0,
+    "match_id": "hou_lal_g1",
+    "selection": "first",
+    "image_sha256": "33f9b4af99c9a4c08b2ac06c582248a57b7203fc220706646ac6c7304179abad"
+  },
+  {
+    "file": "hou_lal_g1-worst-f1470.jpg",
+    "frame_id": "575f919744dbca1903c4228a5b25754acd8d5e46e34657e4f767181bcd0cbbc1",
+    "frame_index": 1470,
+    "match_id": "hou_lal_g1",
+    "selection": "worst",
+    "image_sha256": "99806c14ef2f5ce2309e84fc42808a5b0709f9c1322bacc813a10d5ba746a796"
+  },
+  {
+    "file": "min_den_g3-first-f0.jpg",
+    "frame_id": "ce8512d51bebd988f5e18540ff1b0d378c9d8e29913ae1e0a3dd6b2e65b8bd9a",
+    "frame_index": 0,
+    "match_id": "min_den_g3",
+    "selection": "first",
+    "image_sha256": "5f39124037c8bacfb617ebdccd2e1d0fc6443fec8ca822dc7d64fb7ecf46f10e"
+  },
+  {
+    "file": "min_den_g3-worst-f90.jpg",
+    "frame_id": "a8e638a9f283b7f43488020b448bf9a0799bce48368ba54ca8c3e9c97b713b39",
+    "frame_index": 90,
+    "match_id": "min_den_g3",
+    "selection": "worst",
+    "image_sha256": "816e0fd3c25952c396d56870c0c099bb35d28bba1d51527ed53123786722cfa1"
+  },
+  {
+    "file": "phx_okc_g4-first-f0.jpg",
+    "frame_id": "247113e517de9b691b5bb721e4fa6305ae2b9002da4f6f654e30ba4a8314d4df",
+    "frame_index": 0,
+    "match_id": "phx_okc_g4",
+    "selection": "first",
+    "image_sha256": "e1f6887de28265b06597f5315fef733ff8f0727ca5a69603bc7ce1d8a61f4f27"
+  },
+  {
+    "file": "phx_okc_g4-worst-f25.jpg",
+    "frame_id": "c2827d4bb7b243da246f7daf4bafafd85e9635e6922170e712475a8b263dce2f",
+    "frame_index": 25,
+    "match_id": "phx_okc_g4",
+    "selection": "worst",
+    "image_sha256": "38645f3ee94b62dcefa24a665791ca45a38373ea6337b4f74376d78feb11e645"
+  },
+  {
+    "file": "por_sas_g5-first-f0.jpg",
+    "frame_id": "ddd8fb45586f235b577f52bc55d82fdfc1c546782f8e24a77b8fa21d8f57775a",
+    "frame_index": 0,
+    "match_id": "por_sas_g5",
+    "selection": "first",
+    "image_sha256": "e19a2230ea820c1c1741531ed2c1568116e136111f4288471f52fb037abc6575"
+  },
+  {
+    "file": "por_sas_g5-worst-f143.jpg",
+    "frame_id": "cdb8bc38ade5ad8619ff78429bef5d2a6720e5a6e0c0c694d27e9b9cfa53eec5",
+    "frame_index": 143,
+    "match_id": "por_sas_g5",
+    "selection": "worst",
+    "image_sha256": "760726045efa172124ef92cc9aeee3fd9fdfcb807a63c9b294fe9b6e778ef26d"
+  }
+]
