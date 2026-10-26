@@ -1,7 +1,7 @@
 """Time-weighted, camera-plan-local spatial summaries of completed observations.
 
-No ball projection, inferred possessions, cross-cut interpolation or synthetic
-player locations. The heatmaps are distributions of the data we observed.
+No ball projection, cross-cut interpolation or synthetic player locations.
+Attack/defense labels are conservative estimates from the separate phase index. The heatmaps are distributions of the data we observed.
 """
 
 from __future__ import annotations
@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 import math
+
+from viewer.phases import PhaseIndex, team_of
 
 
 def finite(value):
@@ -49,6 +51,9 @@ class Interval:
     first: tuple | None
     last: tuple | None
     distance: float | None = None
+    owner: str | None = None
+    direction: int | None = None
+    episode: int = -1
 
 
 class HeatmapIndex:
@@ -90,6 +95,11 @@ class HeatmapIndex:
         gap, speed = config.get("max_gap_s"), config.get("max_speed_m_s")
         self.max_gap = gap if finite(gap) and gap > 0 else 0.2
         self.max_speed = speed if finite(speed) and speed > 0 else 12.0
+        self.phases = PhaseIndex(
+            tuple(team["team_id"] for team in (roster or {}).get("teams", [])),
+            self.geometry,
+            self.max_gap,
+        )
         self.plans = []
         self.intervals = []
         self.previous = {}
@@ -127,6 +137,7 @@ class HeatmapIndex:
             )
         plan = self.plans[-1]
         plan["end_s"] = now
+        self.phases.add_frame(row, plan["id"])
         people = [
             person
             for person in row.get("persons", [])
@@ -140,13 +151,8 @@ class HeatmapIndex:
             # Ambiguous duplicates must never double the time or create a false named map.
             if tracks[person["track_id"]] > 1 or (subject and subjects[subject] > 1):
                 continue
-            identity = person.get("resolved_identity") or {}
-            team = (
-                identity.get("team_id")
-                or person.get("resolved_team_id")
-                or (person.get("jersey") or {}).get("team_id")
-            )
-            if team not in self.team_ids or (person.get("jersey") or {}).get("team_group_conflict"):
+            team = team_of(person)
+            if team not in self.team_ids:
                 continue
             if subject not in self.subjects:
                 subject = None
@@ -207,6 +213,16 @@ class HeatmapIndex:
         interval.distance = float(distance)
 
     def finish(self):
+        self.phases.finish()
+        spans = {(span.plan, span.start, span.end): span for span in self.phases.spans}
+        for interval in self.intervals:
+            span = spans.get((interval.plan, interval.start, interval.end))
+            if span:
+                interval.owner, interval.direction, interval.episode = (
+                    span.owner,
+                    span.direction,
+                    span.episode,
+                )
         # No need to retain the join table or previous-frame data after indexing.
         self.track_intervals.clear()
         self.previous.clear()
@@ -219,9 +235,37 @@ class HeatmapIndex:
             "court": self.geometry,
             "subjects": list(self.subjects.values()),
             "plans": self.plans,
+            "bounds": (
+                {"start_s": self.plans[0]["start_s"], "end_s": self.plans[-1]["end_s"]}
+                if self.plans
+                else None
+            ),
+            "phase_analysis": self.phases.metadata(),
         }
 
-    def summarize(self, subject_id, plan_id, start, end, metric="presence"):
+    def phase_summary(self, team, start, end, episode=None):
+        durations = {
+            "offense_s": 0.0,
+            "defense_s": 0.0,
+            "unknown_s": 0.0,
+            "orientation_missing_s": 0.0,
+        }
+        for span in self.phases.spans:
+            if episode is not None and span.owner and span.episode != episode:
+                continue
+            seconds = max(0.0, min(end, span.end) - max(start, span.start))
+            role = "unknown" if not span.owner else "offense" if span.owner == team else "defense"
+            durations[role + "_s"] += seconds
+            if span.owner and not span.direction:
+                durations["orientation_missing_s"] += seconds
+        durations["unknown_s"] = max(
+            0.0, end - start - durations["offense_s"] - durations["defense_s"]
+        )
+        return durations
+
+    def summarize(
+        self, subject_id, plan_id, start, end, metric="presence", phase=None, episode=None
+    ):
         subject = self.subjects[subject_id]
         length, width = self.geometry["length"], self.geometry["width"]
         nx, ny = math.ceil(length), math.ceil(width)
@@ -230,7 +274,14 @@ class HeatmapIndex:
         spans = []
         for interval in self.intervals:
             if (
-                interval.plan != plan_id
+                (phase is None and interval.plan != plan_id)
+                or (episode is not None and interval.episode != episode)
+                or (phase == "offense" and interval.owner != subject["team_id"])
+                or (
+                    phase == "defense"
+                    and (not interval.owner or interval.owner == subject["team_id"])
+                )
+                or (phase == "unknown" and interval.owner is not None)
                 or (subject["kind"] == "team" and interval.team != subject["team_id"])
                 or (subject["kind"] == "player" and interval.subject != subject_id)
             ):
@@ -240,7 +291,11 @@ class HeatmapIndex:
                 continue
             seconds = b - a
             observed += seconds
-            if not interval.first or not interval.last:
+            if (
+                not interval.first
+                or not interval.last
+                or (phase is not None and interval.direction is None)
+            ):
                 continue
             localized += seconds
             spans.append((a, b))
@@ -258,7 +313,12 @@ class HeatmapIndex:
             hi = (b - interval.start) / (interval.end - interval.start)
 
             def point(fraction):
-                return tuple(x + fraction * (y - x) for x, y in zip(interval.first, interval.last))
+                xy = tuple(x + fraction * (y - x) for x, y in zip(interval.first, interval.last))
+                return (
+                    (length - xy[0], width - xy[1])
+                    if phase is not None and interval.direction == -1
+                    else xy
+                )
 
             first, last = point(lo), point(hi)
             # Presence is time, not FPS. Distribute moving intervals along their short path;
@@ -290,9 +350,23 @@ class HeatmapIndex:
             "localized_video_s": union_duration(spans),
             "coverage": localized / observed if observed else None,
             "movement_coverage": measured / localized if localized else None,
+            "phase": phase,
+            "phase_durations": (
+                self.phase_summary(subject["team_id"], start, end, episode) if phase else None
+            ),
         }
 
-    def query(self, subject, plan, start=None, end=None, mode="presence", compare=None):
+    def query(
+        self,
+        subject,
+        plan=0,
+        start=None,
+        end=None,
+        mode="presence",
+        compare=None,
+        phase=None,
+        episode=None,
+    ):
         if not self.geometry or not self.subjects:
             raise ValueError("Heatmaps unavailable without court dimensions and a run roster")
         if subject not in self.subjects or mode not in (
@@ -303,9 +377,18 @@ class HeatmapIndex:
             "evolution",
         ):
             raise ValueError("Invalid heatmap subject or mode")
-        if type(plan) is not int or not 0 <= plan < len(self.plans):
-            raise ValueError("Invalid camera plan")
-        bounds = self.plans[plan]
+        if phase is not None:
+            if phase not in ("offense", "defense", "unknown") or not self.plans:
+                raise ValueError("Invalid game phase")
+            bounds = {"start_s": self.plans[0]["start_s"], "end_s": self.plans[-1]["end_s"]}
+            if episode is not None:
+                if type(episode) is not int or not 0 <= episode < len(self.phases.episodes):
+                    raise ValueError("Invalid game passage")
+                bounds = self.phases.episodes[episode]
+        else:
+            if type(plan) is not int or not 0 <= plan < len(self.plans):
+                raise ValueError("Invalid camera plan")
+            bounds = self.plans[plan]
         start = bounds["start_s"] if start is None else start
         end = bounds["end_s"] if end is None else end
         if (
@@ -315,7 +398,7 @@ class HeatmapIndex:
             or end > bounds["end_s"] + 1e-6
             or end <= start
         ):
-            raise ValueError("Heatmap interval must stay inside one camera plan")
+            raise ValueError("Heatmap interval must stay inside the selected scope")
         if mode == "comparison" and (
             compare not in self.subjects
             or compare == subject
@@ -326,16 +409,29 @@ class HeatmapIndex:
         if mode == "evolution":
             middle = (start + end) / 2
             maps = [
-                self.summarize(subject, plan, start, middle),
-                self.summarize(subject, plan, middle, end),
+                self.summarize(subject, plan, start, middle, phase=phase, episode=episode),
+                self.summarize(subject, plan, middle, end, phase=phase, episode=episode),
             ]
         else:
-            maps = [self.summarize(subject, plan, start, end, metric)]
+            maps = [self.summarize(subject, plan, start, end, metric, phase, episode)]
             if mode == "comparison":
-                maps.append(self.summarize(compare, plan, start, end))
+                maps.append(self.summarize(compare, plan, start, end, phase=phase, episode=episode))
         return {
             "court": self.geometry,
-            "plan": bounds,
+            "plan": bounds if phase is None else None,
+            "scope": {
+                "kind": "phase" if phase else "plan",
+                "phase": phase,
+                "episode": episode,
+                "start_s": start,
+                "end_s": end,
+                "normalized_basket": "right" if phase in ("offense", "defense") else None,
+            },
+            "phase_analysis": (
+                self.phase_summary(self.subjects[subject]["team_id"], start, end, episode)
+                if phase
+                else None
+            ),
             "mode": mode,
             "maps": maps,
             "normalization": "share_of_observed_mass",

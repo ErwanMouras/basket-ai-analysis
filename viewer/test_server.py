@@ -210,6 +210,26 @@ class HeatmapEndpointTests(unittest.TestCase):
         write(.25)
         self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .25)
 
+    def test_phase_query_combines_oriented_passages_across_camera_plans(self):
+        from viewer.test_phases import phase_frame, ROSTER, GEOMETRY
+        manifest = json.loads((self.run / 'run.json').read_text())
+        manifest['court_coordinate_system'] = GEOMETRY
+        (self.run / 'run.json').write_text(json.dumps(manifest))
+        (self.run / 'roster.json').write_text(json.dumps(ROSTER))
+        rows = [phase_frame(i, mirror=i >= 10, segment_id=int(i >= 10)) for i in range(20)]
+        (self.run / 'observations.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        _, _, body = self.get('/api/heatmaps?name=match&subject=roster:a:1&phase=offense')
+        data = json.loads(body)
+        self.assertEqual(data['scope']['normalized_basket'], 'right')
+        self.assertIsNone(data['plan'])
+        self.assertAlmostEqual(data['maps'][0]['total'], 1.8)
+        _, _, body = self.get('/api/heatmaps?name=match')
+        self.assertEqual(len(json.loads(body)['phase_analysis']['episodes']), 2)
+        for suffix in ('&phase=made_up', '&phase=offense&episode=99'):
+            with self.assertRaises(HTTPError) as error:
+                self.get('/api/heatmaps?name=match&subject=team:a' + suffix)
+            self.assertEqual(error.exception.code, 400)
+
 
 if __name__ == '__main__':
     unittest.main()

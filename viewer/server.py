@@ -261,7 +261,8 @@ class Handler(BaseHTTPRequestHandler):
                         subject, int(query.get('plan', ['0'])[0]),
                         float(query['start'][0]) if 'start' in query else None,
                         float(query['end'][0]) if 'end' in query else None,
-                        query.get('mode', ['presence'])[0], query.get('compare', [None])[0]))
+                        query.get('mode', ['presence'])[0], query.get('compare', [None])[0],
+                        query.get('phase', [None])[0], int(query['episode'][0]) if 'episode' in query else None))
                 if parsed.path == '/api/reads':
                     track = query.get('track', [''])[0]
                     segment = query.get('segment', [''])[0]
