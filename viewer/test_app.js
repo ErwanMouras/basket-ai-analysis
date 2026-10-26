@@ -304,3 +304,18 @@ test('game clock labels keep quarter and overtime labels separate from source el
   ui.run("language='en'");
   assert.equal(ui.run('periodLabel(6)'), 'OT2');
 });
+
+test('phase label distinguishes court context and contacts without carrying across gaps', async () => {
+  const ui=await app();
+  ui.run(`state.meta={scoreboard:{teams:[{team_id:'a',label:'AAA'},{team_id:'b',label:'BBB'}]},phase_timeline:[
+    {start_s:0,end_s:1,attacking_team_id:'a',source:'court_context'},
+    {start_s:1.1,end_s:2,attacking_team_id:'b',source:'contacts'}
+  ]}; renderGamePhase(.5)`);
+  assert.equal(ui.byId('gamePhase').textContent,'AAA en attaque · zone du terrain');
+  ui.run('renderGamePhase(1)');
+  assert.equal(ui.byId('gamePhase').textContent,'Situation non classée');
+  ui.run("language='en';renderGamePhase(1.1)");
+  assert.equal(ui.byId('gamePhase').textContent,'BBB attacking · ball');
+  ui.run('state.meta=null;renderGamePhase(0)');
+  assert.equal(ui.byId('gamePhase').hidden,true);
+});

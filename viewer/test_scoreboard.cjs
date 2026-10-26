@@ -78,7 +78,36 @@ const base = process.env.VIEWER_URL || "http://127.0.0.1:8766";
     const download = page.waitForEvent("download");
     await page.locator(".hm-map-card button").first().click();
     assert.match((await download).suggestedFilename(), /-q3-/);
+    assert.match(
+      await page.locator("#heatmapEvidence").innerText(),
+      /court area: 0 s/,
+    );
     await page.locator("#closeHeatmaps").click();
+    await page.route("**/api/run?**", async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.phase_timeline = [
+        {
+          start_s: 0,
+          end_s: 179 / 30,
+          attacking_team_id: "blue",
+          source: "court_context",
+        },
+      ];
+      await route.fulfill({ response, json: body });
+    });
+    await page.reload();
+    await page.waitForFunction(() => state.loaded && state.current >= 0);
+    assert.equal(
+      await page.locator("#gamePhase").innerText(),
+      "BLU attacking · court area",
+    );
+    await page.locator('[data-language="fr"]').click();
+    assert.equal(
+      await page.locator("#gamePhase").innerText(),
+      "BLU en attaque · zone du terrain",
+    );
+    await page.unroute("**/api/run?**");
     await page.route("**/api/run?**", async (route) => {
       const response = await route.fetch();
       const body = await response.json();

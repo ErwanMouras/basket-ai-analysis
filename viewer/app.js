@@ -273,6 +273,27 @@ function renderScoreboard(time) {
   $('scoreboardPeriod').textContent = reading?.period ? periodLabel(reading.period) : t('gamePeriodUnknown');
   $('scoreboardClock').textContent = gameClockLabel(reading?.clock_s);
   $('scoreboardContext').title = t('scoreObservedHelp');
+  renderGamePhase(time);
+}
+function renderGamePhase(time) {
+  const spans = state.meta?.phase_timeline || [];
+  const target = $('gamePhase');
+  target.hidden = !spans.length;
+  if (!spans.length) return;
+  let lo = 0, hi = spans.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (spans[mid].start_s <= time) lo = mid + 1;
+    else hi = mid;
+  }
+  const span = spans[lo - 1];
+  const owner = span && time < span.end_s ? span.attacking_team_id : null;
+  const team = (state.meta?.scoreboard?.teams || []).find(team => team.team_id === owner);
+  target.textContent = owner
+    ? `${t('gamePhaseAttack', {team: team?.label || owner})} · ${t(span.source === 'court_context' ? 'gamePhaseCourt' : 'gamePhaseBall')}`
+    : t('gamePhaseUnknown');
+  target.setAttribute('data-source', owner ? span.source : 'unknown');
+  target.title = t('gamePhaseHelp');
 }
 function videoFrameLoop(_now, metadata) {
   if (state.loaded) {

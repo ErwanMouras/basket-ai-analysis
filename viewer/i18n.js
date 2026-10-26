@@ -1,6 +1,14 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    gamePhaseAttack: "{team} en attaque",
+    gamePhaseBall: "ballon",
+    gamePhaseCourt: "zone du terrain",
+    gamePhaseUnknown: "Situation non classée",
+    gamePhaseHelp:
+      "Estimation : les contacts avec le ballon sont prioritaires. Si les côtés du quart-temps sont établis, un regroupement stable des deux équipes dans un demi-terrain peut compléter la classification. Les contacts contraires et la proximité d’une mise à jour du score bloquent cette déduction. Ce n’est pas une possession officielle.",
+    hmClassificationSources:
+      "Sur cette plage · ballon : {contacts} s · zone du terrain : {court} s",
     gamePeriod: "Quart-temps",
     quarterShort: "QT",
     overtimeShort: "PR",
@@ -21,7 +29,7 @@ const messages = {
     hmAllPassages: "Tous les passages",
     hmNoDirectionShort: "sens non établi",
     hmPhaseNote:
-      "Découpage estimé à partir des contacts avec le ballon. Les phases incertaines restent à part.",
+      "Le ballon donne la priorité. Les côtés du quart-temps et la zone occupée complètent les situations sans contact fiable.",
     hmPhaseBreakdown: "Découpage estimé de la période",
     hmAttackBasket:
       "Panier attaqué à droite · passages remis dans le même sens",
@@ -29,9 +37,9 @@ const messages = {
       "Panier défendu à droite · passages remis dans le même sens",
     hmDirectionMissing:
       "{value} s classées sans sens établi, écartées des cartes",
-    hmUnknownScope: "Contrôle non établi · aucune orientation imposée",
+    hmUnknownScope: "Situation non établie · aucune orientation imposée",
     hmUnknownIntro:
-      "Les indices ne suffisent pas à attribuer ces périodes à une équipe en attaque.",
+      "Le ballon et le contexte du terrain ne suffisent pas à attribuer ces périodes à une équipe en attaque.",
     hmUnknownHelp:
       "Ces périodes sont exclues des heatmaps Attaque et Défense. Ballon masqué, passe, tir, contact disputé ou identité inconnue : vous pouvez revoir les intervalles d’au moins 0,2 s ci-dessous.",
     hmReviewVideo: "Revoir la vidéo",
@@ -270,6 +278,14 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    gamePhaseAttack: "{team} attacking",
+    gamePhaseBall: "ball",
+    gamePhaseCourt: "court area",
+    gamePhaseUnknown: "Unclassified situation",
+    gamePhaseHelp:
+      "Estimate: ball contacts take priority. Once quarter sides are established, both teams stably grouped in one half can complete the classification. Opposing contacts and nearby score updates block this inference. This is not an official possession.",
+    hmClassificationSources:
+      "In this range · ball: {contacts} s · court area: {court} s",
     gamePeriod: "Quarter",
     quarterShort: "Q",
     overtimeShort: "OT",
@@ -289,7 +305,7 @@ const messages = {
     hmAllPassages: "All passages",
     hmNoDirectionShort: "direction unknown",
     hmPhaseNote:
-      "Estimated from ball contacts. Uncertain phases are kept separate.",
+      "Ball contacts take priority. Quarter sides and the occupied area complete situations without reliable contacts.",
     hmPhaseBreakdown: "Estimated breakdown of the period",
     hmAttackBasket:
       "Attacked basket on the right · passages aligned to the same direction",
@@ -297,9 +313,9 @@ const messages = {
       "Defended basket on the right · passages aligned to the same direction",
     hmDirectionMissing:
       "{value} s classified without a known direction, excluded from maps",
-    hmUnknownScope: "Control unknown · no orientation imposed",
+    hmUnknownScope: "Situation unknown · no orientation imposed",
     hmUnknownIntro:
-      "There is insufficient evidence to attribute these periods to an attacking team.",
+      "Ball and court context are insufficient to attribute these periods to an attacking team.",
     hmUnknownHelp:
       "These periods are excluded from Offense and Defense heatmaps. Occluded ball, pass, shot, contested contact or unknown identity: review intervals of at least 0.2 s below.",
     hmReviewVideo: "Review video",

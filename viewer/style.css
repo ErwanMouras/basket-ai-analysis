@@ -1573,7 +1573,7 @@ kbd {
   border-radius: 3px;
 }
 .hm-charts:not(.hm-multiple) .hm-canvas {
-  width: min(100%, calc((100dvh - 565px) * 1.69230769));
+  width: min(100%, calc((min(100dvh, 990px) - 590px) * 1.69230769));
   min-width: min(100%, 400px);
   max-width: 1060px;
   margin: auto;
@@ -1977,4 +1977,26 @@ kbd {
   .scoreboard-source {
     display: none;
   }
+}
+
+.game-phase {
+  color: #d0c2af;
+  border-left: 1px solid #48413b;
+  padding-left: 12px;
+  font:
+    10px Arial,
+    sans-serif;
+}
+.game-phase[data-source="court_context"] {
+  color: #96cfc7;
+}
+.game-phase[data-source="unknown"] {
+  color: var(--muted);
+}
+.hm-evidence {
+  color: var(--muted);
+  font:
+    11px Arial,
+    sans-serif;
+  margin: 10px 0 0;
 }

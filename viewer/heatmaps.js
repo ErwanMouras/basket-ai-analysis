@@ -81,6 +81,7 @@ window.heatmapStudio = (() => {
     $("heatmapInspect").textContent = "";
     $("heatmapPhaseSummary").replaceChildren();
     $("heatmapOrientation").textContent = "";
+    $("heatmapEvidence").textContent = "";
     $("heatmapUnknown").hidden = true;
     $("heatmapPassages").hidden = true;
   }
@@ -343,6 +344,11 @@ window.heatmapStudio = (() => {
     summary.replaceChildren();
     const durations = result.phase_analysis;
     if (!durations) return;
+    $("heatmapEvidence").textContent = t("hmClassificationSources", {
+      contacts: number(durations.contacts_s || 0),
+      court: number(durations.court_context_s || 0),
+    });
+    $("heatmapEvidence").title = t("gamePhaseHelp");
     summary.setAttribute("role", "group");
     summary.setAttribute("aria-label", t("hmPhaseBreakdown"));
     for (const phase of ["offense", "defense", "unknown"]) {
