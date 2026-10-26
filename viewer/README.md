@@ -279,7 +279,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
