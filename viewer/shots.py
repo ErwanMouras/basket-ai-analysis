@@ -10,6 +10,7 @@ from statistics import median
 import math
 
 from viewer.heatmaps import player_subject
+from viewer.shot_analytics import ground_origin, summarize_shots
 from viewer.phases import team_of
 from viewer.shot_geometry import inverse, matrix, number, point, quadratic, rim_anchors, warp
 
@@ -95,6 +96,8 @@ def hand_contact(row, ball):
                 "track_id": p.get("track_id"),
                 "team_id": team_of(p),
                 "subject_id": player_subject(p) if subjects[player_subject(p)] == 1 else None,
+                "position_m": p.get("position_m"),
+                "ground_point_method": p.get("ground_point_method"),
                 "unique_track": p.get("track_id") is not None and tracks[p["track_id"]] == 1,
             }
         )
@@ -457,6 +460,7 @@ class ShotIndex:
             "segment_id": seed.segment,
             "shooter": shooter,
             "outcome": "unknown",
+            "origin": ground_origin(self.samples, index, shooter, self.geometry, self.boundary),
             "evidence": {
                 "release_observations": support,
                 "free_flight_share": free,
@@ -499,6 +503,7 @@ class ShotIndex:
     def metadata(self):
         available = self.valid_ball >= 6 and (self.pose_frames >= 2 or self.fallback_frames >= 6)
         return {
+            **summarize_shots(self.events, self.geometry, self.roster, available),
             "version": VERSION,
             "rules": RULES.copy(),
             "available": available,

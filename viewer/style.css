@@ -2083,3 +2083,53 @@ kbd {
     grid-column: 2;
   }
 }
+
+.player-shot-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+}
+.player-shot-stat strong {
+  font: 24px var(--mono);
+  color: var(--text);
+}
+.team-shot-map {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+}
+.team-shot-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.team-shot-heading h4 {
+  margin: 0;
+}
+.team-shot-canvas {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  margin: 12px auto 6px;
+}
+.team-stats-content .team-shot-map p {
+  max-width: none;
+}
+.team-shot-map #teamShotHelp {
+  margin-top: 8px;
+}
+.team-shot-map #teamShotMissing {
+  color: #ffc299;
+}
+.team-shot-map .team-shot-inspect {
+  min-height: 16px;
+}

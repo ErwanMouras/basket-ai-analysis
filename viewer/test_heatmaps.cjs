@@ -344,7 +344,7 @@ async function main() {
     );
     await page.locator("#heatmapLanguage").click();
     const download = page.waitForEvent("download");
-    await page.locator(".hm-export").first().click();
+    await page.locator("#heatmapDialog .hm-export").first().click();
     const exported = await download;
     assert.match(exported.suggestedFilename(), /^heatmap-presence-.*\.png$/);
     const png = await fs.readFile(await exported.path());

@@ -711,6 +711,7 @@ function renderStatsNavigation(teams) {
     $('teamRosterCount').textContent = t('playerCount', {count: Array.isArray(team.players) ? team.players.length : 0});
   }
   $('teamStatsNote').textContent = t(team ? 'teamStatsEmpty' : 'noTeamStats');
+  window.teamShots?.render();
 }
 function renderStatsPanel() {
   const roster=matchRoster();
@@ -726,6 +727,9 @@ function renderStatsPanel() {
     $('detailTeam').textContent=team.name;
     $('detailName').textContent=player.name;
     const stats=finalPlayerStats(team.team_id,player.number);
+    const shotCount = state.meta?.roster ? state.meta?.shots?.player_counts?.[state.selected.subject] : null;
+    $('playerShotCount').textContent = shotCount == null ? '—' : String(shotCount);
+    $('playerShotStat').title = t('playerShotsHelp');
     const tiles=$('finalStats');tiles.replaceChildren();
     for (const metric of FINAL_PLAYER_METRICS) {
       const tile=document.createElement('div');tile.className='final-stat';

@@ -1,6 +1,29 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    teamShotExportScope:
+      "Probables uniquement · extrait complet · candidats exclus.",
+    teamShotExportPositions:
+      "Positions au sol estimées · panier attaqué à droite · échelle commune.",
+    teamShotUnassigned:
+      "Tirs probables sans équipe identifiée : {count}, hors des cartes.",
+    teamShotDensity: "tirs/m²",
+    playerShots: "Tirs détectés",
+    playerShotsHelp:
+      "Tirs probables attribués à ce joueur sur l’extrait entier. Les candidats à vérifier ne sont pas comptés.",
+    teamShotTitle: "Carte des tirs",
+    teamShotExport: "Exporter la carte des tirs en PNG",
+    teamShotSummary: "Tirs détectés : {count} · localisés : {located}",
+    teamShotUnavailable: "Données de tir indisponibles pour cette équipe.",
+    teamShotMissing:
+      "Positions manquantes : {count} (position ou sens du panier indisponible). Ces tirs restent comptés.",
+    teamShotHelp:
+      "Tirs probables uniquement · bilan de l’extrait. Les cercles indiquent les positions au sol estimées des tireurs ; la chaleur montre leur concentration.",
+    teamShotLegend:
+      "Panier attaqué à droite · plus clair : davantage de tirs dans cette zone.",
+    teamShotHere: "Tirs à proximité : {count}",
+    teamShotCell: "Tirs dans cette maille : {count}",
+
     shotsLegend: "Tirs",
     shotsSummary: "Tirs · {probable} probables · {candidates} à vérifier",
     shotsNone: "Tirs · aucun événement repéré",
@@ -222,7 +245,7 @@ const messages = {
     team: "Équipe",
     teamStatsTitle: "Occupation du terrain",
     teamStatsEmpty:
-      "Explorez la présence, les déplacements et la répartition spatiale de cette équipe.",
+      "Explorez la présence et la répartition spatiale de cette équipe en attaque ou en défense.",
     noTeamStats:
       "Sélectionnez une analyse avec un effectif pour retrouver ses équipes.",
     playerStats: "Les joueurs",
@@ -280,6 +303,29 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    teamShotExportScope:
+      "Probable attempts only · whole clip · review candidates excluded.",
+    teamShotExportPositions:
+      "Estimated ground positions · attacked basket on the right · shared scale.",
+    teamShotUnassigned:
+      "Probable shots without an identified team: {count}, excluded from the maps.",
+    teamShotDensity: "shots/m²",
+    playerShots: "Detected shots",
+    playerShotsHelp:
+      "Probable attempts attributed to this player across the whole clip. Review candidates are excluded.",
+    teamShotTitle: "Shot map",
+    teamShotExport: "Export team shot map as PNG",
+    teamShotSummary: "Detected shots: {count} · located: {located}",
+    teamShotUnavailable: "Shot data is unavailable for this team.",
+    teamShotMissing:
+      "Shots without a usable position or basket direction: {count}. They remain counted.",
+    teamShotHelp:
+      "Probable attempts only · whole clip. Circles mark estimated player ground positions; heat shows their concentration.",
+    teamShotLegend:
+      "Attacked basket on the right · lighter areas contain more shots.",
+    teamShotHere: "Nearby shots: {count}",
+    teamShotCell: "Shots in this cell: {count}",
+
     shotsLegend: "Shots",
     shotsSummary: "Shots · {probable} probable · {candidates} to review",
     shotsNone: "Shots · no event detected",
@@ -497,7 +543,7 @@ const messages = {
     team: "Team",
     teamStatsTitle: "Court occupation",
     teamStatsEmpty:
-      "Explore this team’s presence, movement and spatial distribution.",
+      "Explore this team’s presence and spatial distribution in offense or defense.",
     noTeamStats: "Choose an analysis with a roster to find its teams.",
     playerStats: "The players",
     roster: "ROSTER",

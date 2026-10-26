@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 
 from viewer.shots import ShotIndex
+from viewer.shot_analytics import assign_directions
+from viewer.heatmaps import HeatmapIndex
+from viewer.scoreboard import ScoreboardIndex
 
 
 def digest(path):
@@ -25,17 +28,29 @@ def experiment(path, review=None):
         raise ValueError("Shot experiments require a completed run")
     roster = path / "roster.json"
     detector = ShotIndex(manifest, json.loads(roster.read_text()) if roster.is_file() else None)
+    scoreboard = ScoreboardIndex.load(path, manifest, detector.roster)
+    heatmaps = HeatmapIndex(manifest, detector.roster, scoreboard)
     with (path / "observations.jsonl").open() as file:
         for line in file:
-            detector.add_frame(json.loads(line))
+            row = json.loads(line)
+            detector.add_frame(row)
+            heatmaps.add_frame(row)
+    heatmaps.finish()
     detector.finish()
+    assign_directions(detector.events, heatmaps.phases, heatmaps.plans, scoreboard)
     result = {
         "source_sha256": manifest.get("source", {}).get("sha256"),
         "observations_sha256": digest(path / "observations.jsonl"),
         "manifest_sha256": digest(path / "run.json"),
         "detector_files_sha256": {
             name: digest(Path(__file__).with_name(name))
-            for name in ("shots.py", "shot_geometry.py")
+            for name in (
+                "shots.py",
+                "shot_geometry.py",
+                "shot_analytics.py",
+                "phases.py",
+                "settled.py",
+            )
         },
         "roster_sha256": digest(roster) if roster.is_file() else None,
         "detection": detector.metadata(),

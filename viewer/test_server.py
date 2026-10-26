@@ -303,6 +303,9 @@ class ShotServerTests(unittest.TestCase):
         shots=json.loads(self.get('/api/shots?name=match')[2])
         self.assertEqual(data['shots'],shots)
         self.assertEqual(shots['probable_count'],1)
+        self.assertEqual(shots['player_counts']['roster:a:7'],1)
+        self.assertEqual(shots['shot_maps']['maps'][0]['detected_count'],1)
+        self.assertEqual(shots['shot_maps']['maps'][0]['unlocated_count'],1)
         self.assertEqual(shots['events'][0]['outcome'],'unknown')
         # A fresh observation revision must invalidate the shared index.
         (run/'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows('held')))

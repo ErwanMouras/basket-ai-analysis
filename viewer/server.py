@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 from viewer.heatmaps import HeatmapIndex
 from viewer.scoreboard import ScoreboardIndex
 from viewer.shots import ShotIndex
+from viewer.shot_analytics import assign_directions
 from training.jersey.display import display_colors
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -163,6 +164,7 @@ class ViewerServer(ThreadingHTTPServer):
                             for key, item in jerseys.items()}
         heatmaps.finish()
         shots.finish()
+        assign_directions(shots.events, heatmaps.phases, heatmaps.plans, scoreboard)
         result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
                           heatmaps, auxiliary_signature, scoreboard, shots)
         self.indices[path] = result
