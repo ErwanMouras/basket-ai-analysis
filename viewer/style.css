@@ -1989,3 +1989,97 @@ kbd {
   font-size: 13px;
   line-height: 1.6;
 }
+
+.mark.shot {
+  background: #c3a1f3;
+}
+.timeline-markers .shot {
+  top: 13px;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid #e6d7ff;
+  border-radius: 50%;
+  background: #b78ae8;
+}
+.timeline-markers .shot.candidate {
+  background: #191a1d;
+}
+.shots-panel {
+  margin: 0 16px 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+.shots-panel summary {
+  padding: 10px 0;
+  cursor: pointer;
+  color: #d5b9f5;
+}
+.shots-content p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.shots-candidates {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+.shots-candidates input {
+  accent-color: #b78ae8;
+}
+.shots-list {
+  display: grid;
+  gap: 6px;
+  max-height: 190px;
+  overflow: auto;
+}
+.shot-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+}
+.shot-row.active,
+.shot-row:hover {
+  border-color: #a782cd;
+}
+.shot-time {
+  font: 10px var(--mono);
+  color: var(--muted);
+}
+.shot-row strong {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+}
+.shot-row small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.shot-status {
+  color: #d5b9f5;
+  font-size: 10px;
+}
+.shot-row.candidate .shot-status {
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .shot-row {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .shot-status {
+    grid-column: 2;
+  }
+}

@@ -1,6 +1,29 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    shotsLegend: "Tirs",
+    shotsSummary: "Tirs · {probable} probables · {candidates} à vérifier",
+    shotsNone: "Tirs · aucun événement repéré",
+    shotsUnavailable: "Tirs · données insuffisantes",
+    shotsHelp:
+      "Tentatives estimées à partir du ballon et des mains. Cliquez pour revoir le relâchement, en pause. Les candidats restent à vérifier ; aucun résultat marqué/raté ni total officiel n’est déduit.",
+    shotsUnavailableHelp:
+      "Il faut plusieurs positions du ballon, avec des poignets ou un contexte de terrain exploitable. L’absence de détection ne signifie pas qu’aucun tir n’a eu lieu.",
+    shotsIncludeCandidates: "Inclure les candidats à vérifier",
+    shotProbable: "Tir probable",
+    shotCandidate: "À vérifier",
+    shotUnassigned: "Tireur non attribué",
+    shotRelease: "Relâchement suivi",
+    shotReleaseHidden: "Relâchement peu visible",
+    shotArc: "Montée puis descente",
+    shotPartialArc: "Trajectoire partielle",
+    shotRim: "Proximité du panier",
+    shotRimUnknown: "Panier non confirmé",
+    shotCamera: "Caméra compensée",
+    shotRawCamera: "Mouvement caméra incertain",
+    shotReviewHelp:
+      "Revoir avant le tir · fenêtre de relâchement estimée : {start} – {end}",
+
     gamePhaseMatchup: "{attack} attaque · {defense} défense",
     gamePhaseHelp:
       "Attaque et défense correspondent au jeu installé dans un camp. Un changement de possession confirmé termine la phase ; la suivante commence à l’arrivée dans le camp opposé.",
@@ -257,6 +280,29 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    shotsLegend: "Shots",
+    shotsSummary: "Shots · {probable} probable · {candidates} to review",
+    shotsNone: "Shots · no event detected",
+    shotsUnavailable: "Shots · insufficient data",
+    shotsHelp:
+      "Attempts estimated from ball and wrist observations. Click to review the release, paused. Candidates need review; no made/missed result or official shot total is inferred.",
+    shotsUnavailableHelp:
+      "Several ball positions, with usable wrists or court context, are required. No detection does not mean that no shot occurred.",
+    shotsIncludeCandidates: "Include candidates to review",
+    shotProbable: "Probable shot",
+    shotCandidate: "To review",
+    shotUnassigned: "Unassigned shooter",
+    shotRelease: "Observed release",
+    shotReleaseHidden: "Release poorly visible",
+    shotArc: "Rise and descent",
+    shotPartialArc: "Partial trajectory",
+    shotRim: "Near the basket",
+    shotRimUnknown: "Basket unconfirmed",
+    shotCamera: "Camera compensated",
+    shotRawCamera: "Uncertain camera motion",
+    shotReviewHelp:
+      "Review before the shot · estimated release window: {start} – {end}",
+
     gamePhaseMatchup: "{attack} offense · {defense} defense",
     gamePhaseHelp:
       "Offense and defense describe settled play in one half. A confirmed possession change ends the phase; the next begins on arrival in the other half.",

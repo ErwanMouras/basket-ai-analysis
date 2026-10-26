@@ -241,6 +241,7 @@ function updateClock(time = video.currentTime || 0) {
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
   renderScoreboard(time);
+  window.shotStudio?.update(time);
   $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
   $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
@@ -792,7 +793,9 @@ function renderMarkers(){
     button.setAttribute('aria-label',button.title);
     button.addEventListener('click',()=>seekToFrame(nearestFrame(event.time_s)));target.append(button);
   }
+  window.shotStudio?.render();
 }
+
 function seekToFrame(index){
   if(!state.meta)return;
   index=Math.max(0,Math.min(index,state.meta.timestamps.length-1));

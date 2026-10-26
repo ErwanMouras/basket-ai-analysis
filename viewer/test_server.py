@@ -284,3 +284,34 @@ class ScoreboardServerTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ShotServerTests(unittest.TestCase):
+    setUp = ViewerTests.setUp
+    tearDown = ViewerTests.tearDown
+    get = ViewerTests.get
+
+    def test_shots_are_available_in_run_metadata_and_dedicated_api(self):
+        from viewer.test_shots import rows, GEOMETRY, ROSTER
+        run = self.server.runs_root / 'match'
+        manifest=json.loads((run/'run.json').read_text())
+        manifest['court_coordinate_system']=GEOMETRY
+        (run/'run.json').write_text(json.dumps(manifest))
+        (run/'roster.json').write_text(json.dumps(ROSTER))
+        (run/'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows()))
+        data=json.loads(self.get('/api/run?name=match')[2])
+        shots=json.loads(self.get('/api/shots?name=match')[2])
+        self.assertEqual(data['shots'],shots)
+        self.assertEqual(shots['probable_count'],1)
+        self.assertEqual(shots['events'][0]['outcome'],'unknown')
+        # A fresh observation revision must invalidate the shared index.
+        (run/'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows('held')))
+        self.assertEqual(json.loads(self.get('/api/shots?name=match')[2])['events'],[])
+
+    def test_legacy_run_has_explicit_unavailable_shots_and_run_boundary(self):
+        shots=json.loads(self.get('/api/shots?name=match')[2])
+        self.assertFalse(shots['available'])
+        self.assertEqual(shots['events'],[])
+        with self.assertRaises(HTTPError) as error:
+            self.get('/api/shots?name=..%2Foutside')
+        self.assertEqual(error.exception.code,404)

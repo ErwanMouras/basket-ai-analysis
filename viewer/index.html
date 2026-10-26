@@ -11,6 +11,7 @@
     <script src="/app.js" defer></script>
     <script src="/heatmap-renderer.js" defer></script>
     <script src="/heatmaps.js" defer></script>
+    <script src="/shots.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -294,6 +295,10 @@
                 ><i class="mark score"></i
                 ><span data-i18n="scoreChanges">Score observé</span></span
               >
+              <span id="shotsLegend" class="timeline-legend" hidden>
+                <i class="mark shot"></i
+                ><span data-i18n="shotsLegend">Tirs</span>
+              </span>
             </div>
             <div class="seek-wrap">
               <div class="seek-fill" id="seekFill"></div>
@@ -392,6 +397,19 @@
               </button>
             </div>
           </div>
+          <details id="shotsPanel" class="shots-panel" hidden>
+            <summary id="shotsSummary"></summary>
+            <div class="shots-content">
+              <p id="shotsHelp"></p>
+              <label id="shotsCandidatesField" class="shots-candidates" hidden>
+                <input id="shotsCandidates" type="checkbox" checked />
+                <span data-i18n="shotsIncludeCandidates"
+                  >Inclure les candidats à vérifier</span
+                >
+              </label>
+              <div id="shotsList" class="shots-list"></div>
+            </div>
+          </details>
           <div class="video-footer">
             <div>
               <span id="calibrationDot" class="footer-dot off"></span

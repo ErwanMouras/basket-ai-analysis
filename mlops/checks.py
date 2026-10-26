@@ -27,7 +27,7 @@ def main():
               ("jersey", ["discover", "-s", "training/jersey/tests"]),
               ("segmentation", ["discover", "-s", "training/segmentation/tests"]),
               ("analysis", ["discover", "-s", "pipeline/tests"]),
-              ("mlops", ["discover", "-s", "mlops/tests"]), ("viewer", ["viewer.test_server", "viewer.test_heatmaps", "viewer.test_phases", "viewer.test_scoreboard", "viewer.test_settled"])]
+              ("mlops", ["discover", "-s", "mlops/tests"]), ("viewer", ["viewer.test_server", "viewer.test_heatmaps", "viewer.test_phases", "viewer.test_scoreboard", "viewer.test_settled", "viewer.test_shots"])]
     report = {"training_executed": False, "annotation_sources_modified": False, "suites": [], "status": "running"}
     for name, options in suites:
         start = time.monotonic()
@@ -42,7 +42,7 @@ def main():
         write_json(args.output / "summary.json", report)
         print(json.dumps(entry), flush=True)
     syntax_results = [subprocess.run(["node", "--check", source], cwd=ROOT, capture_output=True, text=True)
-                      for source in ("viewer/app.js", "viewer/i18n.js", "viewer/heatmaps.js", "viewer/heatmap-renderer.js")]
+                      for source in ("viewer/app.js", "viewer/i18n.js", "viewer/heatmaps.js", "viewer/heatmap-renderer.js", "viewer/shots.js")]
     (args.output / "javascript.log").write_text("".join(result.stdout + result.stderr for result in syntax_results))
     report["javascript_returncode"] = max(result.returncode for result in syntax_results)
     result = subprocess.run(["node", "--test", "viewer/test_app.js", "viewer/test_heatmap_renderer.cjs"], cwd=ROOT, capture_output=True, text=True)
