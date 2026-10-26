@@ -180,6 +180,7 @@ class Evidence:
     plan: int
     included: bool
     contact: Contact
+    period: int | None = None
 
 
 @dataclass(slots=True)
@@ -192,13 +193,24 @@ class Span:
     reason: str
     direction: int | None = None
     episode: int = -1
+    period: int | None = None
 
 
 class PhaseIndex:
     window_s = 0.4
     min_evidence_s = 0.16
+    quarter_anchor_s = 0.75
+    reversed_view_agreement = 0.9
 
-    def __init__(self, teams, geometry, max_gap=0.2, method="hands", min_ball_confidence=0.35):
+    def __init__(
+        self,
+        teams,
+        geometry,
+        max_gap=0.2,
+        method="hands",
+        min_ball_confidence=0.35,
+        scoreboard=None,
+    ):
         self.teams = tuple(teams)
         self.geometry = geometry
         self.max_gap = max_gap
@@ -211,8 +223,11 @@ class PhaseIndex:
         self.uncertain_intervals = []
         self.duration_s = 0.0
         self.orientation_evidence = []
+        self.scoreboard = scoreboard
+        self.period_directions = []
 
     def add_frame(self, row, plan):
+        reading = self.scoreboard.at(row["timestamp_s"]) if self.scoreboard else None
         self.frames.append(
             Evidence(
                 row["frame_index"],
@@ -220,6 +235,7 @@ class PhaseIndex:
                 plan,
                 row.get("included", True),
                 contact(row, self.teams, self.geometry, self.method, self.min_ball_confidence),
+                reading.get("period") if reading else None,
             )
         )
 
@@ -235,6 +251,7 @@ class PhaseIndex:
                 or previous
                 and (
                     frame.plan != previous.plan
+                    or frame.period != previous.period
                     or frame.frame != previous.frame + 1
                     or not 0 < frame.time - previous.time <= self.max_gap + 1e-9
                 )
@@ -282,7 +299,9 @@ class PhaseIndex:
                             if frame.contact.team == winner
                             else "short_continuity"
                         )
-                span = Span(start, end, frame.plan, owner, frame.contact.method, reason)
+                span = Span(
+                    start, end, frame.plan, owner, frame.contact.method, reason, period=frame.period
+                )
                 self.spans.append(span)
                 if owner and frame.contact.team == owner and frame.contact.direction:
                     base_direction = (
@@ -290,24 +309,74 @@ class PhaseIndex:
                         if owner == self.teams[0]
                         else -frame.contact.direction
                     )
-                    direction_votes[frame.plan][base_direction] += end - start
-        for plan, votes in direction_votes.items():
+                    direction_votes[(frame.period, frame.plan)][base_direction] += end - start
+        local_directions = {}
+        for key, votes in direction_votes.items():
             direction, weight = votes.most_common(1)[0]
             if sum(votes.values()) >= 0.25 and weight / sum(votes.values()) >= 0.8:
-                self.directions[plan] = direction
-        for plan, votes in direction_votes.items():
+                local_directions[key] = direction
+                self.directions[key[1]] = direction
+        # A quarter keeps its first well-supported reference view. A strongly
+        # reversed camera still uses its own orientation; possession remains
+        # entirely independent of this spatial reference.
+        locked = {}
+        for (period, plan), votes in direction_votes.items():
+            if (
+                period is not None
+                and period not in locked
+                and sum(votes.values()) >= self.quarter_anchor_s
+                and (period, plan) in local_directions
+            ):
+                locked[period] = local_directions[(period, plan)]
+                self.period_directions.append(
+                    {
+                        "period": period,
+                        "reference_team_id": self.teams[0],
+                        "direction": locked[period],
+                        "anchor_plan_id": plan,
+                        "contact_s": sum(votes.values()),
+                        "vote_agreement": max(votes.values()) / sum(votes.values()),
+                    }
+                )
+        effective_directions = dict(local_directions)
+        sources = {}
+        for span in self.spans:
+            key = (span.period, span.plan)
+            if span.period not in locked:
+                sources[key] = "camera_plan"
+                continue
+            votes = direction_votes[key]
+            opposite = -locked[span.period]
+            total = sum(votes.values())
+            if (
+                total >= self.quarter_anchor_s
+                and votes[opposite] / total >= self.reversed_view_agreement
+            ):
+                effective_directions[key] = opposite
+                sources[key] = "reversed_view"
+            elif total >= self.quarter_anchor_s and votes[locked[span.period]] / total < 0.8:
+                effective_directions.pop(key, None)
+                sources[key] = "conflicting_view"
+            else:
+                effective_directions[key] = locked[span.period]
+                sources[key] = "quarter_lock"
+        for (period, plan), votes in direction_votes.items():
+            if not votes:
+                continue
             self.orientation_evidence.append(
                 {
                     "plan_id": plan,
+                    "period": period,
                     "reference_team_id": self.teams[0],
                     "left_contact_s": votes[-1],
                     "right_contact_s": votes[1],
                     "vote_agreement": max(votes.values()) / sum(votes.values()),
-                    "direction": self.directions.get(plan),
+                    "direction": effective_directions.get((period, plan)),
+                    "source": sources.get((period, plan), "camera_plan"),
                 }
             )
         for span in self.spans:
-            direction = self.directions.get(span.plan)
+            direction = effective_directions.get((span.period, span.plan))
             if direction and span.owner:
                 span.direction = direction if span.owner == self.teams[0] else -direction
             seconds = span.end - span.start
@@ -316,6 +385,7 @@ class PhaseIndex:
                 if (
                     previous
                     and previous["plan_id"] == span.plan
+                    and previous["period"] == span.period
                     and abs(previous["end_s"] - span.start) < 1e-6
                 ):
                     previous["end_s"] = span.end
@@ -324,6 +394,7 @@ class PhaseIndex:
                     self.uncertain_intervals.append(
                         {
                             "plan_id": span.plan,
+                            "period": span.period,
                             "start_s": span.start,
                             "end_s": span.end,
                             "duration_s": seconds,
@@ -337,6 +408,7 @@ class PhaseIndex:
             if (
                 previous
                 and previous["plan_id"] == span.plan
+                and previous["period"] == span.period
                 and previous["attacking_team_id"] == span.owner
                 and span.start - previous["end_s"] <= 0.6 + 1e-9
             ):
@@ -348,6 +420,7 @@ class PhaseIndex:
                     {
                         "id": len(self.episodes),
                         "plan_id": span.plan,
+                        "period": span.period,
                         "start_s": span.start,
                         "end_s": span.end,
                         "duration_s": seconds,
@@ -355,6 +428,7 @@ class PhaseIndex:
                         "attacking_team_id": span.owner,
                         "direction": span.direction,
                         "orientation_ready": span.direction is not None,
+                        "orientation_source": sources.get((span.period, span.plan), "camera_plan"),
                     }
                 )
             span.episode = self.episodes[-1]["id"]
@@ -367,6 +441,8 @@ class PhaseIndex:
         return {
             "experimental": True,
             "orientation_evidence": self.orientation_evidence,
+            "period_directions": self.period_directions,
+            "orientation_policy": "quarter_lock_with_verified_camera_reversals",
             "method": "image_contacts_temporal_layout_v1",
             "eligible_s": eligible,
             "classified_s": classified,

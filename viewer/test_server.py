@@ -231,5 +231,32 @@ class HeatmapEndpointTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 400)
 
 
+class ScoreboardServerTests(unittest.TestCase):
+    setUp = ViewerTests.setUp
+    tearDown = ViewerTests.tearDown
+    get = ViewerTests.get
+
+    def test_source_bound_scoreboard_is_exposed_and_updates_invalidate_the_index(self):
+        from viewer.test_scoreboard import document, sample
+        run = self.server.runs_root / 'match'
+        manifest = json.loads((run / 'run.json').read_text())
+        manifest['source']['sha256'] = 'source'
+        (run / 'run.json').write_text(json.dumps(manifest))
+        (run / 'roster.json').write_text(json.dumps({'teams':[{'team_id':'a','name':'A'},{'team_id':'b','name':'B'}]}))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertFalse(json.loads(body)['scoreboard']['available'])
+        sidecar = document([sample(0),sample(.1),sample(.2)])
+        (run / 'scoreboard.json').write_text(json.dumps(sidecar))
+        _, _, body = self.get('/api/run?name=match')
+        scoreboard = json.loads(body)['scoreboard']
+        self.assertTrue(scoreboard['available'])
+        self.assertEqual(len(scoreboard['events']),1)
+        self.assertEqual(scoreboard['teams'][0]['team_id'],'b')
+        sidecar['source_sha256'] = 'wrong-video'
+        (run / 'scoreboard.json').write_text(json.dumps(sidecar))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertFalse(json.loads(body)['scoreboard']['available'])
+
+
 if __name__ == '__main__':
     unittest.main()

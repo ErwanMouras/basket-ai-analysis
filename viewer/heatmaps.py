@@ -59,7 +59,7 @@ class Interval:
 class HeatmapIndex:
     """Compact intervals built alongside the viewer's existing observation index."""
 
-    def __init__(self, manifest, roster):
+    def __init__(self, manifest, roster, scoreboard=None):
         raw = manifest.get("court_coordinate_system") or {}
         self.geometry = (
             raw
@@ -99,7 +99,9 @@ class HeatmapIndex:
             tuple(team["team_id"] for team in (roster or {}).get("teams", [])),
             self.geometry,
             self.max_gap,
+            scoreboard=scoreboard,
         )
+        self.scoreboard = scoreboard
         self.plans = []
         self.intervals = []
         self.previous = {}
@@ -241,6 +243,11 @@ class HeatmapIndex:
                 else None
             ),
             "phase_analysis": self.phases.metadata(),
+            "scoreboard": (
+                self.scoreboard.metadata()
+                if self.scoreboard
+                else {"available": False, "periods": []}
+            ),
         }
 
     def phase_summary(self, team, start, end, episode=None):

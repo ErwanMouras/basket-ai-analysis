@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from viewer.heatmaps import HeatmapIndex
+from viewer.scoreboard import ScoreboardIndex
 from training.jersey.display import display_colors
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,7 @@ class RunIndex:
     observed_jerseys: dict[str, dict]
     heatmaps: HeatmapIndex
     auxiliary_signature: tuple
+    scoreboard: ScoreboardIndex
 
 
 class ViewerServer(ThreadingHTTPServer):
@@ -64,7 +66,7 @@ class ViewerServer(ThreadingHTTPServer):
         source = path / 'observations.jsonl'
         stat = source.stat()
         auxiliary_signature = tuple((file.name, file.stat().st_size, file.stat().st_mtime_ns)
-            for file in (path / 'run.json', path / 'roster.json', path / 'tracks.jsonl') if file.is_file())
+            for file in (path / 'run.json', path / 'roster.json', path / 'tracks.jsonl', path / 'scoreboard.json') if file.is_file())
         cached = self.indices.get(path)
         if (cached and cached.observation_size == stat.st_size and cached.observation_mtime_ns == stat.st_mtime_ns
                 and cached.auxiliary_signature == auxiliary_signature):
@@ -72,7 +74,8 @@ class ViewerServer(ThreadingHTTPServer):
         manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
         roster_file = path / 'roster.json'
         roster = json.loads(roster_file.read_text(encoding='utf-8')) if roster_file.is_file() else None
-        heatmaps = HeatmapIndex(manifest, roster)
+        scoreboard = ScoreboardIndex.load(path, manifest, roster)
+        heatmaps = HeatmapIndex(manifest, roster, scoreboard)
         offsets: list[int] = []
         timestamps: list[float] = []
         markers: list[dict] = []
@@ -156,7 +159,7 @@ class ViewerServer(ThreadingHTTPServer):
                             for key, item in jerseys.items()}
         heatmaps.finish()
         result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
-                          heatmaps, auxiliary_signature)
+                          heatmaps, auxiliary_signature, scoreboard)
         self.indices[path] = result
         while len(self.indices) > 3:
             self.indices.pop(next(iter(self.indices)), None)
@@ -250,6 +253,7 @@ class Handler(BaseHTTPRequestHandler):
                         'observed_jerseys': index.observed_jerseys,
                         'track_votes': vote_summaries,
                         'spatial_handoffs': manifest.get('spatial_handoffs', []),
+                        'scoreboard': index.scoreboard.metadata(),
                         'markers': index.markers,
                         'video_available': source.is_relative_to(self.server.video_root) and source.is_file()})
                 index = self.server.index(path)
