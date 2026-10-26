@@ -98,6 +98,10 @@ def create_demo(output):
                 "models": {}, "warnings": ["synthetic_scripted_demo"], "artifacts": {}}
     for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json"):
         manifest["artifacts"][name] = {"sha256": file_hash(run / name)}
+    manifest["court_coordinate_system"] = {
+        "league": "NBA", "units": "metres", "length": 28.6512, "width": 15.24,
+        "orientation_scope": "camera_segment",
+    }
     write_json(run / "run.json", manifest)
     return output
 

@@ -51,5 +51,12 @@
     "players": "ok",
     "court": "ok",
     "ball": "ok"
+  },
+  "court_coordinate_system": {
+    "league": "NBA",
+    "units": "metres",
+    "length": 28.6512,
+    "width": 15.24,
+    "orientation_scope": "camera_segment"
   }
 }

@@ -160,5 +160,56 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['observed_jerseys']['0:1']['number'], '11')
 
 
+class HeatmapEndpointTests(unittest.TestCase):
+    tearDown = ViewerTests.tearDown
+    get = ViewerTests.get
+    # Reuse the HTTP fixture, while keeping the analytics in an independent module.
+    def setUp(self):
+        ViewerTests.setUp(self)
+        self.run = self.server.runs_root / 'match'
+        manifest = json.loads((self.run / 'run.json').read_text())
+        manifest['court_coordinate_system'] = {'league': 'NBA', 'units': 'metres', 'length': 28.6512, 'width': 15.24}
+        (self.run / 'run.json').write_text(json.dumps(manifest))
+        (self.run / 'roster.json').write_text(json.dumps({'teams': [
+            {'team_id': 'home', 'name': 'Home', 'players': [{'number': '23', 'name': 'A'}]},
+            {'team_id': 'away', 'name': 'Away', 'players': [{'number': '11', 'name': 'B'}]}]}))
+        from viewer.test_heatmaps import frame, person
+        self.rows = [frame(i, i / 10, [person(team='home', number='23')]) for i in range(3)]
+        (self.run / 'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in self.rows))
+
+    def test_heatmap_metadata_and_time_weighted_map(self):
+        _, _, body = self.get('/api/heatmaps?name=match')
+        meta = json.loads(body)
+        self.assertTrue(meta['available'])
+        self.assertEqual(len(meta['plans']), 1)
+        _, _, body = self.get('/api/heatmaps?name=match&subject=roster:home:23&mode=zones')
+        heatmap = json.loads(body)['maps'][0]
+        self.assertAlmostEqual(heatmap['total'], .2)
+        self.assertAlmostEqual(sum(heatmap['zones']), .2)
+        self.assertEqual(heatmap['unit'], 's')
+
+    def test_bad_heatmap_queries_and_run_boundary(self):
+        for suffix in ('&subject=unknown', '&subject=team:home&start=nan',
+                       '&subject=team:home&end=999', '&subject=team:home&mode=comparison&compare=roster:home:23'):
+            with self.assertRaises(HTTPError) as error:
+                self.get('/api/heatmaps?name=match'+suffix)
+            self.assertEqual(error.exception.code, 400)
+        with self.assertRaises(HTTPError) as error:
+            self.get('/api/heatmaps?name=..%2Foutside')
+        self.assertEqual(error.exception.code, 404)
+
+    def test_heatmap_cache_invalidates_on_tracks_only_change(self):
+        tracks = self.run / 'tracks.jsonl'
+        def write(distance):
+            tracks.write_text(json.dumps({'frame_index': 1, 'segment_id': 0, 'track_id': 1,
+                'subject_id': 'roster:home:23', 'interval_start_s': 0., 'measured_duration_s': .1,
+                'distance_m': distance, 'reason': None})+'\n')
+        write(.1)
+        url = '/api/heatmaps?name=match&subject=team:home&mode=movement'
+        self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .1)
+        write(.25)
+        self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .25)
+
+
 if __name__ == '__main__':
     unittest.main()
