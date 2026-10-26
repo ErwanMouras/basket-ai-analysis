@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "source_sha256": "f63901d1813c8163adc0ea06fb2caeafe0aae7322593aea409e73a253f2184da",
+  "sample_s": 0.5,
+  "teams": [
+    {
+      "team_id": "blue",
+      "label": "BLU"
+    },
+    {
+      "team_id": "pink",
+      "label": "PNK"
+    }
+  ],
+  "provenance": {
+    "method": "scripted_demo_no_ocr_or_accuracy_claim"
+  },
+  "samples": [
+    {
+      "time_s": 0.0,
+      "period": 1,
+      "clock_s": 684,
+      "scores": {
+        "blue": 2,
+        "pink": 0
+      }
+    },
+    {
+      "time_s": 0.5,
+      "period": 1,
+      "clock_s": 684,
+      "scores": {
+        "blue": 2,
+        "pink": 0
+      }
+    },
+    {
+      "time_s": 1.0,
+      "period": 1,
+      "clock_s": 683,
+      "scores": {
+        "blue": 2,
+        "pink": 0
+      }
+    },
+    {
+      "time_s": 1.5,
+      "period": 1,
+      "clock_s": 683,
+      "scores": {
+        "blue": 2,
+        "pink": 2
+      }
+    },
+    {
+      "time_s": 2.0,
+      "period": 1,
+      "clock_s": 682,
+      "scores": {
+        "blue": 2,
+        "pink": 2
+      }
+    },
+    {
+      "time_s": 2.5,
+      "period": 1,
+      "clock_s": 682,
+      "scores": {
+        "blue": 2,
+        "pink": 2
+      }
+    },
+    {
+      "time_s": 3.0,
+      "period": 3,
+      "clock_s": 710,
+      "scores": {
+        "blue": 52,
+        "pink": 48
+      }
+    },
+    {
+      "time_s": 3.5,
+      "period": 3,
+      "clock_s": 710,
+      "scores": {
+        "blue": 52,
+        "pink": 48
+      }
+    },
+    {
+      "time_s": 4.0,
+      "period": 3,
+      "clock_s": 709,
+      "scores": {
+        "blue": 52,
+        "pink": 48
+      }
+    },
+    {
+      "time_s": 4.5,
+      "period": 3,
+      "clock_s": 709,
+      "scores": {
+        "blue": 52,
+        "pink": 50
+      }
+    },
+    {
+      "time_s": 5.0,
+      "period": 3,
+      "clock_s": 708,
+      "scores": {
+        "blue": 52,
+        "pink": 50
+      }
+    },
+    {
+      "time_s": 5.5,
+      "period": 3,
+      "clock_s": 708,
+      "scores": {
+        "blue": 52,
+        "pink": 50
+      }
+    },
+    {
+      "time_s": 5.966666666666667,
+      "period": 3,
+      "clock_s": 708,
+      "scores": {
+        "blue": 52,
+        "pink": 50
+      }
+    }
+  ]
+}

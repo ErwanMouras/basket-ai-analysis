@@ -33,25 +33,27 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 3.867911999999999,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593599999987,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     },
     {
-      "subject_id": "roster:pink:12",
-      "player_id": "roster:pink:12",
-      "player_name": "Example B",
-      "team_id": "pink",
-      "jersey_number": "12",
+      "subject_id": "roster:blue:8",
+      "player_id": "roster:blue:8",
+      "player_name": "Example A2",
+      "team_id": "blue",
+      "jersey_number": "8",
       "team_group": null,
       "identity_status": "confirmed",
       "track_refs": [
@@ -67,17 +69,163 @@
         }
       ],
       "tracked_duration_s": 5.933333333333334,
-      "measured_duration_s": 5.4,
+      "measured_duration_s": 5.333333333333334,
       "warnings": [
         "calibration_unavailable",
+        "implausible_speed",
         "projected"
       ],
       "excluded_intervals": {
+        "implausible_speed": 2,
         "calibration_unavailable": 15,
         "projected": 1
       },
-      "observed_distance_m": 2.707538399999997,
-      "coverage_ratio": 0.9101123595505618,
+      "observed_distance_m": 0.9397593599999947,
+      "coverage_ratio": 0.8988764044943821,
+      "measurement_status": "partial"
+    },
+    {
+      "subject_id": "roster:blue:9",
+      "player_id": "roster:blue:9",
+      "player_name": "Example A3",
+      "team_id": "blue",
+      "jersey_number": "9",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 3
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 3
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.333333333333334,
+      "warnings": [
+        "calibration_unavailable",
+        "implausible_speed",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "implausible_speed": 2,
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 0.9397593600000045,
+      "coverage_ratio": 0.8988764044943821,
+      "measurement_status": "partial"
+    },
+    {
+      "subject_id": "roster:pink:12",
+      "player_id": "roster:pink:12",
+      "player_name": "Example B",
+      "team_id": "pink",
+      "jersey_number": "12",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 4
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 4
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.333333333333334,
+      "warnings": [
+        "calibration_unavailable",
+        "implausible_speed",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "implausible_speed": 2,
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 0.9397593600000009,
+      "coverage_ratio": 0.8988764044943821,
+      "measurement_status": "partial"
+    },
+    {
+      "subject_id": "roster:pink:13",
+      "player_id": "roster:pink:13",
+      "player_name": "Example B2",
+      "team_id": "pink",
+      "jersey_number": "13",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 5
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 5
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.333333333333334,
+      "warnings": [
+        "calibration_unavailable",
+        "implausible_speed",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "implausible_speed": 2,
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 0.9397593600000076,
+      "coverage_ratio": 0.8988764044943821,
+      "measurement_status": "partial"
+    },
+    {
+      "subject_id": "roster:pink:14",
+      "player_id": "roster:pink:14",
+      "player_name": "Example B3",
+      "team_id": "pink",
+      "jersey_number": "14",
+      "team_group": null,
+      "identity_status": "confirmed",
+      "track_refs": [
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 0,
+          "track_id": 6
+        },
+        {
+          "run_id": "synthetic-demo",
+          "segment_id": 1,
+          "track_id": 6
+        }
+      ],
+      "tracked_duration_s": 5.933333333333334,
+      "measured_duration_s": 5.333333333333334,
+      "warnings": [
+        "calibration_unavailable",
+        "implausible_speed",
+        "projected"
+      ],
+      "excluded_intervals": {
+        "implausible_speed": 2,
+        "calibration_unavailable": 15,
+        "projected": 1
+      },
+      "observed_distance_m": 0.9397593599999934,
+      "coverage_ratio": 0.8988764044943821,
       "measurement_status": "partial"
     }
   ],
@@ -91,7 +239,7 @@
   "status": "completed",
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "46d172f58d5db5f0fbab856252143568d169d720d9bbb3232e617593d129da25",
+    "sha256": "f63901d1813c8163adc0ea06fb2caeafe0aae7322593aea409e73a253f2184da",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,

@@ -16,6 +16,13 @@ from training.common.provenance import file_hash
 from training.jersey.display import display_colors
 
 
+def scripted_score(index):
+    return {"period": 1 if index < 90 else 3,
+            "clock_s": (684 - index // 30) if index < 90 else (710 - (index - 90) // 30),
+            "scores": {"blue": 2 if index < 90 else 52,
+                       "pink": 0 if index < 45 else 2 if index < 90 else 48 if index < 135 else 50}}
+
+
 def create_demo(output):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
@@ -30,6 +37,10 @@ def create_demo(output):
     roster = {"schema_version": 1, "match": {"match_id": "SYNTHETIC DEMO — scripted outputs"}, "teams": [
         {"team_id": "blue", "name": "Example Blue", "color": "#45C7F5", "players": [{"number": "7", "name": "Example A"}]},
         {"team_id": "pink", "name": "Example Pink", "color": "#F279C8", "players": [{"number": "12", "name": "Example B"}]}]}
+    for team_index, team in enumerate(roster["teams"]):
+        for extra in (1, 2):
+            team["players"].append({"number": str((7 if team_index == 0 else 12) + extra),
+                                    "name": f"Example {'A' if team_index == 0 else 'B'}{extra + 1}"})
     palette = display_colors(roster)
     metric = Distance({"smoothing_tau_s": 0.0, "deadband_m": 0.0,
                        "max_speed_m_s": 12., "max_gap_s": .2}, "synthetic-demo")
@@ -44,25 +55,50 @@ def create_demo(output):
             cv2.putText(image, "No model inference or accuracy claim", (22, 47), cv2.FONT_HERSHEY_SIMPLEX, .45, (210, 210, 210), 1)
             available = not 60 <= i < 75
             persons = []
-            for j, team in enumerate(roster["teams"]):
-                x, y = 100 + j * 260 + i * (0.5 if j == 0 else -.35), 150 + j * 50
-                cv2.rectangle(image, (round(x), y), (round(x + 26), y + 55), (240, 180, 50) if j == 0 else (200, 120, 240), -1)
-                cv2.putText(image, team["players"][0]["number"], (round(x), y + 30), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0), 1)
-                persons.append({"observation_id": f"synthetic-demo:{i}:{j}", "track_id": j + 1,
-                                "role": "player", "confidence": 1., "bbox": [x, y, x + 26, y + 55],
-                                "position_m": [(x - 20) / 600 * 28.6512, (y + 55 - 60) / 280 * 15.24] if available else None,
-                                "position_status": "projected" if available else "calibration_unavailable",
-                                "ground_point_px": [x, y + 55],
-                                "ground_point_method": "scripted", "pose": None,
-                                "display_color": team["color"],
-                                "jersey": {"number": team["players"][0]["number"], "status": "confirmed",
-                                           "identity_status": "unique_number", "team_id": team["team_id"],
-                                           "player_name": team["players"][0]["name"]}})
-            point = [320 + 50 * math.sin(i / 25), 150 + 30 * math.cos(i / 20)] if i % 90 >= 2 else None
+            owner = (i // 45) % 2
+            for team_index, team in enumerate(roster["teams"]):
+                for player_index, player in enumerate(team["players"]):
+                    # The new controller first recovers the ball at its own
+                    # basket, then reaches the other half ten frames later.
+                    layout = ((400, 380, 430), (500, 540, 565)) if i % 90 < 55 else ((65, 105, 140), (220, 195, 255))
+                    x = layout[team_index][player_index] + (i % 45) * .08
+                    y = (150, 100, 215)[player_index]
+                    if i >= 90:
+                        x, y = 640 - (x + 13) - 13, 400 - (y + 55) - 55
+                    cx = x + 13
+                    keypoints = [[cx, y+6], [cx-3, y+4], [cx+3, y+4], [cx-8, y+6], [cx+8, y+6],
+                                 [cx-9, y+16], [cx+9, y+16], [cx-14, y+26], [cx+14, y+26],
+                                 [cx-15, y+32], [cx+15, y+32], [cx-6, y+33], [cx+6, y+33],
+                                 [cx-8, y+44], [cx+8, y+44], [cx-8, y+55], [cx+8, y+55]]
+                    cv2.rectangle(image, (round(x), y), (round(x + 26), y + 55),
+                                  (240, 180, 50) if team_index == 0 else (200, 120, 240), -1)
+                    cv2.putText(image, player["number"], (round(x), y + 30), cv2.FONT_HERSHEY_SIMPLEX, .5, (0, 0, 0), 1)
+                    persons.append({"observation_id": f"synthetic-demo:{i}:{team_index}:{player_index}",
+                                    "track_id": 1 + team_index * 3 + player_index,
+                                    "role": "player", "confidence": 1., "bbox": [x, y, x + 26, y + 55],
+                                    "position_m": [(cx - 20) / 600 * 28.6512, (y + 55 - 60) / 280 * 15.24] if available else None,
+                                    "position_status": "projected" if available else "calibration_unavailable",
+                                    "ground_point_px": [cx, y + 55], "ground_point_method": "scripted",
+                                    "pose": {"format": "coco17", "coordinate_space": "source", "keypoints": keypoints,
+                                             "scores": [1.] * 17, "valid": [True] * 17},
+                                    "display_color": team["color"],
+                                    "jersey": {"number": player["number"], "status": "confirmed",
+                                               "identity_status": "unique_number", "team_id": team["team_id"],
+                                               "player_name": player["name"]}})
+            carrier = persons[owner * 3]
+            point = [carrier["pose"]["keypoints"][9][0] + 2 * math.sin(i / 3),
+                     carrier["pose"]["keypoints"][9][1]] if not 20 <= i < 41 else None
             if point:
                 cv2.circle(image, tuple(round(v) for v in point), 5, (40, 140, 250), -1)
+            cv2.putText(image, f"Scripted control: {'Blue' if owner == 0 else 'Pink'}", (22, 355),
+                        cv2.FONT_HERSHEY_SIMPLEX, .45, (255, 255, 255), 1)
             if not available:
                 cv2.putText(image, "Calibration unavailable", (170, 325), cv2.FONT_HERSHEY_SIMPLEX, .6, (100, 180, 255), 1)
+            score = scripted_score(i)
+            cv2.rectangle(image, (145, 316), (505, 342), (27, 30, 35), -1)
+            clock = score["clock_s"]
+            label = f"BLU {score['scores']['blue']}   PNK {score['scores']['pink']}   Q{score['period']}   {clock//60}:{clock%60:02d}"
+            cv2.putText(image, label, (155, 335), cv2.FONT_HERSHEY_SIMPLEX, .52, (245, 245, 245), 1)
             writer.write(image)
             row = {"schema_version": 1, "artifact_type": "video_observation", "run_id": "synthetic-demo",
                    "frame_index": i, "segment_id": i // 90, "timestamp_s": i / 30,
@@ -92,12 +128,22 @@ def create_demo(output):
     write_jsonl(run / "tracks.jsonl", contributions)
     write_jsonl(run / "jersey_reads.jsonl", [])
     write_json(run / "roster.json", roster)
+    write_json(run / "scoreboard.json", {
+        "schema_version": 1, "source_sha256": source["sha256"], "sample_s": .5,
+        "teams": [{"team_id": "blue", "label": "BLU"}, {"team_id": "pink", "label": "PNK"}],
+        "provenance": {"method": "scripted_demo_no_ocr_or_accuracy_claim"},
+        "samples": [{"time_s": i/30, **scripted_score(i)} for i in [*range(0,180,15),179]],
+    })
     manifest = {"schema_version": 1, "run_id": "synthetic-demo", "status": "completed", "frames": 180, "segments": 2,
                 "source": source, "capabilities": capabilities,
                 "display_colors": palette, "demo": "Scripted synthetic interface demonstration; no learned predictions.",
                 "models": {}, "warnings": ["synthetic_scripted_demo"], "artifacts": {}}
-    for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json"):
+    for name in ("statistics.json", "observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "roster.json", "scoreboard.json"):
         manifest["artifacts"][name] = {"sha256": file_hash(run / name)}
+    manifest["court_coordinate_system"] = {
+        "league": "NBA", "units": "metres", "length": 28.6512, "width": 15.24,
+        "orientation_scope": "camera_segment",
+    }
     write_json(run / "run.json", manifest)
     return output
 

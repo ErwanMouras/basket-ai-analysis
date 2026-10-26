@@ -15,6 +15,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+from viewer.heatmaps import HeatmapIndex
+from viewer.scoreboard import ScoreboardIndex
 from training.jersey.display import display_colors
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +33,9 @@ class RunIndex:
     markers: list[dict]
     reads: list[dict]
     observed_jerseys: dict[str, dict]
+    heatmaps: HeatmapIndex
+    auxiliary_signature: tuple
+    scoreboard: ScoreboardIndex
 
 
 class ViewerServer(ThreadingHTTPServer):
@@ -60,9 +65,17 @@ class ViewerServer(ThreadingHTTPServer):
     def index(self, path: Path) -> RunIndex:
         source = path / 'observations.jsonl'
         stat = source.stat()
+        auxiliary_signature = tuple((file.name, file.stat().st_size, file.stat().st_mtime_ns)
+            for file in (path / 'run.json', path / 'roster.json', path / 'tracks.jsonl', path / 'scoreboard.json') if file.is_file())
         cached = self.indices.get(path)
-        if cached and cached.observation_size == stat.st_size and cached.observation_mtime_ns == stat.st_mtime_ns:
+        if (cached and cached.observation_size == stat.st_size and cached.observation_mtime_ns == stat.st_mtime_ns
+                and cached.auxiliary_signature == auxiliary_signature):
             return cached
+        manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
+        roster_file = path / 'roster.json'
+        roster = json.loads(roster_file.read_text(encoding='utf-8')) if roster_file.is_file() else None
+        scoreboard = ScoreboardIndex.load(path, manifest, roster)
+        heatmaps = HeatmapIndex(manifest, roster, scoreboard)
         offsets: list[int] = []
         timestamps: list[float] = []
         markers: list[dict] = []
@@ -75,6 +88,7 @@ class ViewerServer(ThreadingHTTPServer):
                 if not line:
                     break
                 row = json.loads(line)
+                heatmaps.add_frame(row)
                 offsets.append(offset)
                 timestamps.append(float(row['timestamp_s']))
                 if row.get('scene_cut') and row['frame_index']:
@@ -116,6 +130,7 @@ class ViewerServer(ThreadingHTTPServer):
             with tracks.open(encoding='utf-8') as file:
                 for line in file:
                     row = json.loads(line)
+                    heatmaps.add_track(row)
                     subject = row.get('subject_id')
                     if subject is None:
                         continue
@@ -142,8 +157,12 @@ class ViewerServer(ThreadingHTTPServer):
                                   'conflicting_numbers': sorted(item['numbers']) if len(item['numbers']) > 1 else [],
                                   'team_group': next(iter(item['groups'])) if len(item['groups']) == 1 else None}
                             for key, item in jerseys.items()}
-        result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys)
+        heatmaps.finish()
+        result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
+                          heatmaps, auxiliary_signature, scoreboard)
         self.indices[path] = result
+        while len(self.indices) > 3:
+            self.indices.pop(next(iter(self.indices)), None)
         return result
 
 
@@ -181,7 +200,7 @@ class Handler(BaseHTTPRequestHandler):
                         continue
                 runs.sort(key=lambda x: x['name'])
                 return self.json({'runs': runs})
-            if parsed.path in ('/api/run', '/api/frame', '/api/frames', '/api/reads', '/api/video'):
+            if parsed.path in ('/api/run', '/api/frame', '/api/frames', '/api/reads', '/api/video', '/api/heatmaps'):
                 name = query.get('name', [''])[0]
                 path = self.server.run_path(name)
                 manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
@@ -234,9 +253,21 @@ class Handler(BaseHTTPRequestHandler):
                         'observed_jerseys': index.observed_jerseys,
                         'track_votes': vote_summaries,
                         'spatial_handoffs': manifest.get('spatial_handoffs', []),
+                        'scoreboard': index.scoreboard.metadata(),
+                        'phase_timeline': index.heatmaps.phases.timeline(),
                         'markers': index.markers,
                         'video_available': source.is_relative_to(self.server.video_root) and source.is_file()})
                 index = self.server.index(path)
+                if parsed.path == '/api/heatmaps':
+                    subject = query.get('subject', [''])[0]
+                    if not subject:
+                        return self.json(index.heatmaps.metadata())
+                    return self.json(index.heatmaps.query(
+                        subject, int(query.get('plan', ['0'])[0]),
+                        float(query['start'][0]) if 'start' in query else None,
+                        float(query['end'][0]) if 'end' in query else None,
+                        query.get('mode', ['presence'])[0], query.get('compare', [None])[0],
+                        query.get('phase', [None])[0], int(query['episode'][0]) if 'episode' in query else None))
                 if parsed.path == '/api/reads':
                     track = query.get('track', [''])[0]
                     segment = query.get('segment', [''])[0]

@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="/style.css" />
     <script src="/i18n.js" defer></script>
     <script src="/app.js" defer></script>
+    <script src="/heatmap-renderer.js" defer></script>
+    <script src="/heatmaps.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -205,18 +207,26 @@
                       <legend data-i18n="court">Terrain</legend>
                       <div class="category-toggles">
                         <label
-                          ><input type="checkbox" data-filter="court" checked /><span
-                            data-i18n="courtLines"
+                          ><input
+                            type="checkbox"
+                            data-filter="court"
+                            checked
+                          /><span data-i18n="courtLines"
                             >Lignes projetées</span
                           ></label
                         ><label
-                          ><input type="checkbox" data-filter="courtLandmarks" /><span
-                            data-i18n="landmarks"
+                          ><input
+                            type="checkbox"
+                            data-filter="courtLandmarks"
+                          /><span data-i18n="landmarks"
                             >Repères détectés</span
                           ></label
                         >
                       </div>
-                      <p class="layers-note" data-i18n="courtOverlayHint">Lignes cyan : projection du terrain. Zone teintée : support des repères. Repères roses : non retenus.</p>
+                      <p class="layers-note" data-i18n="courtOverlayHint">
+                        Lignes cyan : projection du terrain. Zone teintée :
+                        support des repères. Repères roses : non retenus.
+                      </p>
                     </fieldset>
                   </div>
                   <p
@@ -266,11 +276,23 @@
             </div>
           </div>
           <div class="timeline">
+            <div id="scoreboardContext" class="scoreboard-context" hidden>
+              <span id="scoreboardMatch" class="scoreboard-match"></span>
+              <span id="scoreboardPeriod" class="scoreboard-period"></span>
+              <span id="scoreboardClock" class="scoreboard-clock"></span>
+              <span id="gamePhase" class="game-phase" hidden></span>
+              <span class="scoreboard-source" data-i18n="scoreObserved"
+                >Bandeau TV</span
+              >
+            </div>
             <div class="timeline-caption">
               <span data-i18n="sequence">DÉROULÉ DE L’EXTRAIT</span
               ><span class="timeline-legend"
                 ><i class="mark cut"></i
                 ><span data-i18n="sceneCut">Changement de plan</span></span
+              ><span id="scoreboardLegend" class="timeline-legend" hidden
+                ><i class="mark score"></i
+                ><span data-i18n="scoreChanges">Score observé</span></span
               >
             </div>
             <div class="seek-wrap">
@@ -389,7 +411,18 @@
                 <span class="section-number">02</span>
                 <h2 data-i18n="tacticalView">Vue tactique</h2>
               </div>
-              <span class="panel-tag" data-i18n="topView">VUE DU DESSUS</span>
+              <div class="court-actions">
+                <span class="panel-tag" data-i18n="topView">VUE DU DESSUS</span
+                ><button
+                  id="openCourtHeatmaps"
+                  type="button"
+                  class="heatmap-entry"
+                  data-heatmap-context="court"
+                  data-i18n="hmOpen"
+                >
+                  Heatmaps
+                </button>
+              </div>
             </div>
             <div class="court-wrap">
               <svg
@@ -511,6 +544,15 @@
                   </div>
                   <div id="finalStats" class="final-stats"></div>
                 </div>
+                <button
+                  id="openPlayerHeatmaps"
+                  type="button"
+                  class="heatmap-entry player-heatmap-entry"
+                  data-heatmap-context="player"
+                  data-i18n="hmPlayerOpen"
+                >
+                  Explorer les heatmaps du joueur
+                </button>
                 <p id="finalStatsNote" class="final-stats-note"></p>
               </div>
             </div>
@@ -544,6 +586,15 @@
                   Les statistiques de cette équipe apparaîtront ici lorsqu’elles
                   seront disponibles.
                 </p>
+                <button
+                  id="openTeamHeatmaps"
+                  type="button"
+                  class="heatmap-entry team-heatmap-entry"
+                  data-heatmap-context="team"
+                  data-i18n="hmTeamOpen"
+                >
+                  Explorer les heatmaps de l’équipe
+                </button>
               </div>
             </div>
           </section>
@@ -558,6 +609,189 @@
         >
       </footer>
     </div>
+    <dialog
+      id="heatmapDialog"
+      class="heatmap-dialog"
+      aria-labelledby="heatmapTitle"
+    >
+      <header class="hm-header">
+        <div>
+          <div class="eyebrow" data-i18n="hmKicker">EXPLORATION SPATIALE</div>
+          <h2 id="heatmapTitle" data-i18n="hmTitle">Le jeu, dans l’espace.</h2>
+        </div>
+        <div class="hm-header-actions">
+          <button id="heatmapLanguage" class="heatmap-entry" type="button">
+            EN</button
+          ><button
+            id="closeHeatmaps"
+            class="icon-button"
+            type="button"
+            data-i18n-aria="close"
+            aria-label="Fermer"
+          >
+            ×
+          </button>
+        </div>
+      </header>
+      <div class="hm-layout">
+        <aside
+          class="hm-controls"
+          aria-label="Réglages des heatmaps"
+          data-i18n-aria="hmControls"
+        >
+          <label class="hm-field" id="heatmapSubjectField"
+            ><span data-i18n="hmSubject">Joueur ou équipe</span
+            ><select id="heatmapSubject"></select
+          ></label>
+          <label class="hm-field"
+            ><span data-i18n="hmPhase">Situation de jeu</span
+            ><select id="heatmapPhase">
+              <option value="offense" data-i18n="hmOffense">Attaque</option>
+              <option value="defense" data-i18n="hmDefense">Défense</option>
+            </select>
+          </label>
+          <label class="hm-field" id="heatmapPeriodField" hidden>
+            <span data-i18n="gamePeriod">Quart-temps</span>
+            <select id="heatmapPeriod"></select>
+          </label>
+          <p id="heatmapMatchup" class="hm-matchup" hidden></p>
+          <label class="hm-field" id="heatmapPassageField">
+            <span data-i18n="hmPassage">Passage</span>
+            <select id="heatmapPassage"></select
+          ></label>
+          <div class="hm-range">
+            <label class="hm-field"
+              ><span data-i18n="hmStart">Début · s</span
+              ><input
+                id="heatmapStart"
+                type="number"
+                step="any"
+                min="0" /></label
+            ><label class="hm-field"
+              ><span data-i18n="hmEnd">Fin · s</span
+              ><input id="heatmapEnd" type="number" step="any" min="0"
+            /></label>
+          </div>
+          <div class="hm-angle-label" data-i18n="hmAngles">
+            QUATRE ANGLES DE LECTURE
+          </div>
+          <div class="hm-modes" role="group" data-i18n-aria="hmAngles">
+            <button
+              type="button"
+              data-heatmap-mode="presence"
+              aria-pressed="true"
+            >
+              <span class="hm-mode-index">01</span
+              ><span
+                ><strong data-i18n="hmPresence">Présence</strong
+                ><small data-i18n="hmPresenceShort"
+                  >Où passe-t-on du temps ?</small
+                ></span
+              >
+            </button>
+            <button
+              type="button"
+              data-heatmap-mode="zones"
+              aria-pressed="false"
+            >
+              <span class="hm-mode-index">02</span
+              ><span
+                ><strong data-i18n="hmZones">Zones</strong
+                ><small data-i18n="hmZonesShort"
+                  >Neuf zones, une répartition.</small
+                ></span
+              >
+            </button>
+            <button
+              type="button"
+              data-heatmap-mode="evolution"
+              aria-pressed="false"
+            >
+              <span class="hm-mode-index">03</span
+              ><span
+                ><strong data-i18n="hmEvolution">Évolution</strong
+                ><small data-i18n="hmEvolutionShort"
+                  >Première et seconde moitié.</small
+                ></span
+              >
+            </button>
+            <button
+              type="button"
+              data-heatmap-mode="comparison"
+              aria-pressed="false"
+            >
+              <span class="hm-mode-index">04</span
+              ><span
+                ><strong data-i18n="hmComparison">Comparaison</strong
+                ><small data-i18n="hmComparisonShort"
+                  >Les deux équipes, face à face.</small
+                ></span
+              >
+            </button>
+          </div>
+          <label class="hm-smoothing" id="heatmapSmoothField"
+            ><input type="checkbox" id="heatmapSmooth" checked /><span
+              data-i18n="hmSmooth"
+              >Zones continues</span
+            ></label
+          >
+          <p
+            class="hm-render-note"
+            id="heatmapRenderNote"
+            data-i18n="hmRenderHelp"
+          >
+            Les zones claires indiquent une plus forte concentration. Survol et
+            tableau : mesures brutes.
+          </p>
+          <p class="hm-plan-note" data-i18n="hmPhaseNote">
+            Jeu installé uniquement · demi-terrain · panier à droite.
+          </p>
+        </aside>
+        <section
+          class="hm-content"
+          aria-label="Résultats des heatmaps"
+          data-i18n-aria="hmResults"
+        >
+          <div class="hm-intro">
+            <span id="heatmapScope" class="panel-tag"></span>
+            <h3 id="heatmapModeTitle"></h3>
+            <p id="heatmapExplanation"></p>
+          </div>
+          <div
+            id="heatmapStatus"
+            class="hm-status"
+            role="status"
+            aria-live="polite"
+          ></div>
+          <div id="heatmapPhaseSummary" class="hm-phase-summary"></div>
+          <p id="heatmapOrientation" class="hm-orientation"></p>
+          <div id="heatmapCharts" class="hm-charts"></div>
+          <p
+            class="hm-inspect"
+            id="heatmapInspect"
+            role="status"
+            aria-live="polite"
+          ></p>
+          <details class="hm-data" id="heatmapData" hidden>
+            <summary data-i18n="hmData">Lire les valeurs par zone</summary>
+            <div id="heatmapTables"></div>
+          </details>
+          <details class="hm-data hm-passages" id="heatmapPassages" hidden>
+            <summary id="heatmapPassagesTitle"></summary>
+            <div id="heatmapPassagesList" class="hm-passages-list"></div>
+          </details>
+          <div class="hm-limit">
+            <span class="hm-limit-mark" aria-hidden="true">i</span>
+            <p data-i18n="hmLimits">
+              Ces cartes décrivent les positions observées, pas les espaces
+              réellement libres. Les joueurs hors champ, les positions non
+              projetables et les ralentis peuvent modifier la lecture. Les
+              ralentis ne sont pas exclus automatiquement.
+            </p>
+          </div>
+        </section>
+      </div>
+    </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </body>
 </html>

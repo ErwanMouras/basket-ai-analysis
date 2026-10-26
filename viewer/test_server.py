@@ -160,5 +160,127 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)['observed_jerseys']['0:1']['number'], '11')
 
 
+class HeatmapEndpointTests(unittest.TestCase):
+    tearDown = ViewerTests.tearDown
+    get = ViewerTests.get
+    # Reuse the HTTP fixture, while keeping the analytics in an independent module.
+    def setUp(self):
+        ViewerTests.setUp(self)
+        self.run = self.server.runs_root / 'match'
+        manifest = json.loads((self.run / 'run.json').read_text())
+        manifest['court_coordinate_system'] = {'league': 'NBA', 'units': 'metres', 'length': 28.6512, 'width': 15.24}
+        (self.run / 'run.json').write_text(json.dumps(manifest))
+        (self.run / 'roster.json').write_text(json.dumps({'teams': [
+            {'team_id': 'home', 'name': 'Home', 'players': [{'number': '23', 'name': 'A'}]},
+            {'team_id': 'away', 'name': 'Away', 'players': [{'number': '11', 'name': 'B'}]}]}))
+        from viewer.test_heatmaps import frame, person
+        self.rows = [frame(i, i / 10, [person(team='home', number='23')]) for i in range(3)]
+        (self.run / 'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in self.rows))
+
+    def test_heatmap_metadata_and_time_weighted_map(self):
+        _, _, body = self.get('/api/heatmaps?name=match')
+        meta = json.loads(body)
+        self.assertTrue(meta['available'])
+        self.assertEqual(len(meta['plans']), 1)
+        _, _, body = self.get('/api/heatmaps?name=match&subject=roster:home:23&mode=zones')
+        heatmap = json.loads(body)['maps'][0]
+        self.assertAlmostEqual(heatmap['total'], .2)
+        self.assertAlmostEqual(sum(heatmap['zones']), .2)
+        self.assertEqual(heatmap['unit'], 's')
+
+    def test_bad_heatmap_queries_and_run_boundary(self):
+        for suffix in ('&subject=unknown', '&subject=team:home&start=nan',
+                       '&subject=team:home&end=999', '&subject=team:home&mode=comparison&compare=roster:home:23'):
+            with self.assertRaises(HTTPError) as error:
+                self.get('/api/heatmaps?name=match'+suffix)
+            self.assertEqual(error.exception.code, 400)
+        with self.assertRaises(HTTPError) as error:
+            self.get('/api/heatmaps?name=..%2Foutside')
+        self.assertEqual(error.exception.code, 404)
+
+    def test_heatmap_cache_invalidates_on_tracks_only_change(self):
+        tracks = self.run / 'tracks.jsonl'
+        def write(distance):
+            tracks.write_text(json.dumps({'frame_index': 1, 'segment_id': 0, 'track_id': 1,
+                'subject_id': 'roster:home:23', 'interval_start_s': 0., 'measured_duration_s': .1,
+                'distance_m': distance, 'reason': None})+'\n')
+        write(.1)
+        url = '/api/heatmaps?name=match&subject=team:home&mode=movement'
+        self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .1)
+        write(.25)
+        self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .25)
+
+    def test_phase_query_combines_oriented_passages_across_camera_plans(self):
+        from viewer.test_phases import phase_frame, ROSTER, GEOMETRY
+        manifest = json.loads((self.run / 'run.json').read_text())
+        manifest['court_coordinate_system'] = GEOMETRY
+        (self.run / 'run.json').write_text(json.dumps(manifest))
+        (self.run / 'roster.json').write_text(json.dumps(ROSTER))
+        rows = [phase_frame(i, mirror=i >= 10, segment_id=int(i >= 10)) for i in range(20)]
+        (self.run / 'observations.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows))
+        _, _, body = self.get('/api/heatmaps?name=match&subject=roster:a:1&phase=offense')
+        data = json.loads(body)
+        self.assertEqual(data['scope']['normalized_basket'], 'right')
+        self.assertIsNone(data['plan'])
+        self.assertAlmostEqual(data['maps'][0]['total'], 1.6)  # Initial confirmation in each view is excluded.
+        _, _, body = self.get('/api/heatmaps?name=match')
+        self.assertEqual(len(json.loads(body)['phase_analysis']['episodes']), 2)
+        for suffix in ('&phase=made_up', '&phase=offense&episode=99'):
+            with self.assertRaises(HTTPError) as error:
+                self.get('/api/heatmaps?name=match&subject=team:a' + suffix)
+            self.assertEqual(error.exception.code, 400)
+
+
+class ScoreboardServerTests(unittest.TestCase):
+    setUp = ViewerTests.setUp
+    tearDown = ViewerTests.tearDown
+    get = ViewerTests.get
+
+    def test_spatial_classification_reaches_the_player_timeline_and_heatmap_api(self):
+        from viewer.test_phases import GEOMETRY, ROSTER
+        from viewer.test_settled import transition_rows, scoreboard
+        run = self.server.runs_root / 'match'
+        rows = transition_rows()
+        manifest = json.loads((run / 'run.json').read_text())
+        manifest.update(frames=len(rows), court_coordinate_system=GEOMETRY)
+        manifest['source']['sha256'] = 'source'
+        (run / 'run.json').write_text(json.dumps(manifest))
+        (run / 'roster.json').write_text(json.dumps(ROSTER))
+        readings = scoreboard(rows)
+        document = {'schema_version':1, 'source_sha256':'source', 'sample_s':.1,
+                    'teams':readings.document['teams'], 'samples':readings.samples}
+        (run / 'scoreboard.json').write_text(json.dumps(document))
+        (run / 'observations.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in rows))
+        data = json.loads(self.get('/api/run?name=match')[2])
+        self.assertFalse(any(p['start_s']<=2.5<p['end_s'] for p in data['phase_timeline']))
+        phase = next(p for p in data['phase_timeline'] if p['start_s']<=3.5<p['end_s'])
+        self.assertEqual(phase['attacking_team_id'],'b')
+        self.assertEqual(phase['source'],'settled')
+        data = json.loads(self.get('/api/heatmaps?name=match&subject=team:b&phase=offense&start=3.5&end=4.5')[2])
+        self.assertAlmostEqual(data['phase_analysis']['settled_s'],1.)
+        self.assertAlmostEqual(data['maps'][0]['total'],3.)
+
+    def test_source_bound_scoreboard_is_exposed_and_updates_invalidate_the_index(self):
+        from viewer.test_scoreboard import document, sample
+        run = self.server.runs_root / 'match'
+        manifest = json.loads((run / 'run.json').read_text())
+        manifest['source']['sha256'] = 'source'
+        (run / 'run.json').write_text(json.dumps(manifest))
+        (run / 'roster.json').write_text(json.dumps({'teams':[{'team_id':'a','name':'A'},{'team_id':'b','name':'B'}]}))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertFalse(json.loads(body)['scoreboard']['available'])
+        sidecar = document([sample(0),sample(.1),sample(.2)])
+        (run / 'scoreboard.json').write_text(json.dumps(sidecar))
+        _, _, body = self.get('/api/run?name=match')
+        scoreboard = json.loads(body)['scoreboard']
+        self.assertTrue(scoreboard['available'])
+        self.assertEqual(len(scoreboard['events']),1)
+        self.assertEqual(scoreboard['teams'][0]['team_id'],'b')
+        sidecar['source_sha256'] = 'wrong-video'
+        (run / 'scoreboard.json').write_text(json.dumps(sidecar))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertFalse(json.loads(body)['scoreboard']['available'])
+
+
 if __name__ == '__main__':
     unittest.main()

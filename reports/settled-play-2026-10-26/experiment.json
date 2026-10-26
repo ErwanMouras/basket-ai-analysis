@@ -1,0 +1,608 @@
+{
+  "run": "hou-lal-sam-yolo26l-ball",
+  "source_sha256": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+  "methods": {
+    "body_temporal": {
+      "experimental": true,
+      "orientation_evidence": [
+        {
+          "plan_id": 0,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.9000000000000021,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 2,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.1333333333333364,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": null,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 3,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.0666666666666629,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 5,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.63333333333334,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        }
+      ],
+      "period_directions": [],
+      "orientation_policy": "quarter_lock_with_verified_camera_reversals",
+      "method": "image_contacts_temporal_layout_v1",
+      "classification_sources": {
+        "contacts_s": 24.33333333333334,
+        "settled_s": 0,
+        "court_context_s": 0
+      },
+      "phase_policy": "installed_attack_neutral_installed_opponent",
+      "neutral_s": 0,
+      "eligible_s": 61.36666666666667,
+      "classified_s": 24.33333333333334,
+      "unknown_s": 37.03333333333333,
+      "oriented_s": 17.300000000000004,
+      "classification_coverage": 0.39652362846279204,
+      "automatic_replay_exclusion": false
+    },
+    "hands_temporal": {
+      "experimental": true,
+      "orientation_evidence": [
+        {
+          "plan_id": 0,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.3000000000000016,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 2,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.46666666666666856,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 3,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.7333333333333343,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        },
+        {
+          "plan_id": 5,
+          "period": null,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.6000000000000014,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "camera_plan"
+        }
+      ],
+      "period_directions": [],
+      "orientation_policy": "quarter_lock_with_verified_camera_reversals",
+      "method": "image_contacts_temporal_layout_v1",
+      "classification_sources": {
+        "contacts_s": 34.799999999999976,
+        "settled_s": 0,
+        "court_context_s": 0
+      },
+      "phase_policy": "installed_attack_neutral_installed_opponent",
+      "neutral_s": 0,
+      "eligible_s": 61.36666666666667,
+      "classified_s": 34.799999999999976,
+      "unknown_s": 26.56666666666669,
+      "oriented_s": 34.799999999999976,
+      "classification_coverage": 0.567083107007061,
+      "automatic_replay_exclusion": false
+    },
+    "quarter_contacts_temporal": {
+      "experimental": true,
+      "orientation_evidence": [
+        {
+          "plan_id": 0,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.3000000000000016,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 2,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.46666666666666856,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 3,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.7333333333333343,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 5,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.6000000000000014,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        }
+      ],
+      "period_directions": [
+        {
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "direction": -1,
+          "anchor_plan_id": 0,
+          "contact_s": 1.3000000000000016,
+          "vote_agreement": 1.0
+        }
+      ],
+      "orientation_policy": "quarter_lock_with_verified_camera_reversals",
+      "method": "image_contacts_temporal_layout_v1",
+      "classification_sources": {
+        "contacts_s": 34.799999999999976,
+        "settled_s": 0,
+        "court_context_s": 0
+      },
+      "phase_policy": "installed_attack_neutral_installed_opponent",
+      "neutral_s": 0,
+      "eligible_s": 61.36666666666667,
+      "classified_s": 34.799999999999976,
+      "unknown_s": 26.56666666666669,
+      "oriented_s": 34.799999999999976,
+      "classification_coverage": 0.567083107007061,
+      "automatic_replay_exclusion": false
+    },
+    "settled_temporal": {
+      "experimental": true,
+      "orientation_evidence": [
+        {
+          "plan_id": 0,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.3000000000000016,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 2,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.46666666666666856,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 3,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 1.7333333333333343,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        },
+        {
+          "plan_id": 5,
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "left_contact_s": 0.6000000000000014,
+          "right_contact_s": 0,
+          "vote_agreement": 1.0,
+          "direction": -1,
+          "source": "quarter_lock"
+        }
+      ],
+      "period_directions": [
+        {
+          "period": 1,
+          "reference_team_id": "houston_rockets",
+          "direction": -1,
+          "anchor_plan_id": 0,
+          "contact_s": 1.3000000000000016,
+          "vote_agreement": 1.0
+        }
+      ],
+      "orientation_policy": "quarter_lock_with_verified_camera_reversals",
+      "method": "settled_halfcourt_state_machine_v3",
+      "classification_sources": {
+        "contacts_s": 0,
+        "settled_s": 31.99999999999999,
+        "court_context_s": 0
+      },
+      "phase_policy": "installed_attack_neutral_installed_opponent",
+      "neutral_s": 15.633333333333312,
+      "eligible_s": 61.36666666666667,
+      "classified_s": 31.99999999999999,
+      "unknown_s": 29.366666666666678,
+      "oriented_s": 31.99999999999999,
+      "classification_coverage": 0.5214557305812056,
+      "automatic_replay_exclusion": false
+    }
+  },
+  "review": {
+    "sampling": "one still every three source seconds, 0 to 60 inclusive",
+    "review_type": "development_review_of_installed_play_not_possession",
+    "limitations": "Same development clip. Possession in the backcourt is neutral under the revised definition. Close-ups are not observable. These are development checks, not independent annotations or an accuracy benchmark.",
+    "checkpoints": [
+      {
+        "time_s": 0,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 3,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": "houston_rockets",
+          "body_temporal": null,
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 6,
+        "attacking_team_id": "houston_rockets",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": "houston_rockets",
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 9,
+        "attacking_team_id": "houston_rockets",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "houston_rockets",
+          "hands_instant": null,
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": "houston_rockets"
+        }
+      },
+      {
+        "time_s": 12,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": "los_angeles_lakers",
+          "body_temporal": null,
+          "hands_temporal": "los_angeles_lakers",
+          "quarter_contacts_temporal": "los_angeles_lakers",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 15,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 18,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 21,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": "houston_rockets",
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 24,
+        "attacking_team_id": "houston_rockets",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 27,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": "los_angeles_lakers",
+          "body_temporal": "los_angeles_lakers",
+          "hands_temporal": "los_angeles_lakers",
+          "quarter_contacts_temporal": "los_angeles_lakers",
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 30,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 33,
+        "attacking_team_id": null,
+        "note": "close-up",
+        "expected_state": "unobserved",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 36,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": null,
+          "body_temporal": "los_angeles_lakers",
+          "hands_temporal": "los_angeles_lakers",
+          "quarter_contacts_temporal": "los_angeles_lakers",
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 39,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": "los_angeles_lakers",
+          "hands_instant": "houston_rockets",
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 42,
+        "attacking_team_id": null,
+        "note": "close-up",
+        "expected_state": "unobserved",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 45,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": "houston_rockets",
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 48,
+        "attacking_team_id": "los_angeles_lakers",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": "los_angeles_lakers"
+        }
+      },
+      {
+        "time_s": 51,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 54,
+        "attacking_team_id": null,
+        "expected_state": "neutral",
+        "note": "New controller still at its own end or advancing toward its attacking half",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": "houston_rockets",
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": null
+        }
+      },
+      {
+        "time_s": 57,
+        "attacking_team_id": "houston_rockets",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": "houston_rockets",
+          "hands_instant": "houston_rockets",
+          "body_temporal": "houston_rockets",
+          "hands_temporal": "houston_rockets",
+          "quarter_contacts_temporal": "houston_rockets",
+          "settled_temporal": "houston_rockets"
+        }
+      },
+      {
+        "time_s": 60,
+        "attacking_team_id": "houston_rockets",
+        "expected_state": "installed",
+        "predictions": {
+          "zone_only": null,
+          "hands_instant": null,
+          "body_temporal": null,
+          "hands_temporal": null,
+          "quarter_contacts_temporal": null,
+          "settled_temporal": "houston_rockets"
+        }
+      }
+    ],
+    "scores": {
+      "zone_only": {
+        "labeled": 12,
+        "decided": 7,
+        "agreed": 7,
+        "disagreed": 0,
+        "abstained": 5,
+        "unsupported_on_unknown": 3
+      },
+      "hands_instant": {
+        "labeled": 12,
+        "decided": 3,
+        "agreed": 3,
+        "disagreed": 0,
+        "abstained": 9,
+        "unsupported_on_unknown": 5
+      },
+      "body_temporal": {
+        "labeled": 12,
+        "decided": 5,
+        "agreed": 5,
+        "disagreed": 0,
+        "abstained": 7,
+        "unsupported_on_unknown": 3
+      },
+      "hands_temporal": {
+        "labeled": 12,
+        "decided": 5,
+        "agreed": 5,
+        "disagreed": 0,
+        "abstained": 7,
+        "unsupported_on_unknown": 5
+      },
+      "quarter_contacts_temporal": {
+        "labeled": 12,
+        "decided": 5,
+        "agreed": 5,
+        "disagreed": 0,
+        "abstained": 7,
+        "unsupported_on_unknown": 5
+      },
+      "settled_temporal": {
+        "labeled": 12,
+        "decided": 9,
+        "agreed": 9,
+        "disagreed": 0,
+        "abstained": 3,
+        "unsupported_on_unknown": 0
+      }
+    }
+  },
+  "limitations": "Development comparison only. No independent accuracy estimate, official possession count or automatic replay removal."
+}

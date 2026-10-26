@@ -6,12 +6,17 @@
   "segments": 2,
   "source": {
     "path": "synthetic.mp4",
-    "sha256": "46d172f58d5db5f0fbab856252143568d169d720d9bbb3232e617593d129da25",
+    "sha256": "f63901d1813c8163adc0ea06fb2caeafe0aae7322593aea409e73a253f2184da",
     "nominal_fps": 30,
     "width": 640,
     "height": 360,
     "declared_frames": 180,
     "decoded_frames": 180
+  },
+  "capabilities": {
+    "players": "ok",
+    "court": "ok",
+    "ball": "ok"
   },
   "display_colors": {
     "teams": {
@@ -32,24 +37,29 @@
   ],
   "artifacts": {
     "statistics.json": {
-      "sha256": "3fd430970626edfa5fc2a468755f593bacfd4fc75287cf70dc6ebe2d67292ac7"
+      "sha256": "fa637e5aaf7c7bbdb2d46878a03f375691e0dd132b4d1369f978bc6db99c7ae9"
     },
     "observations.jsonl": {
-      "sha256": "51b0b2fa3cb52fc60e9cac239cd87cb1b35c96c95e2c98f4561e2c77fa8144a9"
+      "sha256": "02b7fe51ff5cce848a2032ebdb9b605ba17c6cab843b9285b4abc52d42a3c2b7"
     },
     "tracks.jsonl": {
-      "sha256": "b77de995f6b6949e62f01dc13882de93e45859440ec63ebb0f6348fd78ec7f7c"
+      "sha256": "29c61092a324ab0874e69130b85bc76c419fb9eb121edb5c4e9959c898648f9b"
     },
     "jersey_reads.jsonl": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     "roster.json": {
-      "sha256": "5bf59fa4d4d534571c624dca92b4bcb70e9dd198b537bc4c427e448faab6ac10"
+      "sha256": "76e740b0d5c199ae994dfd9e74da8d96ebdebb0a3abe44b5c6dfb76171949b2a"
+    },
+    "scoreboard.json": {
+      "sha256": "d7b4db309ec796c66fc862772f9ddc2d09ce0224fd5ff5beed4adc2b6b0c137f"
     }
   },
-  "capabilities": {
-    "players": "ok",
-    "court": "ok",
-    "ball": "ok"
+  "court_coordinate_system": {
+    "league": "NBA",
+    "units": "metres",
+    "length": 28.6512,
+    "width": 15.24,
+    "orientation_scope": "camera_segment"
   }
 }

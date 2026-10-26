@@ -130,6 +130,7 @@ function setLanguage(next) {
   renderRunOptions(); renderMatchHeading(); renderEmptyState();
   renderStatsPanel(); renderCourtLegend(); renderMarkers();
   updateClock(); updateFocusLabel(); updateLayerSummary();
+  window.heatmapStudio?.translate();
   if (state.frame) render({observation: state.frame});
   else if (state.name && !state.meta) $('runMeta').textContent = t('loadingMatch');
 }
@@ -147,9 +148,11 @@ async function init() {
 }
 async function loadRun(name) {
   if (!name) return;
+  window.heatmapStudio?.reset();
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
+  renderScoreboard(0); renderMarkers();
   maskCache.clear(); maskCachePixels = 0;
   const generation = ++state.generation; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
   $('runMeta').textContent = t('loadingMatch');
@@ -237,9 +240,61 @@ function updateClock(time = video.currentTime || 0) {
   $('currentTime').textContent = fmtTime(time);
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
+  renderScoreboard(time);
   $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
   $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
+}
+function periodLabel(period) {
+  return period <= 4 ? `${t('quarterShort')}${period}` : `${t('overtimeShort')}${period - 4}`;
+}
+function gameClockLabel(seconds) {
+  if (seconds == null) return '—';
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}${seconds % 1 ? `.${Math.round((seconds % 1) * 10)}` : ''}`;
+}
+function scoreReading(time) {
+  const data = state.meta?.scoreboard;
+  if (!data?.available) return null;
+  const samples = data.samples || [];
+  let lo = 0, hi = samples.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (samples[mid].time_s <= time + 1e-8) lo = mid + 1; else hi = mid; }
+  const reading = samples[lo - 1];
+  return reading && time - reading.time_s <= data.max_age_s ? reading : null;
+}
+function scoreLabel(reading) {
+  return (state.meta?.scoreboard?.teams || []).map(team => `${team.label} ${reading?.scores?.[team.team_id] ?? '—'}`).join('  ·  ');
+}
+function renderScoreboard(time) {
+  const available = state.meta?.scoreboard?.available;
+  $('scoreboardContext').hidden = !available;
+  if (!available) return;
+  const reading = scoreReading(time);
+  $('scoreboardMatch').textContent = scoreLabel(reading);
+  $('scoreboardPeriod').textContent = reading?.period ? periodLabel(reading.period) : t('gamePeriodUnknown');
+  $('scoreboardClock').textContent = gameClockLabel(reading?.clock_s);
+  $('scoreboardContext').title = t('scoreObservedHelp');
+  renderGamePhase(time);
+}
+function renderGamePhase(time) {
+  const spans = state.meta?.phase_timeline || [];
+  const target = $('gamePhase');
+  target.hidden = !spans.length;
+  if (!spans.length) return;
+  let lo = 0, hi = spans.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (spans[mid].start_s <= time) lo = mid + 1;
+    else hi = mid;
+  }
+  const span = spans[lo - 1];
+  const owner = span && time < span.end_s ? span.attacking_team_id : null;
+  target.hidden = !owner;
+  if (!owner) { target.textContent = ''; return; }
+  const team = (state.meta?.scoreboard?.teams || []).find(team => team.team_id === owner);
+  const opponent = (state.meta?.scoreboard?.teams || []).find(team => team.team_id !== owner);
+  target.textContent = t('gamePhaseMatchup', {attack: team?.label || owner, defense: opponent?.label || '—'});
+  target.setAttribute('data-source', 'settled');
+  target.title = t('gamePhaseHelp');
 }
 function videoFrameLoop(_now, metadata) {
   if (state.loaded) {
@@ -648,6 +703,7 @@ function renderStatsNavigation(teams) {
   renderTeamSelector(teams);
   const team = teams.find(item => item.team_id === state.teamId);
   $('teamHero').hidden = !team;
+  $('openTeamHeatmaps').disabled = !team || !state.meta?.roster;
   if (team) {
     $('teamHero').style.setProperty('--team-color', teamColor(team.team_id));
     $('teamName').textContent = team.name;
@@ -663,6 +719,7 @@ function renderStatsPanel() {
   $('rosterDetail').hidden=!selected;
   if (selected) {
     const {team,player}=selected;
+    $('openPlayerHeatmaps').disabled = !state.meta?.roster;
     $('playerHero').style.setProperty('--team-color',teamColor(team.team_id));
     $('detailNumber').textContent='#'+player.number;
     $('detailTeam').textContent=team.name;
@@ -724,6 +781,16 @@ function renderMarkers(){
     button.style.left=`${100*marker.time/Math.max(duration(),.001)}%`;
     button.title=`${fmtTime(marker.time)} · ${t('sceneCut')}`;button.setAttribute('aria-label',button.title);
     button.addEventListener('click',()=>seekToFrame(marker.index));target.append(button);
+  }
+  const data=state.meta?.scoreboard;
+  $('scoreboardLegend').hidden=!data?.available;
+  for(const event of data?.events || []) {
+    if(event.time_s > duration()) continue;
+    const button=document.createElement('button');button.className='score';button.type='button';
+    button.style.left=`${100*event.time_s/Math.max(duration(),.001)}%`;
+    button.title=`${fmtTime(event.time_s)} · ${periodLabel(event.period)} · ${gameClockLabel(event.clock_s)} · ${scoreLabel(event)} · ${t('scoreChanges')}`;
+    button.setAttribute('aria-label',button.title);
+    button.addEventListener('click',()=>seekToFrame(nearestFrame(event.time_s)));target.append(button);
   }
 }
 function seekToFrame(index){
@@ -812,6 +879,7 @@ new ResizeObserver(resizeOverlay).observe($('videoStage'));
 document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
 $('identityMode').addEventListener('change',()=>{updateLayerSummary();if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}});
 document.addEventListener('keydown',e=>{
+  if ($('heatmapDialog')?.open) return;
   if (e.code === 'Escape' && $('layersMenu').open) {
     $('layersMenu').open = false; $('layersMenu').querySelector('summary').focus(); return;
   }

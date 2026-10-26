@@ -47,7 +47,7 @@ Open **http://127.0.0.1:8766**, play the sample, toggle layers and select a play
 Stop with `docker compose down`.
 
 **The included sample is synthetic and scripted.** It exercises playback,
-overlays, player statistics and unavailable calibration. It contains no learned
+overlays, player statistics, player/team heatmaps and unavailable calibration. It contains no learned
 predictions or NBA footage. See the [sample description](examples/demo/README.md).
 
 <details>
@@ -56,7 +56,10 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 ![Vyneros Film room displaying synthetic, scripted outputs](imagesReadMe/viewer-studio-fr.png)
 
 Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
-and a dedicated space for future team statistics.
+and half-court presence, zones and evolution views for players or teams, plus
+a direct comparison of the two teams. Estimated settled offensive or defensive
+passages share a common basket direction. Transitions are excluded from the maps;
+the full clip remains available for video review.
 The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
 </details>

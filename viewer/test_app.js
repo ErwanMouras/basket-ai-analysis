@@ -274,3 +274,49 @@ test('court landmark diagnostics are independent of lines and ignore malformed p
   assert.equal(ui.drawCalls.filter(([name])=>name==='fillText').length,1);
   assert.equal(ui.drawCalls.filter(([name])=>name==='lineTo').length,0);
 });
+
+test('score timeline uses the last observed sample without showing a future update', async () => {
+  const ui = await app();
+  ui.run(`state.meta = {scoreboard: {available:true,max_age_s:.75, teams:[{team_id:'away',label:'AAA'},{team_id:'home',label:'HHH'}],samples:[
+    {time_s:0,period:1,clock_s:684,scores:{home:0,away:2}},
+    {time_s:.5,period:1,clock_s:683,scores:{home:2,away:2}},
+    {time_s:1,period:null,clock_s:null,scores:null}
+  ]}}`);
+  assert.equal(ui.json('scoreReading(.49).scores.home'), 0);
+  assert.equal(ui.json('scoreReading(.5).scores.home'), 2);
+  assert.equal(ui.json('scoreReading(3)'), null);
+  ui.run('renderScoreboard(.5)');
+  assert.equal(ui.byId('scoreboardMatch').textContent, 'AAA 2  ·  HHH 2');
+  assert.equal(ui.byId('scoreboardClock').textContent, '11:23');
+  assert.equal(ui.byId('scoreboardPeriod').textContent, 'QT1');
+  ui.run("language='en'; renderScoreboard(1)");
+  assert.equal(ui.byId('scoreboardMatch').textContent, 'AAA —  ·  HHH —');
+  assert.equal(ui.byId('scoreboardPeriod').textContent, 'Quarter unread');
+  ui.run('state.meta=null; renderScoreboard(0)');
+  assert.equal(ui.byId('scoreboardContext').hidden, true);
+});
+
+test('game clock labels keep quarter and overtime labels separate from source elapsed time', async () => {
+  const ui = await app();
+  assert.equal(ui.run('gameClockLabel(8.7)'), '0:08.7');
+  assert.equal(ui.run('gameClockLabel(null)'), '—');
+  assert.equal(ui.run('periodLabel(5)'), 'PR1');
+  ui.run("language='en'");
+  assert.equal(ui.run('periodLabel(6)'), 'OT2');
+});
+
+test('phase label distinguishes court context and contacts without carrying across gaps', async () => {
+  const ui=await app();
+  ui.run(`state.meta={scoreboard:{teams:[{team_id:'a',label:'AAA'},{team_id:'b',label:'BBB'}]},phase_timeline:[
+    {start_s:0,end_s:1,attacking_team_id:'a',source:'court_context'},
+    {start_s:1.1,end_s:2,attacking_team_id:'b',source:'contacts'}
+  ]}; renderGamePhase(.5)`);
+  assert.equal(ui.byId('gamePhase').textContent,'AAA attaque · BBB défense');
+  ui.run('renderGamePhase(1)');
+  assert.equal(ui.byId('gamePhase').hidden,true);
+  assert.equal(ui.byId('gamePhase').textContent,'');
+  ui.run("language='en';renderGamePhase(1.1)");
+  assert.equal(ui.byId('gamePhase').textContent,'BBB offense · AAA defense');
+  ui.run('state.meta=null;renderGamePhase(0)');
+  assert.equal(ui.byId('gamePhase').hidden,true);
+});
