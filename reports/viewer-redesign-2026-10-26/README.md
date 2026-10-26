@@ -100,5 +100,7 @@ mask is drawn before the matching presentation callback.
 retrieved from the Google Fonts `ofl/barlowcondensed` directory on 26 October 2026.
 Font SHA-256: `e476562ec9c1e16cf16475895b511f08c804f438cc9a9f80a44ea50a0eeb5b65`.
 
-Human visual approval is pending. The feature branch must not be merged before
-Erwan validates the result.
+Visual review accepted by Erwan on 26 October 2026 after the header removal,
+unchanged Bbox/Segmentation terminology and addition of the Team statistics space.
+Erwan explicitly authorized merging PR #4. The team view reserves space for future
+collective metrics; this approval does not claim new statistics or model accuracy.
