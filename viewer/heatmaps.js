@@ -1,10 +1,9 @@
 /* Spatial analysis is separate from the frame/segmentation playback loop. */
 window.heatmapStudio = (() => {
   const dialog = $("heatmapDialog");
-  const modes = ["presence", "movement", "zones", "comparison", "evolution"];
+  const modes = ["presence", "zones", "evolution", "comparison"];
   const modeKeys = {
     presence: "hmPresence",
-    movement: "hmMovement",
     zones: "hmZones",
     comparison: "hmComparison",
     evolution: "hmEvolution",
@@ -55,10 +54,11 @@ window.heatmapStudio = (() => {
       (episode.period === selectedPeriod().period &&
         episode.start_s < periodBounds().end_s &&
         episode.end_s > periodBounds().start_s)) &&
-    (selectedPhase() === "offense"
-      ? episode.attacking_team_id === selectedSubject()?.team_id
-      : selectedPhase() === "defense" &&
-        episode.attacking_team_id !== selectedSubject()?.team_id);
+    (mode === "comparison" ||
+      (selectedPhase() === "offense"
+        ? episode.attacking_team_id === selectedSubject()?.team_id
+        : selectedPhase() === "defense" &&
+          episode.attacking_team_id !== selectedSubject()?.team_id));
 
   function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -106,14 +106,19 @@ window.heatmapStudio = (() => {
     }
     if (subjects.some((item) => item.id === value)) select.value = value;
   }
-  function updateCompare() {
-    const subject = selectedSubject();
-    const candidates =
-      metadata?.subjects.filter(
-        (item) => item.kind === subject?.kind && item.id !== subject?.id,
-      ) || [];
-    subjectOptions($("heatmapCompare"), candidates, $("heatmapCompare").value);
-    $("heatmapCompareField").hidden = mode !== "comparison";
+  const comparisonTeams = () =>
+    metadata?.subjects.filter((item) => item.kind === "team") || [];
+  const querySubject = () =>
+    mode === "comparison" ? comparisonTeams()[0] : selectedSubject();
+
+  function updateControls() {
+    const comparing = mode === "comparison";
+    $("heatmapSubjectField").hidden = comparing;
+    $("heatmapPassageField").hidden = comparing;
+    $("heatmapMatchup").hidden = !comparing;
+    $("heatmapMatchup").textContent = comparisonTeams()
+      .map((team) => team.label)
+      .join(" / ");
     $("heatmapSmoothField").hidden = mode === "zones";
     $("heatmapRenderNote").hidden = mode === "zones";
   }
@@ -197,7 +202,7 @@ window.heatmapStudio = (() => {
       periodOptions();
       passageOptions();
       resetRange();
-      updateCompare();
+      updateControls();
       busy = false;
       translate();
       await calculate();
@@ -213,7 +218,7 @@ window.heatmapStudio = (() => {
     updateIntro();
     if (!metadata?.available || !dialog.open) return;
     const bounds = scopeBounds();
-    const subject = selectedSubject();
+    const subject = querySubject();
     if (!bounds || !subject) {
       clearCharts();
       status("hmNoData");
@@ -236,7 +241,7 @@ window.heatmapStudio = (() => {
       status("hmBadRange");
       return;
     }
-    if (mode === "comparison" && !$("heatmapCompare").value) {
+    if (mode === "comparison" && comparisonTeams().length !== 2) {
       ++request;
       busy = false;
       clearCharts();
@@ -258,7 +263,6 @@ window.heatmapStudio = (() => {
           start: a,
           end: b,
           mode,
-          compare: $("heatmapCompare").value,
         })}`,
       );
       if (token !== request || name !== state.name || !dialog.open) return;
@@ -286,7 +290,11 @@ window.heatmapStudio = (() => {
     $("heatmapExplanation").textContent = t(`${modeKeys[mode]}Help`);
     const subject = selectedSubject();
     $("heatmapScope").textContent = [
-      subject?.label,
+      mode === "comparison"
+        ? comparisonTeams()
+            .map((team) => team.label)
+            .join(" / ")
+        : subject?.label,
       selectedPeriod() ? periodLabel(selectedPeriod().period) : null,
       t(phaseKey(selectedPhase())) + ` · ${t("hmEstimated")}`,
     ]
@@ -305,7 +313,7 @@ window.heatmapStudio = (() => {
       );
       passageOptions($("heatmapPassage").value);
       periodOptions($("heatmapPeriod").value);
-      updateCompare();
+      updateControls();
     }
     const disabled = !metadata?.available;
     for (const id of [
@@ -315,7 +323,6 @@ window.heatmapStudio = (() => {
       "heatmapPeriod",
       "heatmapStart",
       "heatmapEnd",
-      "heatmapCompare",
     ])
       $(id).disabled = disabled;
     document
@@ -331,6 +338,7 @@ window.heatmapStudio = (() => {
     const summary = $("heatmapPhaseSummary");
     summary.replaceChildren();
     const durations = result.phase_analysis;
+    summary.hidden = mode === "comparison";
     if (!durations) return;
     summary.setAttribute("role", "group");
     summary.setAttribute("aria-label", t("hmPhaseBreakdown"));
@@ -369,8 +377,19 @@ window.heatmapStudio = (() => {
         continue;
       const button = element("button", "hm-passage-review");
       button.type = "button";
+      const team =
+        mode === "comparison"
+          ? comparisonTeams().find(
+              (item) =>
+                (item.team_id === passage.attacking_team_id) ===
+                (selectedPhase() === "offense"),
+            )
+          : null;
+      const label = [team?.label, `${fmtTime(a)} – ${fmtTime(b)}`]
+        .filter(Boolean)
+        .join(" · ");
       button.append(
-        element("span", "", `${fmtTime(a)} – ${fmtTime(b)}`),
+        element("span", "", label),
         element("small", "", t("hmReviewVideo")),
       );
       button.addEventListener("click", () => {
@@ -508,7 +527,8 @@ window.heatmapStudio = (() => {
     card.append(heading);
     const mapCanvas = element("canvas", "hm-canvas");
     mapCanvas.width = 1100;
-    mapCanvas.height = 650;
+    mapCanvas.height =
+      Math.round((1010 * result.court.width) / result.court.length) + 90;
     mapCanvas.setAttribute("role", "img");
     mapCanvas.setAttribute(
       "aria-label",
@@ -529,13 +549,9 @@ window.heatmapStudio = (() => {
         : "hmDifferenceLegend"
       : mode === "zones"
         ? "hmZonesLegend"
-        : mode === "movement"
-          ? field
-            ? "hmMovementDensityLegend"
-            : "hmMovementLegend"
-          : field
-            ? "hmDensityLegend"
-            : "hmLegend";
+        : field
+          ? "hmDensityLegend"
+          : "hmLegend";
     card.append(mapCanvas);
     const empty = map.difference ? !map.available : map.total <= 0;
     if (empty)
@@ -543,13 +559,7 @@ window.heatmapStudio = (() => {
         element(
           "p",
           "hm-empty",
-          t(
-            map.difference
-              ? "hmNoDifference"
-              : mode === "movement" && map.measured_s > 0
-                ? "hmNoMovement"
-                : "hmNoData",
-          ),
+          t(map.difference ? "hmNoDifference" : "hmNoData"),
         ),
       );
     const legend = element("div", "hm-map-legend");
@@ -572,28 +582,24 @@ window.heatmapStudio = (() => {
     if (!map.difference) {
       const stats = element("div", "hm-map-stats");
       stats.append(
-        stat(
-          mode === "movement" ? "hmTotalMovement" : "hmTotal",
-          number(map.total),
-          null,
-          unitLabel(map.unit),
-        ),
+        stat("hmTotal", number(map.total), null, unitLabel(map.unit)),
         stat(
           "hmCoverage",
           map.coverage == null ? "—" : number(map.coverage * 100, 0),
           "hmCoverageHelp",
           map.coverage == null ? null : "%",
         ),
-        stat("hmVideoTime", number(map.localized_video_s), "hmVideoHelp", "s"),
+        stat("hmVideoTime", number(map.half_court_video_s), "hmVideoHelp", "s"),
       );
       card.insertBefore(stats, mapCanvas);
-      if (mode === "movement")
+      if (map.outside_half_s > 0.05)
         card.append(
           element(
             "p",
             "hm-measure-note",
-            t("hmMovementCoverage", {
-              value: number(100 * (map.movement_coverage || 0), 0),
+            t("hmOutsideHalf", {
+              value: number(map.outside_half_s),
+              unit: unitLabel(map.unit),
             }),
           ),
         );
@@ -664,7 +670,7 @@ window.heatmapStudio = (() => {
       ctx.fillText(
         map.difference
           ? `A · ${result.maps[0].subject.label} / B · ${result.maps[1].subject.label}`
-          : `${t(mode === "movement" ? "hmTotalMovement" : "hmTotal")} : ${number(map.total)} ${unitLabel(map.unit)} · ${t("hmCoverage")} : ${map.coverage == null ? "—" : `${number(map.coverage * 100, 0)} %`}`,
+          : `${t("hmTotal")} : ${number(map.total)} ${unitLabel(map.unit)} · ${t("hmCoverage")} : ${map.coverage == null ? "—" : `${number(map.coverage * 100, 0)} %`}`,
         35,
         107,
         1030,
@@ -779,48 +785,47 @@ window.heatmapStudio = (() => {
     ctx.strokeStyle = "#eee0bf99";
     ctx.lineWidth = 2;
     ctx.strokeRect(box.x, box.y, box.width, box.height);
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(x(geometry.length / 2), box.y);
-    ctx.lineTo(x(geometry.length / 2), box.y + box.height);
-    ctx.stroke();
+    ctx.rect(box.x, box.y, box.width, box.height);
+    ctx.clip();
     if (geometry.league === "NBA") {
       const circle = (cx, cy, radius) => {
         ctx.beginPath();
         ctx.arc(x(cx), y(cy), radius * sx, 0, Math.PI * 2);
         ctx.stroke();
       };
-      circle(geometry.length / 2, geometry.width / 2, 1.8288);
-      for (const side of [0, 1]) {
-        const rim = side ? geometry.length - 1.6002 : 1.6002;
-        const foul = side ? geometry.length - 5.7912 : 5.7912;
-        ctx.strokeRect(
-          x(side ? foul : 0),
-          y((geometry.width - 4.8768) / 2),
-          5.7912 * sx,
-          4.8768 * sy,
-        );
-        circle(foul, geometry.width / 2, 1.8288);
-        circle(rim, geometry.width / 2, 0.23);
-        const radius = 7.239,
-          half = geometry.width / 2,
-          corner = 0.9144;
-        const join = Math.sqrt(radius * radius - (half - corner) ** 2);
-        for (const yy of [corner, geometry.width - corner]) {
-          ctx.beginPath();
-          ctx.moveTo(x(side ? geometry.length : 0), y(yy));
-          ctx.lineTo(x(rim + (side ? -join : join)), y(yy));
-          ctx.stroke();
-        }
+      circle(0, geometry.width / 2, 1.8288);
+      const rim = geometry.length - 1.6002;
+      const foul = geometry.length - 5.7912;
+      ctx.strokeRect(
+        x(foul),
+        y((geometry.width - 4.8768) / 2),
+        5.7912 * sx,
+        4.8768 * sy,
+      );
+      circle(foul, geometry.width / 2, 1.8288);
+      circle(rim, geometry.width / 2, 0.23);
+      const radius = 7.239,
+        half = geometry.width / 2,
+        corner = 0.9144;
+      const join = Math.sqrt(radius * radius - (half - corner) ** 2);
+      for (const yy of [corner, geometry.width - corner]) {
         ctx.beginPath();
-        for (let i = 0; i <= 80; i++) {
-          const yy = corner + ((geometry.width - 2 * corner) * i) / 80;
-          const dx = Math.sqrt(Math.max(0, radius * radius - (yy - half) ** 2));
-          if (!i) ctx.moveTo(x(rim + (side ? -dx : dx)), y(yy));
-          else ctx.lineTo(x(rim + (side ? -dx : dx)), y(yy));
-        }
+        ctx.moveTo(x(geometry.length), y(yy));
+        ctx.lineTo(x(rim - join), y(yy));
         ctx.stroke();
       }
+      ctx.beginPath();
+      for (let i = 0; i <= 80; i++) {
+        const yy = corner + ((geometry.width - 2 * corner) * i) / 80;
+        const dx = Math.sqrt(Math.max(0, radius * radius - (yy - half) ** 2));
+        if (!i) ctx.moveTo(x(rim - dx), y(yy));
+        else ctx.lineTo(x(rim - dx), y(yy));
+      }
+      ctx.stroke();
     }
+    ctx.restore();
     if (mode === "zones" || !$("heatmapSmooth").checked) {
       ctx.strokeStyle = "#eee0bf40";
       ctx.lineWidth = 1;
@@ -853,9 +858,13 @@ window.heatmapStudio = (() => {
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     ctx.fillStyle = "#b8b2aa";
-    ctx.font = "16px Arial";
-    ctx.fillText(t("hmAttackLeft"), canvas.width / 2, box.y - 15);
-    ctx.fillText(t("hmAttackRight"), canvas.width / 2, box.y + box.height + 27);
+    ctx.font = "28px Arial";
+    ctx.fillText(t("hmHalfCourt"), canvas.width / 2, box.y - 15);
+    ctx.fillText(
+      t(selectedPhase() === "offense" ? "hmBasketAttack" : "hmBasketDefend"),
+      canvas.width / 2,
+      box.y + box.height + 27,
+    );
   }
   function color(amount, blue) {
     const stops = blue
@@ -888,14 +897,19 @@ window.heatmapStudio = (() => {
     button.addEventListener("click", () => {
       if (!modes.includes(button.dataset.heatmapMode)) return;
       mode = button.dataset.heatmapMode;
-      updateCompare();
+      if (mode === "comparison" && selectedPassage()) {
+        $("heatmapPassage").value = "";
+        resetRange();
+      }
+      passageOptions($("heatmapPassage").value);
+      updateControls();
       calculate();
     }),
   );
   $("heatmapSubject").addEventListener("change", () => {
     passageOptions();
     resetRange();
-    updateCompare();
+    updateControls();
     calculate();
   });
   $("heatmapPhase").addEventListener("change", () =>
@@ -910,7 +924,7 @@ window.heatmapStudio = (() => {
     resetRange();
     calculate();
   });
-  for (const id of ["heatmapStart", "heatmapEnd", "heatmapCompare"])
+  for (const id of ["heatmapStart", "heatmapEnd"])
     $(id).addEventListener("change", calculate);
   $("heatmapSmooth").addEventListener("change", render);
   $("heatmapLanguage").addEventListener("click", () =>

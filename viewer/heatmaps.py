@@ -1,4 +1,6 @@
-"""Time-weighted, camera-plan-local spatial summaries of completed observations.
+"""Time-weighted half-court summaries of installed play.
+
+Historical queries without a phase retain full-court camera-plan coordinates.
 
 No ball projection, cross-cut interpolation or synthetic player locations.
 Attack/defense labels are conservative estimates from the separate phase index. The heatmaps are distributions of the data we observed.
@@ -284,11 +286,13 @@ class HeatmapIndex:
         self, subject_id, plan_id, start, end, metric="presence", phase=None, episode=None
     ):
         subject = self.subjects[subject_id]
-        length, width = self.geometry["length"], self.geometry["width"]
+        full_length, width = self.geometry["length"], self.geometry["width"]
+        offset = full_length / 2 if phase is not None else 0.0
+        length = full_length - offset
         nx, ny = math.ceil(length), math.ceil(width)
         grid, zones = [0.0] * (nx * ny), [0.0] * 9
-        observed = localized = measured = 0.0
-        spans = []
+        observed = localized = measured = in_half = 0.0
+        spans, half_spans = [], []
         for interval in self.intervals:
             if (
                 (phase is None and interval.plan != plan_id)
@@ -316,28 +320,44 @@ class HeatmapIndex:
                 continue
             localized += seconds
             spans.append((a, b))
-            if metric == "movement" and interval.distance is None:
-                continue
-            measured += seconds
-            weight = (
-                seconds
-                if metric == "presence"
-                else interval.distance * seconds / (interval.end - interval.start)
-            )
-            if not weight:
-                continue
             lo = (a - interval.start) / (interval.end - interval.start)
             hi = (b - interval.start) / (interval.end - interval.start)
 
             def point(fraction):
                 xy = tuple(x + fraction * (y - x) for x, y in zip(interval.first, interval.last))
                 return (
-                    (length - xy[0], width - xy[1])
+                    (full_length - xy[0], width - xy[1])
                     if phase is not None and interval.direction == -1
                     else xy
                 )
 
             first, last = point(lo), point(hi)
+            # Clip in metric space, after orientation. Never fold backcourt positions
+            # onto this half or leave their time in the displayed percentages.
+            enter, leave = 0.0, 1.0
+            if first[0] < offset and last[0] < offset:
+                continue
+            if first[0] < offset:
+                enter = (offset - first[0]) / (last[0] - first[0])
+            elif last[0] < offset:
+                leave = (offset - first[0]) / (last[0] - first[0])
+            kept = seconds * (leave - enter)
+            in_half += kept
+            half_spans.append((a + seconds * enter, a + seconds * leave))
+            if metric == "movement" and interval.distance is None:
+                continue
+            measured += kept
+            weight = (
+                kept
+                if metric == "presence"
+                else interval.distance * kept / (interval.end - interval.start)
+            )
+            if not weight:
+                continue
+            delta = tuple(y - x for x, y in zip(first, last))
+            last = tuple(x + leave * d for x, d in zip(first, delta))
+            first = tuple(x + enter * d for x, d in zip(first, delta))
+            first, last = (first[0] - offset, first[1]), (last[0] - offset, last[1])
             # Presence is time, not FPS. Distribute moving intervals along their short path;
             # every contribution is clipped and conserves its total mass at cell borders.
             count = max(1, math.ceil(math.dist(first, last) / 0.20))
@@ -363,6 +383,9 @@ class HeatmapIndex:
             ),
             "observed_s": observed,
             "localized_s": localized,
+            "half_court_s": in_half,
+            "outside_half_s": max(0.0, localized - in_half),
+            "half_court_video_s": union_duration(half_spans),
             "measured_s": measured,
             "localized_video_s": union_duration(spans),
             "coverage": localized / observed if observed else None,
@@ -416,12 +439,14 @@ class HeatmapIndex:
             or end <= start
         ):
             raise ValueError("Heatmap interval must stay inside the selected scope")
-        if mode == "comparison" and (
-            compare not in self.subjects
-            or compare == subject
-            or self.subjects[compare]["kind"] != self.subjects[subject]["kind"]
-        ):
-            raise ValueError("Compare two distinct players or two distinct teams")
+        if mode == "comparison":
+            teams = [item["id"] for item in self.subjects.values() if item["kind"] == "team"]
+            if len(teams) != 2 or subject not in teams:
+                raise ValueError("Comparison requires the two roster teams")
+            opponent = next(item for item in teams if item != subject)
+            if compare is not None and compare != opponent:
+                raise ValueError("Comparison requires the opposing roster team")
+            compare = opponent
         metric = "movement" if mode == "movement" else "presence"
         if mode == "evolution":
             middle = (start + end) / 2
@@ -434,7 +459,16 @@ class HeatmapIndex:
             if mode == "comparison":
                 maps.append(self.summarize(compare, plan, start, end, phase=phase, episode=episode))
         return {
-            "court": self.geometry,
+            "court": (
+                {
+                    **self.geometry,
+                    "length": self.geometry["length"] / 2,
+                    "full_length": self.geometry["length"],
+                    "extent": "half",
+                }
+                if phase is not None
+                else self.geometry
+            ),
             "plan": bounds if phase is None else None,
             "scope": {
                 "kind": "phase" if phase else "plan",
@@ -451,7 +485,7 @@ class HeatmapIndex:
             ),
             "mode": mode,
             "maps": maps,
-            "normalization": "share_of_observed_mass",
+            "normalization": "share_of_half_court_mass" if phase else "share_of_observed_mass",
             "grid_target_m": 1.0,
             "automatic_replay_exclusion": False,
         }

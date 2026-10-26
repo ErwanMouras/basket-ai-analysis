@@ -194,10 +194,10 @@ class PhaseHeatmapTests(unittest.TestCase):
     def test_opposite_camera_directions_are_rotated_without_losing_mass(self):
         rows = [phase_frame(i, mirror=i >= 10, segment_id=int(i >= 10)) for i in range(20)]
         index = self.build(rows)
-        legacy = index.query("roster:a:1", 0, start=0.1, end=0.9)["maps"][0]
+        single_view = index.query("roster:a:1", phase="offense", start=0.1, end=0.9)["maps"][0]
         combined = index.query("roster:a:1", phase="offense")["maps"][0]
         self.assertAlmostEqual(combined["total"], 1.6)
-        for a, b in zip(combined["grid"], legacy["grid"]):
+        for a, b in zip(combined["grid"], single_view["grid"]):
             self.assertAlmostEqual(a, 2 * b)
         self.assertEqual(
             index.query("team:a", phase="offense")["scope"]["normalized_basket"], "right"

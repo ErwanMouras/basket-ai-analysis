@@ -1572,10 +1572,14 @@ kbd {
   background: #1d1c1b;
   border-radius: 3px;
 }
+.hm-multiple .hm-canvas {
+  max-width: 520px;
+  margin: auto;
+}
 .hm-charts:not(.hm-multiple) .hm-canvas {
-  width: min(100%, calc((min(100dvh, 990px) - 590px) * 1.69230769));
-  min-width: min(100%, 400px);
-  max-width: 1060px;
+  width: min(100%, calc((min(100dvh, 990px) - 540px) * 0.95));
+  min-width: min(100%, 270px);
+  max-width: 520px;
   margin: auto;
 }
 .hm-map-legend {
@@ -1974,4 +1978,14 @@ kbd {
   font:
     10px Arial,
     sans-serif;
+}
+
+.hm-matchup {
+  margin: 0 0 14px;
+  padding: 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
 }

@@ -639,7 +639,7 @@
           aria-label="Réglages des heatmaps"
           data-i18n-aria="hmControls"
         >
-          <label class="hm-field"
+          <label class="hm-field" id="heatmapSubjectField"
             ><span data-i18n="hmSubject">Joueur ou équipe</span
             ><select id="heatmapSubject"></select
           ></label>
@@ -654,7 +654,8 @@
             <span data-i18n="gamePeriod">Quart-temps</span>
             <select id="heatmapPeriod"></select>
           </label>
-          <label class="hm-field">
+          <p id="heatmapMatchup" class="hm-matchup" hidden></p>
+          <label class="hm-field" id="heatmapPassageField">
             <span data-i18n="hmPassage">Passage</span>
             <select id="heatmapPassage"></select
           ></label>
@@ -672,7 +673,7 @@
             /></label>
           </div>
           <div class="hm-angle-label" data-i18n="hmAngles">
-            CINQ ANGLES DE LECTURE
+            QUATRE ANGLES DE LECTURE
           </div>
           <div class="hm-modes" role="group" data-i18n-aria="hmAngles">
             <button
@@ -690,27 +691,27 @@
             </button>
             <button
               type="button"
-              data-heatmap-mode="movement"
+              data-heatmap-mode="zones"
               aria-pressed="false"
             >
               <span class="hm-mode-index">02</span
               ><span
-                ><strong data-i18n="hmMovement">Déplacements</strong
-                ><small data-i18n="hmMovementShort"
-                  >Où sont mesurés les mètres ?</small
+                ><strong data-i18n="hmZones">Zones</strong
+                ><small data-i18n="hmZonesShort"
+                  >Neuf zones, une répartition.</small
                 ></span
               >
             </button>
             <button
               type="button"
-              data-heatmap-mode="zones"
+              data-heatmap-mode="evolution"
               aria-pressed="false"
             >
               <span class="hm-mode-index">03</span
               ><span
-                ><strong data-i18n="hmZones">Zones</strong
-                ><small data-i18n="hmZonesShort"
-                  >Neuf zones, une répartition.</small
+                ><strong data-i18n="hmEvolution">Évolution</strong
+                ><small data-i18n="hmEvolutionShort"
+                  >Première et seconde moitié.</small
                 ></span
               >
             </button>
@@ -723,28 +724,11 @@
               ><span
                 ><strong data-i18n="hmComparison">Comparaison</strong
                 ><small data-i18n="hmComparisonShort"
-                  >Deux profils, le même terrain.</small
-                ></span
-              >
-            </button>
-            <button
-              type="button"
-              data-heatmap-mode="evolution"
-              aria-pressed="false"
-            >
-              <span class="hm-mode-index">05</span
-              ><span
-                ><strong data-i18n="hmEvolution">Évolution</strong
-                ><small data-i18n="hmEvolutionShort"
-                  >Première et seconde moitié.</small
+                  >Les deux équipes, face à face.</small
                 ></span
               >
             </button>
           </div>
-          <label class="hm-field" id="heatmapCompareField" hidden
-            ><span data-i18n="hmCompareWith">Comparer avec</span
-            ><select id="heatmapCompare"></select
-          ></label>
           <label class="hm-smoothing" id="heatmapSmoothField"
             ><input type="checkbox" id="heatmapSmooth" checked /><span
               data-i18n="hmSmooth"
@@ -760,8 +744,7 @@
             tableau : mesures brutes.
           </p>
           <p class="hm-plan-note" data-i18n="hmPhaseNote">
-            Découpage estimé à partir des contacts avec le ballon. Les phases
-            incertaines restent à part.
+            Jeu installé uniquement · demi-terrain · panier à droite.
           </p>
         </aside>
         <section

@@ -189,3 +189,91 @@ class HeatmapTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             index.query("unknown", 0)
         self.assertFalse(build([frame(0, 0)], manifest={}).metadata()["available"])
+
+
+class HalfCourtTests(unittest.TestCase):
+    """Metric clipping, without relying on a particular phase classifier fixture."""
+
+    def index(self, points, direction=1, owner="a", team="a", number="1"):
+        from viewer.heatmaps import Interval
+
+        index = build([frame(0, 0), frame(1, 0.2)])
+        index.intervals = [
+            Interval(
+                0,
+                0.0,
+                0.2,
+                team,
+                f"roster:{team}:{number}",
+                first,
+                last,
+                owner=owner,
+                direction=direction,
+            )
+            for first, last in points
+        ]
+        return index
+
+    def test_only_displayed_half_contributes_to_mass_not_localization_quality(self):
+        index = self.index([((24, 3), (24, 3)), ((6, 3), (6, 3))])
+        data = index.query("team:a", phase="offense")
+        chart = data["maps"][0]
+        self.assertEqual(data["court"]["length"], 15)
+        self.assertEqual(data["court"]["full_length"], 30)
+        self.assertEqual(data["court"]["extent"], "half")
+        self.assertEqual((chart["nx"], chart["ny"]), (15, 15))
+        self.assertAlmostEqual(chart["total"], 0.2)
+        self.assertAlmostEqual(chart["outside_half_s"], 0.2)
+        self.assertAlmostEqual(chart["localized_s"], 0.4)
+        self.assertAlmostEqual(chart["coverage"], 1)
+        self.assertAlmostEqual(chart["half_court_video_s"], 0.2)
+        self.assertAlmostEqual(chart["zones"][1], 0.2)
+        self.assertAlmostEqual(sum(chart["zones"]), chart["total"])
+
+    def test_midline_crossings_clip_exact_time_in_either_direction(self):
+        for first, last in [((14.5, 3), (15.5, 3)), ((15.5, 3), (14.5, 3))]:
+            index = self.index([(first, last)])
+            chart = index.query("team:a", phase="offense")["maps"][0]
+            self.assertAlmostEqual(chart["total"], 0.1)
+            self.assertAlmostEqual(chart["half_court_video_s"], 0.1)
+            self.assertAlmostEqual(chart["outside_half_s"], 0.1)
+            clipped = index.query("team:a", phase="offense", start=0.05, end=0.15)["maps"][0]
+            self.assertAlmostEqual(clipped["total"], 0.05)
+            self.assertAlmostEqual(sum(clipped["zones"]), 0.05)
+
+    def test_reversed_cameras_produce_identical_half_court_cells(self):
+        normal = self.index([((14.5, 3), (15.5, 3))])
+        reversed_view = self.index([((15.5, 12), (14.5, 12))], direction=-1)
+        a = normal.query("team:a", phase="offense")["maps"][0]
+        b = reversed_view.query("team:a", phase="offense")["maps"][0]
+        self.assertEqual(a["grid"], b["grid"])
+        self.assertEqual(a["zones"], b["zones"])
+        # The same metric normalization applies to the team defending that basket.
+        defense = self.index([((15.5, 12), (14.5, 12))], direction=-1, owner="b")
+        c = defense.query("team:a", phase="defense")["maps"][0]
+        self.assertEqual(a["grid"], c["grid"])
+
+    def test_midline_boundary_and_empty_half_do_not_create_mass(self):
+        for point, expected in [((15, 3), 0.2), ((14.999, 3), 0)]:
+            chart = self.index([(point, point)]).query("team:a", phase="offense")["maps"][0]
+            self.assertAlmostEqual(chart["total"], expected)
+            self.assertAlmostEqual(chart["half_court_video_s"], expected)
+        touching = self.index([((14.5, 3), (15, 3))]).query("team:a", phase="offense")["maps"][0]
+        self.assertEqual(touching["total"], 0)
+
+    def test_evolution_retains_only_time_after_arrival_in_half(self):
+        data = self.index([((14.5, 3), (15.5, 3))]).query(
+            "team:a", phase="offense", mode="evolution"
+        )
+        self.assertEqual(data["maps"][0]["total"], 0)
+        self.assertAlmostEqual(data["maps"][1]["total"], 0.1)
+        self.assertEqual(data["normalization"], "share_of_half_court_mass")
+
+    def test_comparison_automatically_uses_only_the_two_roster_teams(self):
+        index = self.index([((24, 3), (24, 3))])
+        data = index.query("team:a", phase="offense", mode="comparison")
+        self.assertEqual([item["subject"]["id"] for item in data["maps"]], ["team:a", "team:b"])
+        with self.assertRaises(ValueError):
+            index.query("roster:a:1", phase="offense", mode="comparison")
+        with self.assertRaises(ValueError):
+            index.query("team:a", phase="offense", mode="comparison", compare="team:a")

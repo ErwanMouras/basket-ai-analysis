@@ -62,3 +62,23 @@ test("missing profiles stay neutral and absolute scale remains comparable", () =
   close(maximum(empty), 0);
   close(maximum(subtract(a, empty, false)), 0);
 });
+
+test("NBA half-court density keeps 100% at midcourt and baseline boundaries", () => {
+  const length = 28.6512 / 2,
+    width = 15.24;
+  const nx = Math.ceil(length),
+    ny = Math.ceil(width);
+  for (const index of [0, nx - 1, nx * (ny - 1), nx * ny - 1]) {
+    const cells = Array(nx * ny).fill(0);
+    cells[index] = 100;
+    const field = density(cells, nx, ny, length, width);
+    close(integral(field), 100);
+    assert.ok(
+      field.values.every((value) => Number.isFinite(value) && value >= 0),
+    );
+    assert.ok(
+      field.rows > field.cols,
+      "half-court dimensions retain physical scale",
+    );
+  }
+});

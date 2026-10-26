@@ -22,7 +22,12 @@ const messages = {
     hmPassage: "Passage de jeu",
     hmAllPassages: "Tous les passages",
     hmNoDirectionShort: "sens non établi",
-    hmPhaseNote: "Jeu installé uniquement · panier de référence à droite.",
+    hmHalfCourt: "DEMI-TERRAIN",
+    hmBasketAttack: "PANIER ATTAQUÉ →",
+    hmBasketDefend: "PANIER DÉFENDU →",
+    hmOutsideHalf:
+      "{value} {unit} localisées dans l’autre moitié, exclues des cartes.",
+    hmPhaseNote: "Jeu installé uniquement · demi-terrain · panier à droite.",
     hmPhaseBreakdown: "Découpage estimé de la période",
     hmAttackBasket:
       "Panier attaqué à droite · passages remis dans le même sens",
@@ -33,8 +38,6 @@ const messages = {
     hmReviewVideo: "Revoir la vidéo",
     hmReviewPassages: "Revoir les passages de cette situation",
     hmNoPassages: "Aucun passage à revoir dans cette période.",
-    hmAttackLeft: "CÔTÉ GAUCHE",
-    hmAttackRight: "CÔTÉ DROIT",
     hmOpen: "Heatmaps",
     hmPlayerOpen: "Explorer les heatmaps du joueur",
     hmTeamOpen: "Explorer les heatmaps de l’équipe",
@@ -46,23 +49,19 @@ const messages = {
     hmPlan: "Plan caméra",
     hmStart: "Début · s",
     hmEnd: "Fin · s",
-    hmAngles: "CINQ ANGLES DE LECTURE",
+    hmAngles: "QUATRE ANGLES DE LECTURE",
     hmPresence: "Présence",
     hmPresenceShort: "Où passe-t-on du temps ?",
-    hmMovement: "Déplacements",
-    hmMovementShort: "Où sont mesurés les mètres ?",
     hmZones: "Zones",
     hmZonesShort: "Neuf zones, une répartition.",
     hmComparison: "Comparaison",
-    hmComparisonShort: "Deux profils, le même terrain.",
+    hmComparisonShort: "Les deux équipes, face à face.",
     hmEvolution: "Évolution",
     hmEvolutionShort: "Première et seconde moitié.",
-    hmCompareWith: "Comparer avec",
     hmSmooth: "Zones continues",
     hmRenderHelp:
       "Les zones claires indiquent une plus forte concentration. Survol et tableau : mesures brutes.",
     hmDensityLegend: "Concentration du temps localisé · % par m²",
-    hmMovementDensityLegend: "Concentration des mètres mesurés · % par m²",
     hmDensityDifferenceLegend:
       "Orange : A davantage représenté · Bleu : B · écart par m²",
     hmPlanNote:
@@ -71,15 +70,13 @@ const messages = {
     hmLimits:
       "Ces cartes décrivent les positions observées, pas les espaces réellement libres. Les joueurs hors champ, les positions non projetables et les ralentis peuvent modifier la lecture. Les ralentis ne sont pas exclus automatiquement.",
     hmPresenceHelp:
-      "La chaleur montre où se concentre le temps localisé. Pour une équipe, les temps des joueurs observables sont cumulés : ce sont des secondes-joueurs.",
-    hmMovementHelp:
-      "La chaleur montre où se répartissent les mètres mesurés. Une zone peut être très fréquentée sans concentrer beaucoup de déplacements. Les intervalles sans mesure de distance sont exclus.",
+      "La chaleur montre où se concentre le temps passé dans ce demi-terrain. Pour une équipe, les temps des joueurs observables sont cumulés en secondes-joueurs. Les positions dans l’autre moitié sont exclues.",
     hmZonesHelp:
-      "Le même temps de présence, réparti sur neuf grandes zones. Les pourcentages portent sur le temps localisé, sans attribuer de rôle offensif ou défensif aux côtés du terrain.",
+      "Le demi-terrain est partagé en neuf zones. Les pourcentages répartissent le temps localisé dans ce camp, du milieu du terrain au panier de référence.",
     hmComparisonHelp:
-      "Chaque profil est ramené à 100 % de son temps localisé dans la situation choisie. Deux équipes sont comparées sur leurs propres attaques ou défenses, qui peuvent se produire à des moments différents. La troisième carte montre l’écart de répartition, pas une domination.",
+      "Les deux équipes sont comparées sur leurs propres attaques ou défenses dans le même demi-terrain de référence, à des moments potentiellement différents. Chaque répartition est ramenée à 100 % du temps localisé dans ce camp. L’écart montre une différence d’occupation, pas une domination.",
     hmEvolutionHelp:
-      "La période vidéo choisie est divisée en deux durées égales. Seuls les instants de la situation choisie sont retenus, puis normalisés dans chaque moitié avec une échelle commune.",
+      "La période vidéo choisie est divisée en deux durées égales. Chaque carte conserve le temps passé dans ce demi-terrain, dans la situation choisie. Les répartitions sont normalisées séparément avec une échelle commune.",
     hmLoading: "Calcul de la répartition…",
     hmError: "Impossible de charger les heatmaps.",
     hmNoRun: "Choisissez d’abord une analyse.",
@@ -88,10 +85,9 @@ const messages = {
     hmNoRoster:
       "Un effectif fourni au pipeline est nécessaire pour les heatmaps nominatives et par équipe. Un effectif indicatif ne suffit pas.",
     hmNoData:
-      "Aucun intervalle localisable pour ce sujet sur cette période. Les zones sombres ne signifient pas une absence réelle.",
-    hmNoMovement: "Aucun déplacement mesuré sur les intervalles disponibles.",
+      "Aucune position exploitable dans ce demi-terrain pour cette situation et cette période. Les zones sombres ne signifient pas une absence réelle.",
     hmNoPair:
-      "Choisissez un autre sujet du même type pour comparer les répartitions.",
+      "La comparaison nécessite les deux équipes de l’effectif du match.",
     hmBadRange:
       "Choisissez une fin après le début, à l’intérieur de la période sélectionnée.",
     hmFirst: "Première moitié",
@@ -99,10 +95,9 @@ const messages = {
     hmDifference: "Écart des répartitions",
     hmMaxDifference: "Amplitude de l’écart",
     hmPlanLabel: "Plan {count}",
-    hmTotal: "Temps localisé",
-    hmTotalMovement: "Distance répartie",
+    hmTotal: "Temps dans ce camp",
     hmCoverage: "Suivi localisable",
-    hmVideoTime: "Vidéo documentée",
+    hmVideoTime: "Vidéo dans ce camp",
     hmSeconds: "s",
     hmPlayerSeconds: "s-joueurs",
     hmMetres: "m",
@@ -110,11 +105,8 @@ const messages = {
     hmCoverageHelp:
       "Temps localisé et orienté / temps de suivi attribué dans la situation choisie. Ce taux ne couvre pas les absences hors champ.",
     hmVideoHelp:
-      "Durée vidéo avec au moins une position mesurable pour le sujet. Pour une équipe, cela ne signifie pas que les cinq joueurs sont visibles.",
-    hmMovementCoverage:
-      "{value} % du temps localisé dispose d’une mesure de distance.",
+      "Durée vidéo avec au moins une position mesurable dans le demi-terrain affiché. Pour une équipe, cela ne signifie pas que les cinq joueurs sont visibles.",
     hmLegend: "Part du temps localisé par maille · %",
-    hmMovementLegend: "Part de la distance mesurée par maille · %",
     hmZonesLegend: "Part du temps localisé par zone · %",
     hmDifferenceLegend:
       "Orange : A davantage représenté · Bleu : B davantage représenté · points de %",
@@ -125,7 +117,7 @@ const messages = {
     hmExport: "PNG",
     hmExportLabel: "Exporter cette carte en PNG",
     hmExportCaveat:
-      "Situation et sens estimés · Positions observées uniquement · Ralentis non exclus automatiquement",
+      "Demi-terrain · Situation et sens estimés · Positions observées · Ralentis non exclus",
     hmZone: "Zone",
     hmValue: "Mesure",
     hmShare: "Part observée",
@@ -134,13 +126,13 @@ const messages = {
     hmSideFar: "CÔTÉ ÉLOIGNÉ",
     hmSideNear: "CÔTÉ PROCHE",
     hmCloseLanguage: "Passer en anglais",
-    hmZone0: "Tiers opposé · côté gauche",
+    hmZone0: "Tiers du milieu · côté gauche",
     hmZone1: "Tiers central · côté gauche",
     hmZone2: "Tiers du panier · côté gauche",
-    hmZone3: "Tiers opposé · axe central",
+    hmZone3: "Tiers du milieu · axe central",
     hmZone4: "Tiers central · axe central",
     hmZone5: "Tiers du panier · axe central",
-    hmZone6: "Tiers opposé · côté droit",
+    hmZone6: "Tiers du milieu · côté droit",
     hmZone7: "Tiers central · côté droit",
     hmZone8: "Tiers du panier · côté droit",
     language: "Langue de l’interface",
@@ -285,7 +277,12 @@ const messages = {
     hmPassage: "Passage of play",
     hmAllPassages: "All passages",
     hmNoDirectionShort: "direction unknown",
-    hmPhaseNote: "Settled play only · reference basket on the right.",
+    hmHalfCourt: "HALF COURT",
+    hmBasketAttack: "ATTACKED BASKET →",
+    hmBasketDefend: "DEFENDED BASKET →",
+    hmOutsideHalf:
+      "{value} {unit} localized in the other half, excluded from the maps.",
+    hmPhaseNote: "Settled play only · half court · basket on the right.",
     hmPhaseBreakdown: "Estimated breakdown of the period",
     hmAttackBasket:
       "Attacked basket on the right · passages aligned to the same direction",
@@ -296,8 +293,6 @@ const messages = {
     hmReviewVideo: "Review video",
     hmReviewPassages: "Review passages in this situation",
     hmNoPassages: "No passage to review in this period.",
-    hmAttackLeft: "LEFT SIDE",
-    hmAttackRight: "RIGHT SIDE",
     hmOpen: "Heatmaps",
     hmPlayerOpen: "Explore player heatmaps",
     hmTeamOpen: "Explore team heatmaps",
@@ -309,23 +304,19 @@ const messages = {
     hmPlan: "Camera shot",
     hmStart: "Start · s",
     hmEnd: "End · s",
-    hmAngles: "FIVE WAYS TO READ THE GAME",
+    hmAngles: "FOUR WAYS TO READ THE GAME",
     hmPresence: "Presence",
     hmPresenceShort: "Where is time spent?",
-    hmMovement: "Movement",
-    hmMovementShort: "Where are metres measured?",
     hmZones: "Zones",
     hmZonesShort: "Nine zones, one distribution.",
     hmComparison: "Comparison",
-    hmComparisonShort: "Two profiles, the same court.",
+    hmComparisonShort: "Both teams, side by side.",
     hmEvolution: "Evolution",
     hmEvolutionShort: "First half and second half.",
-    hmCompareWith: "Compare with",
     hmSmooth: "Continuous areas",
     hmRenderHelp:
       "Lighter areas indicate greater concentration. Hover and tables show raw measurements.",
     hmDensityLegend: "Localized time concentration · % per m²",
-    hmMovementDensityLegend: "Measured distance concentration · % per m²",
     hmDensityDifferenceLegend:
       "Orange: A more represented · Blue: B · difference per m²",
     hmPlanNote:
@@ -334,15 +325,13 @@ const messages = {
     hmLimits:
       "These maps describe observed positions, not genuinely free space. Off-screen players, unavailable projections and replays may affect the interpretation. Replays are not automatically excluded.",
     hmPresenceHelp:
-      "Heat shows where localized time is concentrated. For teams, observable player times are added together: these are player-seconds.",
-    hmMovementHelp:
-      "Heat shows where measured metres accumulate. A frequently occupied zone need not contain much movement. Intervals without a distance measurement are excluded.",
+      "Heat shows where time is spent in this half court. For teams, observable player times are added together as player-seconds. Positions in the other half are excluded.",
     hmZonesHelp:
-      "The same presence time, distributed across nine broad zones. Percentages use localized time, without assigning offensive or defensive roles to either side.",
+      "The half court is divided into nine zones. Percentages distribute localized time in this half, from midcourt to the reference basket.",
     hmComparisonHelp:
-      "Each profile is normalized to 100% of its localized time in the selected situation. Teams are compared on their own offensive or defensive passages, which may occur at different times. The third map shows a distribution difference, not dominance.",
+      "Both teams are compared on their own offensive or defensive passages in the same reference half court, potentially at different times. Each distribution is normalized to 100% of localized time in this half. The difference shows occupancy, not dominance.",
     hmEvolutionHelp:
-      "The selected video period is split into two equal durations. Only moments in the selected situation are retained, then normalized within each half using a shared scale.",
+      "The selected video period is split into two equal durations. Each map retains time spent in this half court in the selected situation. Distributions are normalized separately using a shared scale.",
     hmLoading: "Computing the distribution…",
     hmError: "Unable to load heatmaps.",
     hmNoRun: "Choose an analysis first.",
@@ -351,20 +340,17 @@ const messages = {
     hmNoRoster:
       "A roster supplied to the pipeline is required for named player and team heatmaps. A reference-only roster is insufficient.",
     hmNoData:
-      "No localizable interval for this subject in this period. Dark areas do not mean a true absence.",
-    hmNoMovement: "No movement measured in the available intervals.",
-    hmNoPair:
-      "Choose another subject of the same kind to compare distributions.",
+      "No usable position in this half court for the selected situation and period. Dark areas do not mean a true absence.",
+    hmNoPair: "Comparison requires the two teams in the match roster.",
     hmBadRange: "Choose an end after the start, within this camera shot.",
     hmFirst: "First half",
     hmSecond: "Second half",
     hmDifference: "Distribution difference",
     hmMaxDifference: "Difference range",
     hmPlanLabel: "Shot {count}",
-    hmTotal: "Localized time",
-    hmTotalMovement: "Mapped distance",
+    hmTotal: "Time in this half",
     hmCoverage: "Localizable tracking",
-    hmVideoTime: "Documented video",
+    hmVideoTime: "Video in this half",
     hmSeconds: "s",
     hmPlayerSeconds: "player-s",
     hmMetres: "m",
@@ -372,11 +358,8 @@ const messages = {
     hmCoverageHelp:
       "Localized and oriented time / attributed tracking in the selected situation. This rate does not cover off-screen absences.",
     hmVideoHelp:
-      "Video duration with at least one measurable position for the subject. For a team, this does not imply that all five players are visible.",
-    hmMovementCoverage:
-      "{value}% of localized time has a distance measurement.",
+      "Video duration with at least one measurable position in the displayed half court. For a team, this does not imply that all five players are visible.",
     hmLegend: "Share of localized time per cell · %",
-    hmMovementLegend: "Share of measured distance per cell · %",
     hmZonesLegend: "Share of localized time per zone · %",
     hmDifferenceLegend:
       "Orange: A more represented · Blue: B more represented · percentage points",
@@ -387,7 +370,7 @@ const messages = {
     hmExport: "PNG",
     hmExportLabel: "Export this map as PNG",
     hmExportCaveat:
-      "Estimated situation and direction · Observed positions only · Replays not excluded automatically",
+      "Half court · Estimated situation and direction · Observed positions · Replays not excluded",
     hmZone: "Zone",
     hmValue: "Measure",
     hmShare: "Observed share",
@@ -396,13 +379,13 @@ const messages = {
     hmSideFar: "FAR SIDE",
     hmSideNear: "NEAR SIDE",
     hmCloseLanguage: "Switch to French",
-    hmZone0: "Opposite third · left side",
+    hmZone0: "Midcourt third · left side",
     hmZone1: "Middle third · left side",
     hmZone2: "Basket third · left side",
-    hmZone3: "Opposite third · central lane",
+    hmZone3: "Midcourt third · central lane",
     hmZone4: "Middle third · central lane",
     hmZone5: "Basket third · central lane",
-    hmZone6: "Opposite third · right side",
+    hmZone6: "Midcourt third · right side",
     hmZone7: "Middle third · right side",
     hmZone8: "Basket third · right side",
     language: "Interface language",
