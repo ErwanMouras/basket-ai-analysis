@@ -175,8 +175,9 @@ comptage officiel des possessions.
 Le sens est estimé séparément, à partir des contacts en jeu placé et de la position
 d’au moins deux défenseurs. Un porteur près d’une ligne de fond ne fixe pas le sens
 à lui seul : il pourrait remettre en jeu sous son propre panier. Des indices
-insuffisants ou contradictoires laissent le sens inconnu. Les indices sont
-réévalués par plan caméra ; aucune orientation n’est transférée d’un plan à l’autre.
+insuffisants ou contradictoires laissent le sens inconnu. Avec un bandeau préparé,
+le sens est conservé sur le QT, avec vérification des angles inversés ; sans QT
+confirmé, les indices restent locaux au plan caméra (détails ci-dessous).
 
 Les passages exploitables sont ensuite remis dans le même sens, avec une rotation
 de 180° si nécessaire : **panier attaqué à droite en Attaque**, **panier défendu à
@@ -333,3 +334,70 @@ précision. Omettre `--review-checkpoints` pour obtenir les durées classées su
 autre run, par exemple `examples/demo/runs/synthetic`. Le [rapport de
 l’expérience](../reports/attack-defense-2026-10-26/README.md) décrit les variantes,
 les résultats et leurs limites.
+
+## Bandeau NBA : score, quart-temps et côtés stables
+
+Le lecteur accepte un `scoreboard.json` dérivé, associé au SHA256 de la vidéo et
+aux deux équipes de l’effectif. La timeline affiche le score observé, le QT et le
+chronomètre du bandeau. Les points turquoise permettent de rejoindre les mises à
+jour du score. Ils n’indiquent pas l’instant exact d’un panier : le bandeau peut
+s’animer après l’action et le montage peut supprimer du jeu. Le temps de la
+vidéo et le chronomètre du match restent deux informations distinctes.
+
+Un champ non lisible reste `—`. Le chronomètre n’est pas extrapolé et une lecture
+ne reste pas affichée au-delà de 1,51 intervalle d’échantillonnage. Un run sans
+bandeau préparé conserve le lecteur habituel. L’API du viewer reste en lecture
+seule, sans OpenCV ni OCR à installer dans son conteneur.
+
+La préparation se fait **hors lecture**, dans l’environnement ML avec OpenCV,
+Tesseract et ses données `eng` disponibles dans le PATH :
+
+```bash
+.venv-players/bin/python -m viewer.scoreboard_extract \
+  --run runs/analysis/hou-lal-sam-yolo26l-ball \
+  --left-team houston_rockets:HOU \
+  --right-team los_angeles_lakers:LAL
+```
+
+Le profil intégré `espn-playoffs-bottom-v1` a été vérifié sur cet habillage ESPN
+1920×1080 et se met à l’échelle de la résolution source. La position est fixe
+**pour cet habillage** ; les autres diffuseurs NBA ne partagent pas tous ce
+bandeau. `--profile autre-profil.json` accepte `name`, `reference_size: [largeur,
+hauteur]`, et `fields` : `left_team`, `right_team`, `left_score`, `right_score`,
+`period`, `clock`, chacun en rectangle `[x1, y1, x2, y2]` dans l’image de référence.
+Les couleurs/prétraitements actuels sont adaptés aux panneaux noir/jaune ESPN :
+un autre habillage doit aussi être vérifié avant usage. Les abréviations visibles
+sont vérifiées avant d’associer les scores aux équipes ; leur ordre n’est pas
+déduit de celui de l’effectif. Une source relative exige `--video /chemin/absolu`.
+
+L’extracteur échantillonne à 2 Hz, exige deux lectures voisines concordantes pour
+le QT et pour le score, conserve les lectures brutes et sa provenance, et ignore
+les animations masquant les noms d’équipes. Les baisses de score et retours à un
+QT antérieur restent indisponibles : corrections et ralentis nécessitent une
+vérification humaine. Les ralentis du même QT ne sont pas détectés globalement.
+La commande écrit seulement le dérivé `scoreboard.json`, sans relancer les modèles
+ni modifier les observations, les annotations ou les poids.
+
+Une fois le QT lu, le premier angle avec au moins **0,75 s** d’indices spatiaux et
+**80 %** d’accord fixe son sens de référence. Les autres plans de ce QT le
+réutilisent même sans nouvel indice de direction. Un angle inverse exige 0,75 s
+et **90 %** d’accord pour être traité séparément ; un angle fortement
+contradictoire reste sans orientation. Les courts indices contraires ne
+retournent pas tout le QT. Les seuils sont expérimentaux, pas des probabilités.
+
+Les QT restent indépendants : aucune inversion automatique à chaque changement
+de période. En NBA, le changement de panier intervient à la mi-temps et les
+prolongations conservent le sens de la seconde mi-temps
+([règle NBA 4, section I](https://official.nba.com/rule-no-4-definitions/)).
+Sans QT confirmé, le repère local par plan reste utilisé. Verrouiller les côtés
+ne transforme pas une absence de contrôle de balle en possession connue.
+
+Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
+**Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
+interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
+Le bilan complet, les cinq vues et la
+normalisation du panier à droite restent disponibles.
+
+L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
+la couverture des lectures, les points contrôlés et leurs limites. La démo
+publique contient un bandeau et une coupe QT1 → QT3 explicitement scénarisés.

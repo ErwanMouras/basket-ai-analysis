@@ -1,5 +1,8 @@
 # Heatmaps par situation de jeu — 26 octobre 2026
 
+> Étape initiale du découpage Attaque / Défense. Le [complément quart-temps et score](../quarter-score-2026-10-26/README.md)
+> remplace ensuite l’orientation locale par un repère conservé sur le QT quand le bandeau est lisible.
+
 Le viewer découpe maintenant l’extrait en **Attaque**, **Défense** et **Non classé**,
 relativement à l’équipe du sujet choisi. Les cinq vues existantes cumulent par
 défaut les passages de la situation sélectionnée. Le plan caméra reste une

@@ -1,0 +1,189 @@
+{
+  "source_sha256": "e841e7d9c584884d8db0dc7202795f590560f3de159c5a104e01ebadeadde8b9",
+  "purpose": "Development checkpoints from full-resolution scorebug crops, not an independent validation set; scores null while panel displays the Lakers logo.",
+  "readings": [
+    {
+      "time_s": 0,
+      "period": 1,
+      "clock_s": 684,
+      "scores": {
+        "houston_rockets": 2,
+        "los_angeles_lakers": 0
+      }
+    },
+    {
+      "time_s": 3,
+      "period": 1,
+      "clock_s": 681,
+      "scores": {
+        "houston_rockets": 2,
+        "los_angeles_lakers": 0
+      }
+    },
+    {
+      "time_s": 6,
+      "period": 1,
+      "clock_s": 667,
+      "scores": {
+        "houston_rockets": 2,
+        "los_angeles_lakers": 2
+      }
+    },
+    {
+      "time_s": 9,
+      "period": 1,
+      "clock_s": 664,
+      "scores": {
+        "houston_rockets": 2,
+        "los_angeles_lakers": 2
+      }
+    },
+    {
+      "time_s": 12,
+      "period": 1,
+      "clock_s": 661,
+      "scores": {
+        "houston_rockets": 2,
+        "los_angeles_lakers": 2
+      }
+    },
+    {
+      "time_s": 15,
+      "period": 1,
+      "clock_s": 644,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 2
+      }
+    },
+    {
+      "time_s": 18,
+      "period": 1,
+      "clock_s": 642,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 2
+      }
+    },
+    {
+      "time_s": 21,
+      "period": 1,
+      "clock_s": 639,
+      "scores": null
+    },
+    {
+      "time_s": 24,
+      "period": 1,
+      "clock_s": 636,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 4
+      }
+    },
+    {
+      "time_s": 27,
+      "period": 1,
+      "clock_s": 611,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 4
+      }
+    },
+    {
+      "time_s": 30,
+      "period": 1,
+      "clock_s": 608,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 4
+      }
+    },
+    {
+      "time_s": 33,
+      "period": 1,
+      "clock_s": 605,
+      "scores": null
+    },
+    {
+      "time_s": 36,
+      "period": 1,
+      "clock_s": 568,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 6
+      }
+    },
+    {
+      "time_s": 39,
+      "period": 1,
+      "clock_s": 565,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 6
+      }
+    },
+    {
+      "time_s": 42,
+      "period": 1,
+      "clock_s": 562,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 8
+      }
+    },
+    {
+      "time_s": 45,
+      "period": 1,
+      "clock_s": 515,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 8
+      }
+    },
+    {
+      "time_s": 48,
+      "period": 1,
+      "clock_s": 512,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 8
+      }
+    },
+    {
+      "time_s": 51,
+      "period": 1,
+      "clock_s": 509,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 8
+      }
+    },
+    {
+      "time_s": 54,
+      "period": 1,
+      "clock_s": 506,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 10
+      }
+    },
+    {
+      "time_s": 57,
+      "period": 1,
+      "clock_s": 503,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 10
+      }
+    },
+    {
+      "time_s": 60,
+      "period": 1,
+      "clock_s": 500,
+      "scores": {
+        "houston_rockets": 4,
+        "los_angeles_lakers": 10
+      }
+    }
+  ]
+}
