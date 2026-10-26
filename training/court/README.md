@@ -104,10 +104,18 @@ du parquet ; tous les points de l'homographie sont au sol.
 4. Entre deux détections : suivi Lucas–Kanade aller/retour sur la texture du
    parquet, après masquage des personnes et incrustations configurées. Une
    homographie inter-images propage la calibration et absorbe pan/zoom.
-5. La propagation expire après 0.5 seconde sans recalage absolu. Une estimation
+5. Un recalage accepté et compatible avec le suivi corrige progressivement la
+   calibration propagée : les projections des repères sont mélangées dans
+   l'image courante, puis une homographie est ajustée. Le mouvement de caméra
+   est déjà compensé. La constante `court.smoothing_seconds` vaut 0,15 s ;
+   zéro restaure le recalage direct. Le lissage conserve les contrôles
+   d'horizon, d'orientation, de singularité et le seuil de reprojection ;
+   s'il les dépasse, le recalage direct est gardé. Il n'utilise pas d'images
+   futures et ne mélange pas les matrices coefficient par coefficient.
+6. La propagation expire après 0.5 seconde sans recalage absolu. Une estimation
    incompatible avec le mouvement mesuré est rejetée. Si ni les repères ni le
    mouvement ne suffisent, la calibration vaut `null` immédiatement.
-6. Détection des coupes par variation d'image/histogramme avec contrôle de
+7. Détection des coupes par variation d'image/histogramme avec contrôle de
    structure pour éviter de confondre les flashs photo avec des changements de
    caméra. Les coupes vident aussi le tracker et, via le segment, la mémoire OCR.
    `tracking.reset_frames` reste disponible pour les coupes connues.
@@ -169,3 +177,13 @@ dimensions NBA, mètres/pixels, points aberrants, dégénérescence, labels inve
 pan/zoom, expiration, coupe, flash, masques, intégration vidéo et interruption.
 Les observations sur les vidéos locales sont consignées dans
 [VALIDATION.md](VALIDATION.md).
+
+## Revue des améliorations du 26 octobre 2026
+
+Le [rapport comparatif](../../reports/court-review-2026-10-26/README.md) décrit
+le lissage et le nouvel affichage dans le viewer, les mesures sur 5 100 images
+locales, les limites et la procédure pour reproduire les aperçus avant merge.
+Les diagnostics `smoothing_applied`, `smoothing_alpha`,
+`stabilized_reprojection_rmse_px`, `correction_median_px` et
+`output_correction_median_px` complètent le rapport des recalages concernés.
+L'erreur brute `reprojection_rmse_px` garde sa signification d'origine.

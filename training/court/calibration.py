@@ -141,6 +141,54 @@ def motion_between(previous, current, mask, cfg):
     return transform, report
 
 
+def stabilize_fit(candidate, propagated, keypoints, shape, cfg, elapsed):
+    """Blend current-frame image anchors after camera motion, never H coefficients.
+
+    Only an independently accepted absolute fit can renew calibration. The
+    original reprojection bound also applies to the stabilized output; when
+    smoothing would violate it, keep the direct fit instead.
+    """
+    report = candidate["fit"]
+    report["smoothing_applied"] = False
+    world = LANDMARKS[report["inlier_ids"]].copy()
+    if report["reflected_model_labels_x"]:
+        world[:, 0] = LENGTH - world[:, 0]
+    direct = project(np.linalg.inv(candidate["image_to_court"]), world)
+    predicted = project(np.linalg.inv(propagated["image_to_court"]), world)
+    correction = float(np.median(np.linalg.norm(direct - predicted, axis=1)))
+    report["correction_median_px"] = correction if math.isfinite(correction) else None
+    report["output_correction_median_px"] = report["correction_median_px"]
+    if cfg["smoothing_seconds"] == 0:
+        return candidate
+    alpha = -math.expm1(-elapsed / cfg["smoothing_seconds"])
+    targets = predicted + alpha * (direct - predicted)
+    if not np.isfinite(targets).all():
+        return candidate
+    matrix = normalize(cv2.findHomography(world, targets, 0)[0])
+    if matrix is None:
+        return candidate
+    denominators = np.column_stack((CORNERS, np.ones(4))) @ matrix[2]
+    if np.min(denominators) * np.max(denominators) <= 0:
+        return candidate
+    center = world.mean(axis=0)
+    axes = project(matrix, [center, center + [0.1, 0], center + [0, 0.1]])
+    dx, dy = axes[1] - axes[0], axes[2] - axes[0]
+    if dx[0] <= 1e-3 or dy[1] <= 0 or abs(dx[0] * dy[1] - dx[1] * dy[0]) < 0.01:
+        return candidate
+    pixels = np.asarray(keypoints)[report["inlier_ids"], :2]
+    residuals = project(matrix, world) - pixels
+    rmse = float(np.sqrt(np.mean(np.sum(residuals**2, axis=1))))
+    if not math.isfinite(rmse) or rmse > cfg["max_reprojection_pixels"] * shape[0] / 1080:
+        return candidate
+    inverse = normalize(np.linalg.inv(matrix))
+    if inverse is None:
+        return candidate
+    report.update(smoothing_applied=True, smoothing_alpha=alpha,
+                  stabilized_reprojection_rmse_px=rmse,
+                  output_correction_median_px=float(np.median(np.linalg.norm(project(matrix, world) - predicted, axis=1))))
+    return {**candidate, "image_to_court": inverse}
+
+
 class CourtCalibrator:
     def __init__(self, config, *, fps, model=None):
         self.config = settings(config)
@@ -250,6 +298,9 @@ class CourtCalibrator:
                 if not np.isfinite(disagreement).all() or np.median(disagreement) > cfg["max_temporal_jump_m"]:
                     fit_report["rejection"] = "temporal_disagreement"
                     candidate = None
+                else:
+                    candidate = stabilize_fit(candidate, propagated, keypoints, image.shape, cfg,
+                                              now - self.last_fit_time)
         status = "unavailable"
         self.state = None
         if candidate is not None:

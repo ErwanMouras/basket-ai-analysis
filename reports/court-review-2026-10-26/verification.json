@@ -1,0 +1,185 @@
+{
+  "python_passed": 374,
+  "python_skipped": 28,
+  "javascript_tests": {
+    "returncode": 0,
+    "tests": 21
+  },
+  "python_suites": [
+    {
+      "name": "players",
+      "returncode": 0,
+      "tests": 154,
+      "skipped": 10,
+      "seconds": 22.50057284400009
+    },
+    {
+      "name": "ball",
+      "returncode": 0,
+      "tests": 84,
+      "skipped": 17,
+      "seconds": 3.9541471620004813
+    },
+    {
+      "name": "court",
+      "returncode": 0,
+      "tests": 24,
+      "skipped": 0,
+      "seconds": 1.4559930430004897
+    },
+    {
+      "name": "jersey",
+      "returncode": 0,
+      "tests": 31,
+      "skipped": 1,
+      "seconds": 0.6941067609996026
+    },
+    {
+      "name": "segmentation",
+      "returncode": 0,
+      "tests": 23,
+      "skipped": 0,
+      "seconds": 0.8999828939995496
+    },
+    {
+      "name": "analysis",
+      "returncode": 0,
+      "tests": 62,
+      "skipped": 0,
+      "seconds": 1.5981594089998907
+    },
+    {
+      "name": "mlops",
+      "returncode": 0,
+      "tests": 16,
+      "skipped": 0,
+      "seconds": 0.7166321019994939
+    },
+    {
+      "name": "viewer",
+      "returncode": 0,
+      "tests": 8,
+      "skipped": 0,
+      "seconds": 4.078767644000436
+    }
+  ],
+  "browser": "passed; eight viewport sizes; no automated axe violations",
+  "court_canvas": "stable rendering on fit/propagated frames; no lines when unavailable",
+  "real_review": {
+    "checks": [
+      {
+        "name": "hou-lal-1800",
+        "videoDuration": 60,
+        "played": true
+      },
+      {
+        "name": "por-sas-1500",
+        "videoDuration": 50,
+        "played": true
+      },
+      {
+        "name": "phx-okc-1800",
+        "videoDuration": 60,
+        "played": true
+      },
+      {
+        "run": "hou-lal-1800-after",
+        "index": 0,
+        "status": "fit",
+        "time": 0,
+        "source": 0
+      },
+      {
+        "run": "hou-lal-1800-after",
+        "index": 100,
+        "status": "fit",
+        "time": 3.333333,
+        "source": 3.3333333333333335
+      },
+      {
+        "run": "hou-lal-1800-after",
+        "index": 101,
+        "status": "propagated",
+        "time": 3.366667,
+        "source": 3.3666666666666667
+      },
+      {
+        "run": "hou-lal-1800-after",
+        "index": 300,
+        "status": "fit",
+        "time": 10,
+        "source": 10
+      },
+      {
+        "run": "hou-lal-1800-after",
+        "synchronizedPresentedFrames": 40
+      },
+      {
+        "run": "por-sas-1500-after",
+        "index": 0,
+        "status": "fit",
+        "time": 0,
+        "source": 0
+      },
+      {
+        "run": "por-sas-1500-after",
+        "index": 100,
+        "status": "fit",
+        "time": 3.333333,
+        "source": 3.3333333333333335
+      },
+      {
+        "run": "por-sas-1500-after",
+        "index": 101,
+        "status": "propagated",
+        "time": 3.366667,
+        "source": 3.3666666666666667
+      },
+      {
+        "run": "por-sas-1500-after",
+        "index": 300,
+        "status": "fit",
+        "time": 10,
+        "source": 10
+      },
+      {
+        "run": "por-sas-1500-after",
+        "synchronizedPresentedFrames": 40
+      },
+      {
+        "run": "phx-okc-1800-after",
+        "index": 0,
+        "status": "unavailable",
+        "time": 0,
+        "source": 0
+      },
+      {
+        "run": "phx-okc-1800-after",
+        "index": 100,
+        "status": "unavailable",
+        "time": 3.333333,
+        "source": 3.3333333333333335
+      },
+      {
+        "run": "phx-okc-1800-after",
+        "index": 101,
+        "status": "unavailable",
+        "time": 3.366667,
+        "source": 3.3666666666666667
+      },
+      {
+        "run": "phx-okc-1800-after",
+        "index": 300,
+        "status": "fit",
+        "time": 10,
+        "source": 10
+      },
+      {
+        "run": "phx-okc-1800-after",
+        "synchronizedPresentedFrames": 40
+      }
+    ],
+    "errors": []
+  },
+  "merge": "pending user review; not performed"
+}

@@ -44,7 +44,8 @@ charbon, un accent orange et une typographie de titre condensée.
 actuellement affichées. Les cases indiquent l’état de chaque option. Échap ou un
 clic à l’extérieur ferme le panneau. **Rétablir l’affichage par défaut** réactive
 les Bbox et étiquettes joueurs/arbitres, le ballon et sa traînée, et masque
-les poses et les repères terrain. **Agrandir** replie les deux panneaux de droite.
+les poses et les repères détectés. Les lignes projetées du terrain restent
+activées. **Agrandir** replie les deux panneaux de droite.
 
 Le bouton **FR / EN** traduit les commandes, descriptions, états, statistiques,
 formats numériques et dates, sans recharger la vidéo ni changer la lecture,
@@ -67,7 +68,20 @@ et en anglais. Les étiquettes peuvent accompagner les masques seuls. Un ancien
 run sans masques n’affiche aucune bbox de repli en mode Segmentation.
 
 **Ballon** commande son affichage et sa traînée sur les cinq images précédentes,
-limitée au plan courant. **Terrain** commande les repères dans la vidéo.
+limitée au plan courant. **Terrain** propose deux options indépendantes :
+**Lignes projetées**, actives par défaut, dessine les lignes NBA à partir de la
+calibration de chaque image, même entre deux passages du détecteur. Un contour
+sombre renforce le contraste et le tracé reste cyan pendant le suivi pour éviter
+le clignotement. La zone légèrement teintée montre le support des repères ; les
+lignes au-delà de cette zone sont extrapolées. Une calibration indisponible ou
+invalide efface immédiatement ces lignes.
+
+**Repères détectés**, masqués par défaut, montre uniquement les prédictions de
+l'image courante, numérotées de 1 à 18 : cyan pour les points retenus par un
+recalage accepté, rose pour les autres points de confiance ≥ 0,5. Ils ne sont
+pas prolongés artificiellement entre deux détections. L'état sous la vidéo
+continue de distinguer terrain détecté, suivi et indisponible.
+
 **Joueurs identifiés** restreint la vidéo et le terrain aux joueurs reconnus par
 le run ; les options arbitres sont alors désactivées et une explication apparaît.
 
