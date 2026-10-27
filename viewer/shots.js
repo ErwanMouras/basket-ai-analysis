@@ -21,15 +21,6 @@ window.shotStudio = (() => {
       ? `${player.name} · #${player.number}`
       : team?.name || t("shotUnassigned");
   }
-  function reasons(event) {
-    const e = event.evidence;
-    return [
-      e.release_observations >= 2 ? t("shotRelease") : t("shotReleaseHidden"),
-      e.arc ? t("shotArc") : t("shotPartialArc"),
-      e.rim_approach ? t("shotRim") : t("shotRimUnknown"),
-      e.camera_compensated ? t("shotCamera") : t("shotRawCamera"),
-    ].join(" · ");
-  }
   function review(event) {
     video.pause();
     seekToFrame(nearestFrame(event.start_s));
@@ -37,7 +28,8 @@ window.shotStudio = (() => {
   function render() {
     const data = state.meta?.shots;
     panel.hidden = !state.loaded;
-    $("shotsLegend").hidden = !data?.events?.length;
+    $("shotsLegend").hidden = !data?.events?.some(event => event.status === 'probable');
+    $("shotsCandidatesLegend").hidden = !candidates.checked || !data?.events?.some(event => event.status === 'candidate');
     $("shotsSummary").textContent = !data?.available
       ? t("shotsUnavailable")
       : data.events.length
@@ -46,9 +38,8 @@ window.shotStudio = (() => {
             candidates: data.candidate_count,
           })
         : t("shotsNone");
-    $("shotsHelp").textContent = t(
-      data?.available ? "shotsHelp" : "shotsUnavailableHelp",
-    );
+    $("shotsHelp").hidden = Boolean(data?.available);
+    $("shotsHelp").textContent = data?.available ? "" : t("shotsUnavailableHelp");
     $("shotsCandidatesField").hidden = !data?.candidate_count;
     $("shotsList").replaceChildren();
     document
@@ -67,19 +58,27 @@ window.shotStudio = (() => {
       button.type = "button";
       button.className = `shot-row ${event.status}`;
       button.dataset.shotId = event.id;
+      const timing = document.createElement("span");
+      timing.className = "shot-timing";
       const time = document.createElement("span");
       time.className = "shot-time";
       time.textContent = fmtTime(event.time_s);
+      const frame = document.createElement("span");
+      frame.className = "shot-frame";
+      frame.textContent = t("shotFrame", { frame: event.frame_index });
+      timing.append(time, frame);
       const description = document.createElement("span");
+      description.className = "shot-identity";
       const name = document.createElement("strong");
       name.textContent = shooter(event);
-      const evidence = document.createElement("small");
-      evidence.textContent = reasons(event);
-      description.append(name, evidence);
       const badge = document.createElement("span");
       badge.className = "shot-status";
       badge.textContent = label(event);
-      button.append(time, description, badge);
+      description.append(name, badge);
+      const action = document.createElement("span");
+      action.className = "shot-review";
+      action.textContent = t("shotReview");
+      button.append(timing, description, action);
       button.title = t("shotReviewHelp", {
         start: fmtTime(event.release_window_s[0]),
         end: fmtTime(event.release_window_s[1]),

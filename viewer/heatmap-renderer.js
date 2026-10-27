@@ -141,7 +141,7 @@
     const x = (value) => box.x + value * sx,
       y = (value) => box.y + value * sy;
     ctx.strokeStyle = "#eee0bf99";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(2, box.width / 450);
     ctx.strokeRect(box.x, box.y, box.width, box.height);
     ctx.save();
     ctx.beginPath();

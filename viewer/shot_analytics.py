@@ -80,7 +80,7 @@ def assign_directions(events, phases, plans, scoreboard=None):
 
 
 def summarize_shots(events, geometry, roster, available):
-    """Every probable counts once; missing identity/location never becomes a guess."""
+    """Map probable and candidate attempts; player totals retain probable shots only."""
     teams = roster.get("teams", [])
     player_counts = {
         f"roster:{t['team_id']}:{p['number']}": 0 for t in teams for p in t.get("players", [])
@@ -94,6 +94,8 @@ def summarize_shots(events, geometry, roster, available):
         t["team_id"]: {
             "team_id": t["team_id"],
             "detected_count": 0,
+            "probable_count": 0,
+            "candidate_count": 0,
             "located_count": 0,
             "unlocated_count": 0,
             "nx": nx,
@@ -104,18 +106,23 @@ def summarize_shots(events, geometry, roster, available):
         for t in teams
     }
     unassigned = 0
+    unassigned_candidates = 0
     for event in events:
-        if event["status"] != "probable":
+        if event["status"] not in ("probable", "candidate"):
             continue
         shooter = event["shooter"]
         team = maps.get(shooter.get("team_id"))
         if not team:
-            unassigned += 1
+            if event["status"] == "probable":
+                unassigned += 1
+            else:
+                unassigned_candidates += 1
             continue
         subject = shooter.get("subject_id")
-        if subject in player_counts and subject.startswith(f"roster:{shooter['team_id']}:"):
+        if event["status"] == "probable" and subject in player_counts and subject.startswith(f"roster:{shooter['team_id']}:"):
             player_counts[subject] += 1
         team["detected_count"] += 1
+        team[f"{event['status']}_count"] += 1
         xy = (event.get("origin") or {}).get("position_m")
         direction = event.get("court_direction")
         if not spatial or not point(xy) or direction not in (-1, 1):
@@ -132,6 +139,7 @@ def summarize_shots(events, geometry, roster, available):
         team["points"].append(
             {
                 "event_id": event["id"],
+                "status": event["status"],
                 "x": x,
                 "y": y,
                 "time_s": event["time_s"],
@@ -141,6 +149,7 @@ def summarize_shots(events, geometry, roster, available):
     return {
         "player_counts": player_counts if available else None,
         "unassigned_probable_count": unassigned,
+        "unassigned_candidate_count": unassigned_candidates,
         "shot_maps": {
             "available": bool(available and spatial),
             "court": (
@@ -149,7 +158,7 @@ def summarize_shots(events, geometry, roster, available):
                 else None
             ),
             "scope": "whole_clip",
-            "status": "probable",
+            "statuses": ["probable", "candidate"],
             "maps": list(maps.values()),
         },
     }

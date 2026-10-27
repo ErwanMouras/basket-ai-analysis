@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#111214" />
-    <title>Film room</title>
+    <title>Match Analyse</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/style.css" />
     <script src="/i18n.js" defer></script>
@@ -15,12 +15,10 @@
     <script src="/team-shots.js" defer></script>
   </head>
   <body>
-    <div class="app-shell">
+    <div class="app-shell" id="appShell">
       <header class="page-heading">
         <div class="match-heading">
-          <div class="eyebrow" data-i18n="session">LA SALLE VIDÉO</div>
           <h1 id="matchTitle" data-i18n="matchAnalysis">Analyse de match</h1>
-          <div id="runMeta" class="run-meta">—</div>
         </div>
         <div class="run-picker">
           <div class="run-picker-heading">
@@ -57,601 +55,382 @@
         </div>
       </header>
 
-      <main class="workspace" id="workspace">
-        <section
-          class="video-panel panel"
-          data-i18n-aria="videoPlayer"
-          aria-label="Lecteur vidéo"
-        >
-          <div class="panel-toolbar">
-            <div class="panel-heading">
-              <span class="section-number">01</span>
-              <h2 data-i18n="matchVideo">Le match</h2>
-              <span id="videoFilename" class="filename">—</span>
-            </div>
-            <div class="toolbar-actions">
-              <details class="layers-menu" id="layersMenu">
-                <summary>
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="m2 6 8-4 8 4-8 4Zm0 4 8 4 8-4M2 14l8 4 8-4" /></svg
-                  ><span data-i18n="layers">Calques</span
-                  ><span class="layer-count" id="layerCount">3</span
-                  ><span class="disclosure-chevron" aria-hidden="true">⌄</span>
-                </summary>
-                <div class="layers-popover">
-                  <div class="layers-heading">
-                    <div>
-                      <h3 data-i18n="displayOptions">Affichage de l’analyse</h3>
-                      <p data-i18n="layersHelp">
-                        Choisissez ce qui accompagne la vidéo.
-                      </p>
+      <div class="mode-bar">
+        <div class="mode-switch" id="modeSwitch" role="tablist" data-i18n-aria="workspaceModes" aria-label="Modes du viewer">
+          <button id="visualizationTab" type="button" role="tab" aria-selected="true" aria-controls="workspace" data-workspace-mode="visualization">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 4h16v12H2Z"/><path d="m8 7 5 3-5 3Z"/></svg>
+            <span data-i18n="visualization">Visualisation</span>
+          </button>
+          <button id="statisticsTab" type="button" role="tab" aria-selected="false" aria-controls="statisticsWorkspace" tabindex="-1" data-workspace-mode="statistics">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16V9h3v7m3 0V4h3v12m3 0v-9h3v9M2 17h17"/></svg>
+            <span data-i18n="statistics">Statistiques</span>
+          </button>
+        </div>
+      </div>
+      <main class="mode-viewport" id="modeViewport" data-mode="visualization">
+        <div class="mode-track">
+          <div class="workspace mode-page is-active" id="workspace" role="tabpanel" aria-labelledby="visualizationTab">
+            <section
+              class="video-panel panel"
+              data-i18n-aria="videoPlayer"
+              aria-label="Lecteur vidéo"
+            >
+              <div class="panel-toolbar">
+                <div class="panel-heading">
+                  <span class="section-number">01</span>
+                  <h2 data-i18n="matchVideo">Le match</h2>
+                </div>
+                <div id="layerControls" class="layer-controls" role="group" data-i18n-aria="displayOptions">
+                  <div class="layer-toolbar">
+                    <div class="layer-category" role="group" data-i18n-aria="players">
+                      <label class="layer-label" for="playerDisplay" data-i18n="players"></label>
+                      <select id="playerDisplay" data-display data-i18n-aria="playerDisplay">
+                        <option value="bbox" data-i18n="boxes">Bbox</option>
+                        <option value="segmentation" data-i18n="masks">Segmentation</option>
+                        <option value="both" data-i18n="boxesMasks">Bbox + Segmentation</option>
+                        <option value="hidden" data-i18n="hidden">Masqués</option>
+                      </select>
+                      <label class="layer-toggle" data-i18n-title="pose"><input type="checkbox" data-filter="playerPose" data-i18n-aria="pose" /><span data-i18n="pose"></span></label>
+                      <label class="layer-toggle" data-i18n-title="labels"><input type="checkbox" data-filter="playerLabels" data-i18n-aria="labels" checked /><span data-i18n="labels"></span></label>
                     </div>
-                    <button
-                      id="closeLayers"
-                      class="icon-button"
-                      type="button"
-                      data-i18n-aria="close"
-                      aria-label="Fermer"
-                    >
-                      ×
-                    </button>
+                    <div class="layer-category" role="group" data-i18n-aria="referees">
+                      <label class="layer-label" for="refereeDisplay" data-i18n="referees"></label>
+                      <select id="refereeDisplay" data-display data-i18n-aria="refereeDisplay">
+                        <option value="bbox" data-i18n="boxes">Bbox</option>
+                        <option value="segmentation" data-i18n="masks">Segmentation</option>
+                        <option value="both" data-i18n="boxesMasks">Bbox + Segmentation</option>
+                        <option value="hidden" data-i18n="hidden">Masqués</option>
+                      </select>
+                      <label class="layer-toggle" data-i18n-title="pose"><input type="checkbox" data-filter="refereePose" data-i18n-aria="pose" /><span data-i18n="pose"></span></label>
+                      <label class="layer-toggle" data-i18n-title="labels"><input type="checkbox" data-filter="refereeLabels" data-i18n-aria="labels" checked /><span data-i18n="labels"></span></label>
+                    </div>
+                    <div class="layer-category" role="group" data-i18n-aria="ball">
+                      <label class="layer-switch"><input type="checkbox" data-filter="ball" checked /><span data-i18n="ball">Ballon</span></label>
+                      <label class="layer-toggle" data-i18n-title="trail"><input type="checkbox" data-filter="ballTrail" data-i18n-aria="trail" checked /><span data-i18n="trail"></span></label>
+                    </div>
+                    <div class="layer-category" role="group" data-i18n-aria="court">
+                      <label class="layer-switch" data-i18n-title="courtLines"><input type="checkbox" data-filter="court" checked /><span data-i18n="court">Terrain</span></label>
+                      <label class="layer-toggle" data-i18n-title="landmarks"><input type="checkbox" data-filter="courtLandmarks" data-i18n-aria="landmarks" /><span data-i18n="landmarks"></span></label>
+                    </div>
                   </div>
-                  <div class="identity-control">
-                    <label for="identityMode" data-i18n="showPeople"
-                      >Personnes visibles</label
-                    ><select id="identityMode" data-i18n-aria="showPeople">
-                      <option value="all" data-i18n="allDetections">
-                        Toutes les détections
-                      </option>
-                      <option value="identified" data-i18n="identifiedPeople">
-                        Joueurs identifiés
-                      </option>
-                    </select>
+                  <div class="layer-reset-group">
+                    <button id="resetLayers" class="layer-reset" type="button" data-i18n="resetShort" data-i18n-aria="resetLayers" data-i18n-title="resetLayers">Réinitialiser</button>
                   </div>
-                  <div
-                    class="layer-toolbar"
-                    role="group"
-                    data-i18n-aria="categoryOptions"
-                  >
-                    <fieldset class="layer-category">
-                      <legend data-i18n="players">Joueurs</legend>
-                      <div class="category-options">
-                        <select
-                          id="playerDisplay"
-                          data-display
-                          data-i18n-aria="playerDisplay"
-                        >
-                          <option value="bbox" data-i18n="boxes">Bbox</option>
-                          <option value="segmentation" data-i18n="masks">
-                            Segmentation
-                          </option>
-                          <option value="both" data-i18n="boxesMasks">
-                            Bbox + Segmentation
-                          </option>
-                          <option value="hidden" data-i18n="hidden">
-                            Masqués
-                          </option>
-                        </select>
-                        <div class="category-toggles">
-                          <label
-                            ><input
-                              type="checkbox"
-                              data-filter="playerPose"
-                            /><span data-i18n="pose">Pose</span></label
-                          ><label
-                            ><input
-                              type="checkbox"
-                              data-filter="playerLabels"
-                              checked
-                            /><span data-i18n="labels"
-                              >Noms / numéros</span
-                            ></label
-                          >
-                        </div>
-                      </div>
-                    </fieldset>
-                    <fieldset class="layer-category" id="refereeOptions">
-                      <legend data-i18n="referees">Arbitres</legend>
-                      <div class="category-options">
-                        <select
-                          id="refereeDisplay"
-                          data-display
-                          data-i18n-aria="refereeDisplay"
-                        >
-                          <option value="bbox" data-i18n="boxes">Bbox</option>
-                          <option value="segmentation" data-i18n="masks">
-                            Segmentation
-                          </option>
-                          <option value="both" data-i18n="boxesMasks">
-                            Bbox + Segmentation
-                          </option>
-                          <option value="hidden" data-i18n="hidden">
-                            Masqués
-                          </option>
-                        </select>
-                        <div class="category-toggles">
-                          <label
-                            ><input
-                              type="checkbox"
-                              data-filter="refereePose"
-                            /><span data-i18n="pose">Pose</span></label
-                          ><label
-                            ><input
-                              type="checkbox"
-                              data-filter="refereeLabels"
-                              checked
-                            /><span data-i18n="labels"
-                              >Noms / numéros</span
-                            ></label
-                          >
-                        </div>
-                      </div>
-                    </fieldset>
-                    <fieldset class="layer-category">
-                      <legend data-i18n="ball">Ballon</legend>
-                      <div class="category-toggles">
-                        <label
-                          ><input
-                            type="checkbox"
-                            data-filter="ball"
-                            checked
-                          /><span data-i18n="show">Afficher</span></label
-                        ><label
-                          ><input
-                            type="checkbox"
-                            data-filter="ballTrail"
-                            checked
-                          /><span data-i18n="trail">Traînée</span></label
-                        >
-                      </div>
-                    </fieldset>
-                    <fieldset class="layer-category">
-                      <legend data-i18n="court">Terrain</legend>
-                      <div class="category-toggles">
-                        <label
-                          ><input
-                            type="checkbox"
-                            data-filter="court"
-                            checked
-                          /><span data-i18n="courtLines"
-                            >Lignes projetées</span
-                          ></label
-                        ><label
-                          ><input
-                            type="checkbox"
-                            data-filter="courtLandmarks"
-                          /><span data-i18n="landmarks"
-                            >Repères détectés</span
-                          ></label
-                        >
-                      </div>
-                      <p class="layers-note" data-i18n="courtOverlayHint">
-                        Lignes cyan : projection du terrain. Zone teintée :
-                        support des repères. Repères roses : non retenus.
-                      </p>
-                    </fieldset>
-                  </div>
-                  <p
-                    id="refereeHint"
-                    class="layers-note"
-                    hidden
-                    data-i18n="refereeHint"
-                  >
-                    Les arbitres sont masqués dans le mode « Joueurs identifiés
-                    ».
-                  </p>
+                </div>
+                <div class="toolbar-actions">
                   <button
-                    id="resetLayers"
+                    id="focusVideo"
+                    class="focus-button"
                     type="button"
-                    class="text-button"
-                    data-i18n="resetLayers"
+                    aria-pressed="false"
+                    aria-controls="workspace"
                   >
-                    Rétablir l’affichage par défaut
+                    <svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4" /></svg
+                    ><span id="focusLabel" data-i18n="expandVideo">Agrandir</span>
                   </button>
                 </div>
-              </details>
-              <button
-                id="focusVideo"
-                class="focus-button"
-                type="button"
-                aria-pressed="false"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4" /></svg
-                ><span id="focusLabel" data-i18n="expandVideo">Agrandir</span>
-              </button>
-            </div>
-          </div>
-          <div class="video-stage" id="videoStage">
-            <video id="video" playsinline preload="auto"></video
-            ><canvas
-              id="overlay"
-              data-i18n-aria="detectionLayers"
-              aria-label="Calques de détection"
-            ></canvas>
-            <div class="video-empty" id="videoEmpty">
-              <span class="empty-glyph" aria-hidden="true">▷</span
-              ><strong data-i18n="ready">Le match commence ici.</strong
-              ><span data-i18n="selectRun"
-                >Choisissez un extrait pour commencer.</span
-              >
-            </div>
-          </div>
-          <div class="timeline">
-            <div id="scoreboardContext" class="scoreboard-context" hidden>
-              <span id="scoreboardMatch" class="scoreboard-match"></span>
-              <span id="scoreboardPeriod" class="scoreboard-period"></span>
-              <span id="scoreboardClock" class="scoreboard-clock"></span>
-              <span id="gamePhase" class="game-phase" hidden></span>
-              <span class="scoreboard-source" data-i18n="scoreObserved"
-                >Bandeau TV</span
-              >
-            </div>
-            <div class="timeline-caption">
-              <span data-i18n="sequence">DÉROULÉ DE L’EXTRAIT</span
-              ><span class="timeline-legend"
-                ><i class="mark cut"></i
-                ><span data-i18n="sceneCut">Changement de plan</span></span
-              ><span id="scoreboardLegend" class="timeline-legend" hidden
-                ><i class="mark score"></i
-                ><span data-i18n="scoreChanges">Score observé</span></span
-              >
-              <span id="shotsLegend" class="timeline-legend" hidden>
-                <i class="mark shot"></i
-                ><span data-i18n="shotsLegend">Tirs</span>
-              </span>
-            </div>
-            <div class="seek-wrap">
-              <div class="seek-fill" id="seekFill"></div>
-              <input
-                type="range"
-                id="seek"
-                min="0"
-                max="1"
-                step="0.001"
-                value="0"
-                data-i18n-aria="videoPosition"
-                aria-label="Position dans la vidéo"
-              />
-              <div id="timelineMarkers" class="timeline-markers"></div>
-            </div>
-          </div>
-          <div class="player-controls">
-            <button
-              class="play-button"
-              id="playButton"
-              type="button"
-              aria-label="Lire"
-            >
-              <svg id="playIcon" viewBox="0 0 20 20" aria-hidden="true">
-                <path d="m7 4 9 6-9 6Z" />
-              </svg>
-            </button>
-            <div class="frame-controls">
-              <button
-                class="icon-button frame-step"
-                id="prevFrame"
-                type="button"
-                data-i18n-title="previousFrame"
-                data-i18n-aria="previousFrame"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M5 5v10m10-10-7 5 7 5Z" />
-                </svg></button
-              ><button
-                class="icon-button frame-step"
-                id="nextFrame"
-                type="button"
-                data-i18n-title="nextFrame"
-                data-i18n-aria="nextFrame"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M15 5v10M5 5l7 5-7 5Z" />
-                </svg>
-              </button>
-            </div>
-            <div class="timecode">
-              <span id="currentTime">00:00.00</span
-              ><span class="time-separator">/</span
-              ><span id="totalTime">00:00.00</span>
-            </div>
-            <div class="playback-secondary">
-              <button
-                class="icon-button marker-step"
-                id="prevMarker"
-                type="button"
-                data-i18n-title="previousCut"
-                data-i18n-aria="previousCut"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="m11 5-6 5 6 5m4-10-6 5 6 5" />
-                </svg></button
-              ><button
-                class="icon-button marker-step"
-                id="nextMarker"
-                type="button"
-                data-i18n-title="nextCut"
-                data-i18n-aria="nextCut"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="m5 5 6 5-6 5m4-10 6 5-6 5" />
-                </svg></button
-              ><select
-                id="speed"
-                class="speed-select"
-                data-i18n-aria="playbackSpeed"
-              >
-                <option value="0.5">0.5×</option>
-                <option value="1" selected>1×</option>
-                <option value="1.5">1.5×</option>
-                <option value="2">2×</option></select
-              ><button
-                class="icon-button"
-                id="fullscreen"
-                type="button"
-                data-i18n-title="fullscreen"
-                data-i18n-aria="fullscreen"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true">
-                  <path d="M7 2H2v5m11-5h5v5M2 13v5h5m11-5v5h-5" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <details id="shotsPanel" class="shots-panel" hidden>
-            <summary id="shotsSummary"></summary>
-            <div class="shots-content">
-              <p id="shotsHelp"></p>
-              <label id="shotsCandidatesField" class="shots-candidates" hidden>
-                <input id="shotsCandidates" type="checkbox" checked />
-                <span data-i18n="shotsIncludeCandidates"
-                  >Inclure les candidats à vérifier</span
-                >
-              </label>
-              <div id="shotsList" class="shots-list"></div>
-            </div>
-          </details>
-          <div class="video-footer">
-            <div>
-              <span id="calibrationDot" class="footer-dot off"></span
-              ><span id="calibrationStatus" data-i18n="courtWaiting"
-                >Terrain en attente</span
-              >
-            </div>
-            <span id="frameDetails">—</span
-            ><span id="layerSummary" class="layer-summary"></span>
-          </div>
-        </section>
-
-        <aside class="insights">
-          <section class="court-panel panel">
-            <div class="panel-title-row">
-              <div class="panel-heading">
-                <span class="section-number">02</span>
-                <h2 data-i18n="tacticalView">Vue tactique</h2>
               </div>
-              <div class="court-actions">
-                <span class="panel-tag" data-i18n="topView">VUE DU DESSUS</span
-                ><button
-                  id="openCourtHeatmaps"
-                  type="button"
-                  class="heatmap-entry"
-                  data-heatmap-context="court"
-                  data-i18n="hmOpen"
-                >
-                  Heatmaps
-                </button>
-              </div>
-            </div>
-            <div class="court-wrap">
-              <svg
-                id="courtSvg"
-                viewBox="0 0 660 374"
-                role="img"
-                data-i18n-aria="courtPositions"
-                aria-label="Terrain et positions des joueurs"
-              >
-                <defs>
-                  <pattern
-                    id="floorPattern"
-                    width="38"
-                    height="374"
-                    patternUnits="userSpaceOnUse"
+              <div class="video-stage" id="videoStage">
+                <video id="video" playsinline preload="auto"></video
+                ><canvas
+                  id="overlay"
+                  data-i18n-aria="detectionLayers"
+                  aria-label="Calques de détection"
+                ></canvas>
+                <div class="video-empty" id="videoEmpty">
+                  <span class="empty-glyph" aria-hidden="true">▷</span
+                  ><strong data-i18n="ready">Le match commence ici.</strong
+                  ><span data-i18n="selectRun"
+                    >Choisissez un extrait pour commencer.</span
                   >
-                    <path
-                      d="M38 0H0v374"
-                      fill="none"
-                      stroke="#e0bc8e"
-                      stroke-opacity=".035"
-                    />
-                  </pattern>
-                </defs>
-                <rect width="660" height="374" rx="3" fill="#24211e" />
-                <rect width="660" height="374" fill="url(#floorPattern)" />
-                <g id="courtLines"></g>
-                <g id="courtPoints"></g>
-              </svg>
-            </div>
-            <div id="courtLegend" class="court-legend"></div>
-            <div class="court-footer">
-              <span id="courtStatusDot" class="tiny-status off"></span
-              ><span id="courtStatus" data-i18n="positionsWaiting"
-                >En attente des positions</span
-              >
-            </div>
-          </section>
-          <section
-            class="roster-panel panel"
-            data-i18n-aria="rosterAndStats"
-            aria-label="Statistiques des joueurs et des équipes"
-          >
-            <div class="panel-title-row stats-heading">
-              <div class="panel-heading">
-                <span class="section-number">03</span>
-                <h2 data-i18n="statistics">Statistiques</h2>
+                </div>
+              </div>
+              <div class="timeline">
+                <div id="scoreboardContext" class="scoreboard-context" hidden>
+                  <span id="scoreboardMatch" class="scoreboard-match"></span>
+                  <span id="scoreboardPeriod" class="scoreboard-period"></span>
+                  <span id="scoreboardClock" class="scoreboard-clock"></span>
+                  <span id="gamePhase" class="game-phase" hidden></span>
+                  <span class="scoreboard-source" data-i18n="scoreObserved"
+                    >Bandeau TV</span
+                  >
+                </div>
+                <div class="timeline-caption">
+                  <span data-i18n="sequence">DÉROULÉ DE L’EXTRAIT</span>
+                </div>
+                <div class="seek-wrap">
+                  <div class="seek-fill" id="seekFill"></div>
+                  <input
+                    type="range"
+                    id="seek"
+                    min="0"
+                    max="1"
+                    step="0.001"
+                    value="0"
+                    data-i18n-aria="videoPosition"
+                    aria-label="Position dans la vidéo"
+                  />
+                  <div id="timelineMarkers" class="timeline-markers"></div>
+                </div>
+                <div class="timeline-legends" role="group" data-i18n-aria="timelineEvents">
+                  <span id="shotsLegend" class="timeline-legend" hidden>
+                    <i class="mark shot" aria-hidden="true"></i><span data-i18n="shotProbable">Tir probable</span>
+                  </span>
+                  <span id="shotsCandidatesLegend" class="timeline-legend" hidden>
+                    <i class="mark shot candidate" aria-hidden="true"></i><span data-i18n="shotCandidate">À vérifier</span>
+                  </span>
+                </div>
+              </div>
+              <div class="player-controls">
+                <div class="timecode">
+                  <span id="currentTime">00:00.00</span><span class="time-separator">/</span><span id="totalTime">00:00.00</span>
+                </div>
+                <div class="transport-controls" role="group" data-i18n-aria="videoNavigation">
+                  <button class="icon-button frame-step" id="prevFrame" type="button" data-i18n-title="previousFrame" data-i18n-aria="previousFrame">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5v10m10-10-7 5 7 5Z" /></svg>
+                  </button>
+                  <button class="icon-button second-step" id="prevSecond" type="button" data-i18n-title="previousSecond" data-i18n-aria="previousSecond">−1<span>s</span></button>
+                  <button class="play-button" id="playButton" type="button" aria-label="Lire">
+                    <svg id="playIcon" viewBox="0 0 20 20" aria-hidden="true"><path d="m7 4 9 6-9 6Z" /></svg>
+                  </button>
+                  <button class="icon-button second-step" id="nextSecond" type="button" data-i18n-title="nextSecond" data-i18n-aria="nextSecond">+1<span>s</span></button>
+                  <button class="icon-button frame-step" id="nextFrame" type="button" data-i18n-title="nextFrame" data-i18n-aria="nextFrame">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M15 5v10M5 5l7 5-7 5Z" /></svg>
+                  </button>
+                </div>
+                <div class="playback-secondary">
+                  <select id="speed" class="speed-select" data-i18n-aria="playbackSpeed">
+                    <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            <aside class="insights">
+              <section class="court-panel panel">
+                <div class="panel-title-row">
+                  <div class="panel-heading">
+                    <span class="section-number">02</span>
+                    <h2 data-i18n="tacticalView">Vue tactique</h2>
+                  </div>
+                  <span class="panel-tag" data-i18n="topView">VUE DU DESSUS</span>
+                </div>
+                <div class="court-wrap">
+                  <svg
+                    id="courtSvg"
+                    viewBox="0 0 660 374"
+                    role="img"
+                    data-i18n-aria="courtPositions"
+                    aria-label="Terrain et positions des joueurs"
+                  >
+                    <defs>
+                      <pattern
+                        id="floorPattern"
+                        width="38"
+                        height="374"
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <path
+                          d="M38 0H0v374"
+                          fill="none"
+                          stroke="#e0bc8e"
+                          stroke-opacity=".035"
+                        />
+                      </pattern>
+                    </defs>
+                    <rect width="660" height="374" rx="3" fill="#24211e" />
+                    <rect width="660" height="374" fill="url(#floorPattern)" />
+                    <g id="courtLines"></g>
+                    <g id="courtPoints"></g>
+                  </svg>
+                </div>
+                <div id="courtLegend" class="court-legend"></div>
+                <div class="court-footer">
+                  <span id="courtStatusDot" class="tiny-status off"></span
+                  ><span id="courtStatus" data-i18n="positionsWaiting"
+                    >En attente des positions</span
+                  >
+                </div>
+              </section>
+              <details id="shotsPanel" class="shots-panel panel" open hidden>
+                <summary id="shotsSummary"></summary>
+                <div class="shots-content">
+                  <p id="shotsHelp"></p>
+                  <label id="shotsCandidatesField" class="shots-candidates" hidden>
+                    <input id="shotsCandidates" type="checkbox" checked />
+                    <span data-i18n="shotsIncludeCandidates"
+                      >Inclure les candidats à vérifier</span
+                    >
+                  </label>
+                  <div id="shotsList" class="shots-list"></div>
+                </div>
+              </details>
+              <section class="events-placeholder panel" id="interceptionsPanel" aria-labelledby="interceptionsTitle">
+                <span class="event-chevron" aria-hidden="true">▸</span>
+                <h2 id="interceptionsTitle" data-i18n="interceptions">Interceptions</h2>
+                <span class="coming-soon" data-i18n="comingSoon">Arrive bientôt</span>
+              </section>
+            </aside>
+          </div>
+          <div class="statistics-workspace mode-page" id="statisticsWorkspace" role="tabpanel" aria-labelledby="statisticsTab" aria-hidden="true" inert>
+            <section
+              class="roster-panel panel"
+              data-i18n-aria="rosterAndStats"
+              aria-label="Statistiques des joueurs et des équipes"
+            >
+              <div class="panel-title-row stats-heading">
+                <div class="panel-heading">
+                  <span class="section-number">01</span>
+                  <h2 data-i18n="statistics">Statistiques</h2>
+                </div>
+                <div
+                  class="stats-tabs"
+                  role="tablist"
+                  data-i18n-aria="statsViews"
+                >
+                  <button
+                    type="button"
+                    id="playersTab"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="playersPanel"
+                    tabindex="0"
+                    data-stats-view="players"
+                    data-i18n="players"
+                  >
+                    Joueurs
+                  </button>
+                  <button
+                    type="button"
+                    id="teamTab"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="teamPanel"
+                    tabindex="-1"
+                    data-stats-view="team"
+                    data-i18n="team"
+                  >
+                    Équipe
+                  </button>
+                </div>
               </div>
               <div
-                class="stats-tabs"
-                role="tablist"
-                data-i18n-aria="statsViews"
+                id="teamToggle"
+                class="team-toggle"
+                role="group"
+                data-i18n-aria="chooseTeam"
+              ></div>
+              <div
+                id="playersPanel"
+                class="stats-pane"
+                role="tabpanel"
+                aria-labelledby="playersTab"
               >
-                <button
-                  type="button"
-                  id="playersTab"
-                  role="tab"
-                  aria-selected="true"
-                  aria-controls="playersPanel"
-                  tabindex="0"
-                  data-stats-view="players"
-                  data-i18n="players"
-                >
-                  Joueurs
-                </button>
-                <button
-                  type="button"
-                  id="teamTab"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="teamPanel"
-                  tabindex="-1"
-                  data-stats-view="team"
-                  data-i18n="team"
-                >
-                  Équipe
-                </button>
-              </div>
-            </div>
-            <div
-              id="teamToggle"
-              class="team-toggle"
-              role="group"
-              data-i18n-aria="chooseTeam"
-            ></div>
-            <div
-              id="playersPanel"
-              class="stats-pane"
-              role="tabpanel"
-              aria-labelledby="playersTab"
-            >
-              <div id="rosterBrowse">
-                <div id="rosterTeamHeading" class="roster-team-heading"></div>
-                <div id="rosterList" class="roster-list"></div>
-                <p class="roster-hint" data-i18n="selectPlayer">
-                  Sélectionnez un joueur pour explorer ses statistiques.
-                </p>
-              </div>
-              <div id="rosterDetail" class="roster-detail" hidden>
-                <div class="detail-topline">
-                  <button id="rosterBack" class="roster-back" type="button">
-                    <span aria-hidden="true">←</span
-                    ><span data-i18n="backToRoster">Effectif</span></button
-                  ><span class="panel-tag" data-i18n="clipSummary"
-                    >BILAN DE L’EXTRAIT</span
-                  >
-                </div>
-                <div id="playerHero" class="player-hero">
-                  <span id="detailNumber" class="detail-number">—</span>
-                  <div>
-                    <div id="detailTeam" class="detail-team">—</div>
-                    <h2 id="detailName">—</h2>
-                  </div>
-                </div>
-                <div class="player-shot-stat" title="" id="playerShotStat">
-                  <span data-i18n="playerShots">Tirs détectés</span>
-                  <strong id="playerShotCount">—</strong>
-                </div>
-                <div class="stats-section">
-                  <div class="detail-stats-heading">
-                    <h3 data-i18n="movement">Déplacements</h3>
-                    <span data-i18n="finalStats">MESURES FINALES</span>
-                  </div>
-                  <div id="finalStats" class="final-stats"></div>
-                </div>
-                <button
-                  id="openPlayerHeatmaps"
-                  type="button"
-                  class="heatmap-entry player-heatmap-entry"
-                  data-heatmap-context="player"
-                  data-i18n="hmPlayerOpen"
-                >
-                  Explorer les heatmaps du joueur
-                </button>
-                <p id="finalStatsNote" class="final-stats-note"></p>
-              </div>
-            </div>
-            <div
-              id="teamPanel"
-              class="stats-pane team-overview"
-              role="tabpanel"
-              aria-labelledby="teamTab"
-              tabindex="0"
-              hidden
-            >
-              <div id="teamHero" class="team-hero">
-                <span class="team-color-mark" aria-hidden="true"></span>
-                <div>
-                  <h3 id="teamName">—</h3>
-                  <span id="teamRosterCount"></span>
-                </div>
-              </div>
-              <div id="teamStatsContent" class="team-stats-content">
-                <section
-                  id="teamShotMap"
-                  class="team-shot-map"
-                  aria-labelledby="teamShotTitle"
-                >
-                  <div class="team-shot-heading">
-                    <h4 id="teamShotTitle" data-i18n="teamShotTitle">
-                      Carte des tirs
-                    </h4>
-                    <button
-                      id="exportTeamShots"
-                      type="button"
-                      class="hm-export"
-                      data-i18n="hmExport"
-                      data-i18n-aria="teamShotExport"
-                    >
-                      PNG
-                    </button>
-                  </div>
-                  <p id="teamShotSummary"></p>
-                  <canvas
-                    id="teamShotCanvas"
-                    class="team-shot-canvas"
-                    role="img"
-                  ></canvas>
-                  <p id="teamShotLegend"></p>
-                  <p
-                    id="teamShotInspect"
-                    class="team-shot-inspect"
-                    role="status"
-                  ></p>
-                  <p id="teamShotMissing"></p>
-                  <p id="teamShotHelp" data-i18n="teamShotHelp">
-                    Tirs probables uniquement · bilan de l’extrait.
+                <div id="rosterBrowse">
+                  <div id="rosterTeamHeading" class="roster-team-heading"></div>
+                  <div id="rosterList" class="roster-list"></div>
+                  <p class="roster-hint" data-i18n="selectPlayer">
+                    Sélectionnez un joueur pour explorer ses statistiques.
                   </p>
-                </section>
-                <h4 data-i18n="teamStatsTitle">Le collectif, en chiffres.</h4>
-                <p id="teamStatsNote" data-i18n="teamStatsEmpty">
-                  Les statistiques de cette équipe apparaîtront ici lorsqu’elles
-                  seront disponibles.
-                </p>
-                <button
-                  id="openTeamHeatmaps"
-                  type="button"
-                  class="heatmap-entry team-heatmap-entry"
-                  data-heatmap-context="team"
-                  data-i18n="hmTeamOpen"
-                >
-                  Explorer les heatmaps de l’équipe
-                </button>
+                </div>
+                <div id="playerPlaceholder" class="player-placeholder">
+                  <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="20" r="9"/><path d="M14 53v-7c0-10 8-16 18-16s18 6 18 16v7M8 53h48"/></svg>
+                  <h3 data-i18n="playerExplore">Le jeu, à l’échelle du joueur.</h3>
+                  <p data-i18n="selectPlayer">Sélectionnez un joueur pour explorer ses statistiques.</p>
+                </div>
+                <div id="rosterDetail" class="roster-detail" hidden>
+                  <div class="detail-topline">
+                    <button id="rosterBack" class="roster-back" type="button">
+                      <span aria-hidden="true">←</span
+                      ><span data-i18n="backToRoster">Effectif</span></button
+                    ><span class="panel-tag" data-i18n="clipSummary"
+                      >BILAN DE L’EXTRAIT</span
+                    >
+                  </div>
+                  <div id="playerHero" class="player-hero">
+                    <span id="detailNumber" class="detail-number">—</span>
+                    <div>
+                      <div id="detailTeam" class="detail-team">—</div>
+                      <h2 id="detailName">—</h2>
+                    </div>
+                  </div>
+                  <div class="player-shot-stat" title="" id="playerShotStat">
+                    <span data-i18n="playerShots">Tirs détectés</span>
+                    <strong id="playerShotCount">—</strong>
+                  </div>
+                  <div class="stats-section">
+                    <div class="detail-stats-heading">
+                      <h3 data-i18n="movement">Déplacements</h3>
+                      <span data-i18n="finalStats">MESURES FINALES</span>
+                    </div>
+                    <div id="finalStats" class="final-stats"></div>
+                  </div>
+                  <button
+                    id="openPlayerHeatmaps"
+                    type="button"
+                    class="heatmap-entry player-heatmap-entry"
+                    data-heatmap-context="player"
+                    data-i18n="hmPlayerOpen"
+                  >
+                    Explorer les heatmaps du joueur
+                  </button>
+                  <p id="finalStatsNote" class="final-stats-note"></p>
+                </div>
               </div>
-            </div>
-          </section>
-        </aside>
+              <div
+                id="teamPanel"
+                class="stats-pane team-overview"
+                role="tabpanel"
+                aria-labelledby="teamTab"
+                tabindex="0"
+                hidden
+              >
+                <div id="teamStatsContent" class="team-stats-content">
+                  <section id="teamHeatmaps" class="team-heatmaps" aria-labelledby="teamHeatmapsTitle">
+                    <div class="team-heatmaps-heading">
+                      <h3 id="teamHeatmapsTitle" data-i18n="hmTeamTitle">Heatmaps de l’équipe</h3>
+                      <button id="compareTeamHeatmaps" class="heatmap-entry" type="button" aria-pressed="false" data-i18n="hmCompare">Comparer</button>
+                    </div>
+                    <div id="teamHeatmapStudio"></div>
+                  </section>
+                  <section
+                    id="teamShotMap"
+                    class="team-shot-map"
+                    aria-labelledby="teamShotTitle"
+                  >
+                    <div class="team-shot-heading">
+                      <h4 id="teamShotTitle" data-i18n="teamShotTitle">
+                        Carte des tirs
+                      </h4>
+                      <small data-i18n="teamShotScope">Tout l’extrait</small>
+                    </div>
+                    <canvas
+                      id="teamShotCanvas"
+                      class="team-shot-canvas"
+                      role="img"
+                    ></canvas>
+                    <div class="team-shot-symbols">
+                      <span><i class="probable" aria-hidden="true"></i><span data-i18n="shotProbable">Tir probable</span></span>
+                      <span><i aria-hidden="true"></i><span data-i18n="shotCandidate">À vérifier</span></span>
+                    </div>
+                    <p id="teamShotSummary"></p>
+                    <p
+                      id="teamShotInspect"
+                      class="team-shot-inspect"
+                      role="status"
+                    ></p>
+                    <p id="teamShotMissing"></p>
+                  </section>
+
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
       </main>
       <footer class="workspace-footer">
-        <span class="keyboard-hints"
+        <span class="keyboard-hints" id="keyboardHints"
           ><kbd data-i18n="space">Espace</kbd
           ><span data-i18n="playPause">Lecture / pause</span><kbd>← →</kbd
           ><span data-i18n="oneSecond">1 seconde</span><kbd>⇧ ← →</kbd
@@ -693,35 +472,11 @@
             ><span data-i18n="hmSubject">Joueur ou équipe</span
             ><select id="heatmapSubject"></select
           ></label>
-          <label class="hm-field"
-            ><span data-i18n="hmPhase">Situation de jeu</span
-            ><select id="heatmapPhase">
-              <option value="offense" data-i18n="hmOffense">Attaque</option>
-              <option value="defense" data-i18n="hmDefense">Défense</option>
-            </select>
-          </label>
           <label class="hm-field" id="heatmapPeriodField" hidden>
             <span data-i18n="gamePeriod">Quart-temps</span>
             <select id="heatmapPeriod"></select>
           </label>
           <p id="heatmapMatchup" class="hm-matchup" hidden></p>
-          <label class="hm-field" id="heatmapPassageField">
-            <span data-i18n="hmPassage">Passage</span>
-            <select id="heatmapPassage"></select
-          ></label>
-          <div class="hm-range">
-            <label class="hm-field"
-              ><span data-i18n="hmStart">Début · s</span
-              ><input
-                id="heatmapStart"
-                type="number"
-                step="any"
-                min="0" /></label
-            ><label class="hm-field"
-              ><span data-i18n="hmEnd">Fin · s</span
-              ><input id="heatmapEnd" type="number" step="any" min="0"
-            /></label>
-          </div>
           <div class="hm-angle-label" data-i18n="hmAngles">
             TROIS ANGLES DE LECTURE
           </div>
@@ -777,11 +532,10 @@
             id="heatmapRenderNote"
             data-i18n="hmRenderHelp"
           >
-            Les zones claires indiquent une plus forte concentration. Survol et
-            tableau : mesures brutes.
+            Les zones claires indiquent une plus forte concentration.
           </p>
           <p class="hm-plan-note" data-i18n="hmPhaseNote">
-            Jeu installé uniquement · demi-terrain · panier à droite.
+            Jeu installé uniquement.
           </p>
         </aside>
         <section
@@ -792,7 +546,6 @@
           <div class="hm-intro">
             <span id="heatmapScope" class="panel-tag"></span>
             <h3 id="heatmapModeTitle"></h3>
-            <p id="heatmapExplanation"></p>
           </div>
           <div
             id="heatmapStatus"
@@ -801,31 +554,7 @@
             aria-live="polite"
           ></div>
           <div id="heatmapPhaseSummary" class="hm-phase-summary"></div>
-          <p id="heatmapOrientation" class="hm-orientation"></p>
           <div id="heatmapCharts" class="hm-charts"></div>
-          <p
-            class="hm-inspect"
-            id="heatmapInspect"
-            role="status"
-            aria-live="polite"
-          ></p>
-          <details class="hm-data" id="heatmapData" hidden>
-            <summary data-i18n="hmData">Lire les valeurs par zone</summary>
-            <div id="heatmapTables"></div>
-          </details>
-          <details class="hm-data hm-passages" id="heatmapPassages" hidden>
-            <summary id="heatmapPassagesTitle"></summary>
-            <div id="heatmapPassagesList" class="hm-passages-list"></div>
-          </details>
-          <div class="hm-limit">
-            <span class="hm-limit-mark" aria-hidden="true">i</span>
-            <p data-i18n="hmLimits">
-              Ces cartes décrivent les positions observées, pas les espaces
-              réellement libres. Les joueurs hors champ, les positions non
-              projetables et les ralentis peuvent modifier la lecture. Les
-              ralentis ne sont pas exclus automatiquement.
-            </p>
-          </div>
         </section>
       </div>
     </dialog>

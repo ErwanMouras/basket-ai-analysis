@@ -17,7 +17,7 @@ async function settled(page, count) {
   await page.waitForFunction(
     (count) =>
       document.querySelector("#heatmapStatus").hidden &&
-      document.querySelectorAll(".hm-map-card").length === count,
+      document.querySelectorAll("#heatmapDialog .hm-map-card").length === count,
     count,
   );
 }
@@ -29,16 +29,7 @@ async function calculate(page, action, mode) {
       url.searchParams.get("mode") !== mode
     )
       return false;
-    const current = await page.evaluate(() =>
-      Object.fromEntries(
-        [
-          ["phase", "heatmapPhase"],
-          ["episode", "heatmapPassage"],
-          ["start", "heatmapStart"],
-          ["end", "heatmapEnd"],
-        ].map(([key, id]) => [key, document.getElementById(id).value]),
-      ),
-    );
+    const currentPhase = await page.locator('#heatmapPhaseSummary [aria-pressed="true"]').getAttribute('data-heatmap-phase');
     const expectedSubject = await page.evaluate(
       (mode) =>
         mode === "comparison"
@@ -49,13 +40,7 @@ async function calculate(page, action, mode) {
       mode,
     );
     if (url.searchParams.get("subject") !== expectedSubject) return false;
-    return Object.entries(current).every(([key, value]) =>
-      key === "episode" && !value
-        ? !url.searchParams.has("episode")
-        : key === "start" || key === "end"
-          ? Math.abs(Number(value) - Number(url.searchParams.get(key))) < 1e-6
-          : value === url.searchParams.get(key),
-    );
+    return url.searchParams.get('phase') === currentPhase && !url.searchParams.has('episode');
   });
   await action();
   const data = await (await response).json();
@@ -90,6 +75,11 @@ async function accessibility(page) {
   );
   assert.deepEqual(violations, [], "heatmap accessibility");
 }
+async function openSpatial(page) {
+  await page.locator('#statisticsTab').click();
+  await page.locator('#playersTab').click();
+  await page.locator('#openPlayerHeatmaps').click();
+}
 async function open(context) {
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
@@ -114,7 +104,7 @@ async function main() {
     const page = await open(context);
     assert.deepEqual(
       await page
-        .locator("[data-heatmap-mode]")
+        .locator("#heatmapDialog [data-heatmap-mode]")
         .evaluateAll((buttons) =>
           buttons.map((button) => button.dataset.heatmapMode),
         ),
@@ -122,7 +112,7 @@ async function main() {
     );
     await calculate(
       page,
-      () => page.locator("#openCourtHeatmaps").click(),
+      () => openSpatial(page),
       "presence",
     );
     assert.equal(await page.evaluate(() => video.paused), true);
@@ -136,16 +126,16 @@ async function main() {
       for (const phase of ["offense", "defense"]) {
         await calculate(
           page,
-          () => page.locator("#heatmapPhase").selectOption(phase),
+          () => page.locator(`#heatmapPhaseSummary [data-heatmap-phase="${phase}"]`).click(),
           "presence",
         );
         for (const [mode, count] of Object.entries(modes)) {
           const data = await calculate(
             page,
-            () => page.locator(`[data-heatmap-mode="${mode}"]`).click(),
+            () => page.locator(`#heatmapDialog [data-heatmap-mode="${mode}"]`).click(),
             mode,
           );
-          assert.equal(await page.locator(".hm-map-card").count(), count);
+          assert.equal(await page.locator("#heatmapDialog .hm-map-card").count(), count);
           assert.ok(
             data.maps.every(
               (map) =>
@@ -167,22 +157,15 @@ async function main() {
               data.maps.map((map) => map.subject.id),
               ["team:blue", "team:pink"],
             );
-            assert.equal(
-              await page.locator("#heatmapPassage").isVisible(),
-              false,
-            );
+            assert.equal(await page.locator('#heatmapPhaseSummary button').count(), 2, 'comparison keeps phase controls');
             assert.equal(
               await page.locator("#heatmapMatchup").isVisible(),
               true,
             );
           }
           assert.equal(
-            await page.locator("#heatmapTables tbody tr").count(),
-            count * 9,
-          );
-          assert.equal(
             await page
-              .locator(".hm-canvas")
+              .locator("#heatmapDialog .hm-canvas")
               .first()
               .getAttribute("data-rendering"),
             mode === "zones" ? "cells" : "contours",
@@ -201,13 +184,13 @@ async function main() {
         }
         await calculate(
           page,
-          () => page.locator('[data-heatmap-mode="presence"]').click(),
+          () => page.locator('#heatmapDialog [data-heatmap-mode="presence"]').click(),
           "presence",
         );
       }
       await calculate(
         page,
-        () => page.locator("#heatmapPhase").selectOption("offense"),
+        () => page.locator('#heatmapPhaseSummary [data-heatmap-phase="offense"]').click(),
         "presence",
       );
     }
@@ -217,10 +200,8 @@ async function main() {
       "analysis controls preserve playback position",
     );
     const beforeRendering = {
-      stats: await page.locator(".hm-map-stats").allTextContents(),
-      table: await page.locator("#heatmapTables").textContent(),
       pixels: await page
-        .locator(".hm-canvas")
+        .locator("#heatmapDialog .hm-canvas")
         .first()
         .evaluate((canvas) => canvas.toDataURL()),
     };
@@ -235,7 +216,7 @@ async function main() {
     );
     await page.locator("#heatmapSmooth").uncheck();
     assert.equal(
-      await page.locator(".hm-canvas").first().getAttribute("data-rendering"),
+      await page.locator("#heatmapDialog .hm-canvas").first().getAttribute("data-rendering"),
       "cells",
     );
     assert.doesNotMatch(
@@ -244,23 +225,15 @@ async function main() {
     );
     assert.notEqual(
       await page
-        .locator(".hm-canvas")
+        .locator("#heatmapDialog .hm-canvas")
         .first()
         .evaluate((canvas) => canvas.toDataURL()),
       beforeRendering.pixels,
     );
     await page.locator("#heatmapSmooth").check();
     assert.equal(
-      await page.locator(".hm-canvas").first().getAttribute("data-rendering"),
+      await page.locator("#heatmapDialog .hm-canvas").first().getAttribute("data-rendering"),
       "contours",
-    );
-    assert.deepEqual(
-      await page.locator(".hm-map-stats").allTextContents(),
-      beforeRendering.stats,
-    );
-    assert.equal(
-      await page.locator("#heatmapTables").textContent(),
-      beforeRendering.table,
     );
     assert.equal(
       extraRequests,
@@ -268,64 +241,9 @@ async function main() {
       "rendering does not refetch or change measurements",
     );
     page.off("request", countRequest);
-    await page.locator("#heatmapStart").fill("0.5");
-    await calculate(
-      page,
-      () => page.locator("#heatmapStart").dispatchEvent("change"),
-      "presence",
-    );
-    await page.locator("#heatmapEnd").fill("1.5");
-    const clipped = await calculate(
-      page,
-      () => page.locator("#heatmapEnd").dispatchEvent("change"),
-      "presence",
-    );
-    assert.ok(
-      clipped.maps[0].total > 0 && clipped.maps[0].total < 1,
-      "only classified offensive moments inside the selected second contribute",
-    );
-    await page.locator("#heatmapEnd").fill("0.4");
-    await page.locator("#heatmapEnd").dispatchEvent("change");
-    assert.equal(
-      await page.locator(".hm-map-card").count(),
-      0,
-      "bad range clears old charts",
-    );
-    assert.equal(await page.locator("#heatmapStatus").isVisible(), true);
-    const latePassage = await page
-      .locator("#heatmapPassage option")
-      .last()
-      .getAttribute("value");
-    const second = await calculate(
-      page,
-      () => page.locator("#heatmapPassage").selectOption(latePassage),
-      "presence",
-    );
-    assert.ok(
-      second.maps[0].start_s >= 3,
-      "changing passage resets range inside that passage",
-    );
-    await calculate(
-      page,
-      () => page.locator('[data-heatmap-mode="comparison"]').click(),
-      "comparison",
-    );
-    assert.equal(await page.locator("#heatmapPassage").inputValue(), "");
-    assert.equal(await page.locator("#heatmapStart").inputValue(), "0");
-    await calculate(
-      page,
-      () => page.locator('[data-heatmap-mode="presence"]').click(),
-      "presence",
-    );
-    assert.equal(
-      await page.locator("#heatmapSubject").inputValue(),
-      "roster:blue:7",
-    );
-    await calculate(
-      page,
-      () => page.locator('[data-heatmap-mode="comparison"]').click(),
-      "comparison",
-    );
+    assert.equal(await page.locator('#heatmapPhase, #heatmapPassage, #heatmapStart, #heatmapEnd').count(), 0, 'removed temporal controls are absent');
+    assert.equal(await page.locator('.hm-map-stats, .hm-inspect, .hm-data, .hm-limit').count(), 0, 'removed data sections are absent');
+    await calculate(page, () => page.locator('#heatmapDialog [data-heatmap-mode="comparison"]').click(), 'comparison');
     const quarterComparison = await calculate(
       page,
       () => page.locator("#heatmapPeriod").selectOption("1"),
@@ -335,33 +253,24 @@ async function main() {
     assert.ok(quarterComparison.maps.every((map) => map.start_s === 3));
     await calculate(
       page,
-      () => page.locator('[data-heatmap-mode="presence"]').click(),
+      () => page.locator('#heatmapDialog [data-heatmap-mode="presence"]').click(),
       "presence",
     );
-    const settings = await page.locator("#heatmapStart").inputValue();
+    const settings = await page.locator("#heatmapPeriod").inputValue();
     await page.locator("#heatmapLanguage").click();
     assert.equal(
       await page.locator("#heatmapModeTitle").innerText(),
       "Presence",
     );
-    assert.equal(await page.locator("#heatmapStart").inputValue(), settings);
+    assert.equal(await page.locator("#heatmapPeriod").inputValue(), settings);
     assert.equal(
       await page.locator("#heatmapSubject").inputValue(),
       "roster:blue:7",
     );
     await page.locator("#heatmapLanguage").click();
-    const download = page.waitForEvent("download");
-    await page.locator("#heatmapDialog .hm-export").first().click();
-    const exported = await download;
-    assert.match(exported.suggestedFilename(), /^heatmap-presence-.*\.png$/);
-    const png = await fs.readFile(await exported.path());
-    assert.equal(png.readUInt32BE(16), 1100);
-    const canvasHeight = await page
-      .locator(".hm-canvas")
-      .first()
-      .evaluate((canvas) => canvas.height);
-    assert.equal(png.readUInt32BE(20), canvasHeight + 220);
-    assert.ok(canvasHeight > 1100, "PNG retains NBA half-court proportions");
+    assert.equal(await page.locator('.hm-export').count(), 0);
+    const canvasHeight = await page.locator('#heatmapDialog .hm-canvas').first().evaluate(canvas => canvas.height);
+    assert.ok(canvasHeight > 1100, 'maps retain NBA half-court proportions');
     for (const [width, height] of [
       [1920, 1080],
       [1600, 1000],
@@ -388,7 +297,7 @@ async function main() {
       );
       await calculate(
         page,
-        () => page.locator('[data-heatmap-mode="comparison"]').click(),
+        () => page.locator('#heatmapDialog [data-heatmap-mode="comparison"]').click(),
         "comparison",
       );
       assert.equal(
@@ -400,7 +309,7 @@ async function main() {
       );
       await calculate(
         page,
-        () => page.locator('[data-heatmap-mode="presence"]').click(),
+        () => page.locator('#heatmapDialog [data-heatmap-mode="presence"]').click(),
         "presence",
       );
     }
@@ -408,11 +317,12 @@ async function main() {
     await page.keyboard.press("Escape");
     assert.equal(
       await page
-        .locator("#openCourtHeatmaps")
+        .locator("#openPlayerHeatmaps")
         .evaluate((el) => el === document.activeElement),
       true,
       "Escape restores opener focus",
     );
+    await page.locator("#statisticsTab").click();
     await page.locator(".roster-player").first().click();
     await calculate(
       page,
@@ -425,33 +335,10 @@ async function main() {
     );
     await page.locator("#closeHeatmaps").click();
     await page.locator("#teamTab").click();
-    await calculate(
-      page,
-      () => page.locator("#openTeamHeatmaps").click(),
-      "presence",
-    );
-    assert.equal(
-      await page.locator("#heatmapSubject").inputValue(),
-      await page.evaluate(() => `team:${state.teamId}`),
-    );
-    assert.deepEqual(
-      await page
-        .locator("#heatmapPhase option")
-        .evaluateAll((nodes) => nodes.map((n) => n.value)),
-      ["offense", "defense"],
-    );
-    assert.equal(await page.locator(".hm-phase-chip").count(), 2);
-    assert.equal(await page.locator("#heatmapUnknown").count(), 0);
-    await accessibility(page);
-    await page
-      .locator("#heatmapPassages")
-      .evaluate((node) => (node.open = true));
-    await page.locator("#heatmapPassagesList button").first().click();
-    assert.equal(
-      await page.locator("#heatmapDialog").evaluate((dialog) => dialog.open),
-      false,
-    );
-    assert.equal(await page.evaluate(() => video.paused), true);
+    await page.waitForFunction(() => document.querySelector('#team-heatmapCharts canvas'));
+    assert.equal(await page.locator('#heatmapDialog').evaluate(dialog => dialog.open), false, 'team heatmaps appear inline');
+    assert.equal(await page.locator('#team-heatmapSubject').inputValue(), await page.evaluate(() => `team:${state.teamId}`));
+    assert.equal(await page.locator('#teamHeatmaps [data-heatmap-phase]').count(), 2);
     await page.close();
 
     // A missing B must never produce an apparent spatial advantage for A.
@@ -474,20 +361,20 @@ async function main() {
     });
     await calculate(
       missing,
-      () => missing.locator("#openCourtHeatmaps").click(),
+      () => openSpatial(missing),
       "presence",
     );
     await calculate(
       missing,
-      () => missing.locator('[data-heatmap-mode="comparison"]').click(),
+      () => missing.locator('#heatmapDialog [data-heatmap-mode="comparison"]').click(),
       "comparison",
     );
     assert.equal(
-      await missing.locator(".hm-map-card").nth(2).locator(".hm-empty").count(),
+      await missing.locator("#heatmapDialog .hm-map-card").nth(2).locator(".hm-empty").count(),
       1,
     );
     const pixel = await missing
-      .locator(".hm-canvas")
+      .locator("#heatmapDialog .hm-canvas")
       .nth(2)
       .evaluate((canvas) =>
         [...canvas.getContext("2d").getImageData(204, 345, 1, 1).data].slice(
@@ -507,7 +394,7 @@ async function main() {
     const race = await open(context);
     await calculate(
       race,
-      () => race.locator("#openCourtHeatmaps").click(),
+      () => openSpatial(race),
       "presence",
     );
     let release;
@@ -521,10 +408,10 @@ async function main() {
         await gate;
       await route.continue();
     });
-    await race.locator('[data-heatmap-mode="presence"]').click();
+    await race.locator('#heatmapDialog [data-heatmap-mode="presence"]').click();
     await calculate(
       race,
-      () => race.locator('[data-heatmap-mode="zones"]').click(),
+      () => race.locator('#heatmapDialog [data-heatmap-mode="zones"]').click(),
       "zones",
     );
     const late = race.waitForResponse(
@@ -546,17 +433,17 @@ async function main() {
     await unavailable.route("**/api/heatmaps?**", (route) =>
       route.fulfill({ json: { available: false, reason: "geometry" } }),
     );
-    await unavailable.locator("#openCourtHeatmaps").click();
+    await openSpatial(unavailable);
     await unavailable.waitForFunction(
       () => document.querySelector("#heatmapSubject").disabled,
     );
-    assert.equal(await unavailable.locator(".hm-map-card").count(), 0);
+    assert.equal(await unavailable.locator("#heatmapDialog .hm-map-card").count(), 0);
     assert.equal(await unavailable.locator("#heatmapStatus").isVisible(), true);
     await accessibility(unavailable);
     await unavailable.close();
     assert.deepEqual(errors, [], "no browser exceptions");
     console.log(
-      "Heatmaps: two player/team views + automatic team comparison, half courts, offense/defense, time ranges, passages, hidden neutral intervals, languages, exports, missing data, response races, responsive layout and accessibility passed",
+      "Heatmaps: two player/team views + automatic team comparison, half courts, offense/defense, quarter ranges, phase buttons, hidden neutral intervals, languages, missing data, response races, responsive layout and accessibility passed",
     );
   } finally {
     await browser.close();

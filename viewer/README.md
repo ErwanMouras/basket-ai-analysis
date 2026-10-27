@@ -1,4 +1,4 @@
-# Salle vidéo / Film room
+# Match Analyse
 
 Studio local en lecture seule pour explorer les analyses terminées du pipeline :
 vidéo source, détections, positions projetées, statistiques finales des joueurs et
@@ -35,28 +35,57 @@ progressives.
 
 ## Se repérer
 
-Les trois panneaux gardent une place stable : **le match à gauche**, **la vue
-tactique en haut à droite**, **les statistiques en bas à droite**.
-La barre de marque a été supprimée ; FR/EN se trouve à côté du sélecteur d’extrait.
-Le titre affiche les équipes de l’effectif. L’identité visuelle utilise un fond
+Deux modes se partagent l’espace sous le titre du match : **Visualisation**
+réunit la vidéo, les calques, le terrain tactique et la timeline des événements ;
+**Statistiques** donne toute la largeur aux bilans **Joueurs / Équipe**.
+Le sélecteur reste visible et les deux vues glissent latéralement en 420 ms.
+La préférence système de réduction des animations supprime cette transition.
+Les flèches gauche/droite, Début et Fin naviguent aussi entre les modes au clavier.
+Le mode inactif est retiré de la navigation et de l’arbre d’accessibilité.
+
+Ouvrir Statistiques met la vidéo en pause. Revenir à Visualisation conserve sa
+position, sa vitesse et ses calques, ainsi que l’équipe et le joueur sélectionnés ;
+la lecture ne redémarre pas seule. Le changement de mode ne recharge pas la vidéo.
+FR/EN se trouve à côté du sélecteur d’extrait.
+L’onglet du navigateur s’appelle **Match Analyse**. L’en-tête affiche directement
+les équipes de l’effectif, sans surtitre ni ligne de métadonnées. L’identité visuelle utilise un fond
 charbon, un accent orange et une typographie de titre condensée.
 
-**Calques** ouvre les réglages détaillés ; le nombre à côté indique les catégories
-actuellement affichées. Les cases indiquent l’état de chaque option. Échap ou un
-clic à l’extérieur ferme le panneau. **Rétablir l’affichage par défaut** réactive
-les Bbox et étiquettes joueurs/arbitres, le ballon et sa traînée, et masque
-les poses et les repères détectés. Les lignes projetées du terrain restent
-activées. **Agrandir** replie les deux panneaux de droite.
+Les réglages **Calques** sont directement visibles dans la barre **Le match**,
+entre **Le match** et **Agrandir** : joueurs, arbitres, ballon et terrain.
+Les options pose, noms, traînée et repères portent des libellés textuels.
+La barre utilise la largeur disponible et les réglages passent à la ligne si
+nécessaire, sans défilement horizontal. Sur les petits panneaux, ils occupent
+toute la largeur sous le titre. Le filtre Personnes visibles a été retiré.
+Aucun menu n’est à ouvrir. Le compteur de catégories a été retiré de cette barre.
+Le bouton **Réinitialiser**, centré en hauteur, réactive les Bbox et étiquettes joueurs/arbitres,
+le ballon et sa traînée, ainsi que les lignes projetées du terrain ; poses et
+repères détectés sont masqués.
+
+**Agrandir** utilise toute la fenêtre pour la vidéo, en largeur et en hauteur.
+Les noms d’équipe et la barre **Le match**, avec les calques modifiables,
+restent au-dessus de la vidéo. Le nom du fichier a été retiré de cette barre.
+Le sélecteur d’extrait, les onglets de
+mode et les panneaux latéraux sont masqués. La timeline, sa légende et les commandes
+restent visibles en bas sans défilement, y compris sur téléphone.
+**Réduire**, dans la barre du lecteur, ou **Échap** rétablit la vue
+normale. La lecture, la position, la vitesse et les calques restent conservés.
+Le bouton de plein écran du bas a été retiré. Ouvrir une fiche joueur depuis la
+vidéo quitte automatiquement l’affichage agrandi.
+La ligne d’informations sous le lecteur (état du terrain, détections et catégories)
+a été retirée. Les espacements de la timeline, de sa légende et des commandes sont
+légèrement réduits pour laisser plus de hauteur à la vidéo.
 
 Le bouton **FR / EN** traduit les commandes, descriptions, états, statistiques,
-formats numériques et dates, sans recharger la vidéo ni changer la lecture,
+formats numériques, sans recharger la vidéo ni changer la lecture,
 le joueur sélectionné ou les réglages. Le choix est conservé localement quand
 le navigateur autorise le stockage. Les noms d’équipes, de joueurs et d’analyses
 restent les données d’origine. Aucun service de traduction distant n’est utilisé.
 
 La disposition desktop tient dans la fenêtre à partir de 1024 × 640. Les listes
 longues et les fiches défilent dans leur panneau. Sous 900 px de largeur, les mêmes
-panneaux passent sous la vidéo et la page défile ; les contrôles restent identiques.
+vues se réorganisent et la page défile : terrain sous la vidéo, effectif au-dessus
+de la fiche sur téléphone ; les contrôles restent identiques.
 Il n’y a pas de version mobile distincte. Le navigateur peut aussi défiler quand
 la hauteur disponible est inférieure à 640 px.
 
@@ -83,9 +112,6 @@ recalage accepté, rose pour les autres points de confiance ≥ 0,5. Ils ne sont
 pas prolongés artificiellement entre deux détections. L'état sous la vidéo
 continue de distinguer terrain détecté, suivi et indisponible.
 
-**Joueurs identifiés** restreint la vidéo et le terrain aux joueurs reconnus par
-le run ; les options arbitres sont alors désactivées et une explication apparaît.
-
 La vue tactique montre seulement les personnes ayant une `position_m` valide.
 Sa légende reprend les couleurs des équipes. Le ballon reste dans la vidéo :
 les artefacts ne fournissent pas sa projection métrique au sol.
@@ -105,27 +131,47 @@ segmentation](../reports/segmentation-display-audit-2026-10-25/README.md).
 
 ## Statistiques : Joueurs / Équipe
 
-Les deux onglets du panneau **Statistiques** partagent le même sélecteur d’équipe.
-Ils occupent la même zone sans ajouter de panneau sur la vidéo ou le terrain.
+Les deux onglets du mode **Statistiques** partagent le même sélecteur d’équipe.
+Ils occupent l’espace complet dédié aux statistiques.
 Flèches gauche/droite, Début et Fin permettent de naviguer entre les onglets au
 clavier. Le choix de langue conserve l’onglet et l’équipe sélectionnés.
 
-**Équipe** affiche le nom et le nombre de joueurs de l’effectif sélectionné,
-puis un accès aux heatmaps collectives en attaque ou en défense. La zone `#teamStatsContent` reste défilante
-pour accueillir d’autres groupes de statistiques. Les cartes d’équipe cumulent
-les contributions observées ; elles ne supposent pas que les cinq joueurs sont visibles.
+Le sélecteur affiche directement les grands noms d’équipe et leurs effectifs,
+sans second en-tête. L’équipe sélectionnée occupe **75 %** de la largeur, l’autre
+**25 %**. Ces proportions s’inversent avec une transition à chaque sélection.
+
+**Équipe** affiche directement les heatmaps collectives en attaque ou en défense,
+avec les vues Présence et Zones. Le petit bouton **Comparer** affiche les deux
+équipes et leur différence ; un second clic rend la vue précédente.
+Changer d’équipe conserve la situation de jeu et le quart-temps.
+Les boutons **Attaque / Défense** sont placés sous le terrain du cadre Présence et ne filtrent
+que les heatmaps de présence ou de zones, y compris pendant la comparaison.
+La carte des tirs conserve le bilan de tout l’extrait.
+La zone `#teamStatsContent` reste défilante ; présence et tirs s’affichent côte à côte,
+puis se superposent sur téléphone. Les terrains occupent la largeur disponible
+jusqu’à 560 px ; sur desktop, leur taille s’adapte à la hauteur du panneau pour
+afficher les deux terrains alignés sans défilement. Les en-têtes et espacements
+sont réduits dans cette vue. Les cartes utilisent un rendu haute définition,
+sans les libellés demi-terrain et panier. Les zones continues sont actives par défaut.
+Les cartes cumulent les contributions observées et ne supposent pas que les cinq
+joueurs sont visibles.
 
 **Joueurs** conserve la fiche du joueur quand on consulte l’onglet Équipe puis
-revient. Changer d’équipe efface la sélection d’un joueur de l’autre équipe.
+revient. À l’entrée dans les statistiques des joueurs, le premier joueur de
+l’équipe est présélectionné lorsqu’aucune fiche n’est encore choisie. Une sélection
+manuelle reste conservée lors des allers-retours. Changer d’équipe dans l’onglet
+Joueurs ouvre la première fiche du nouvel effectif.
 Sélectionner un joueur depuis la vidéo ou le terrain ouvre automatiquement sa
-fiche dans l’onglet Joueurs. Une nouvelle analyse revient à la liste des joueurs.
+fiche dans l’onglet Joueurs du mode Statistiques, avec la vidéo en pause.
+Une nouvelle analyse revient à l’onglet Joueurs dans le mode courant ; si les
+statistiques sont déjà ouvertes, la première fiche disponible est sélectionnée.
 
 Choisir une équipe, puis un joueur, ouvre son **bilan de l’extrait complet**.
 Le groupe **Déplacements** présente la distance observée, la durée mesurée et la
 couverture du suivi issues de `statistics.json`, indépendamment de la lecture.
-La flèche **Effectif** revient à la liste. La fiche défile pour pouvoir accueillir
-d’autres groupes de statistiques sans réduire le lecteur. Dans les fenêtres de
-faible hauteur, les trois mesures se présentent sur une même ligne.
+L’effectif reste accessible à gauche de la fiche sur desktop ; la sélection y est
+signalée. La flèche **Effectif** ferme la fiche. Les listes et les fiches défilent
+indépendamment. Les trois mesures se présentent sur une même ligne.
 
 La couverture rapporte la durée mesurée aux intervalles suivis ; elle ne mesure
 pas la présence réelle hors champ. Les valeurs absentes restent `—`, et une
@@ -138,11 +184,11 @@ attribuer de statistiques. Un numéro unique peut suggérer une équipe et sa
 couleur : la boîte reste pointillée car cette association n’a pas été validée
 par le pipeline. Un numéro partagé par les deux équipes reste ambigu.
 
-## Heatmaps : cinq angles à comparer
+## Heatmaps
 
-**Heatmaps** dans l’en-tête du terrain ouvre un espace agrandi, sans modifier les
-panneaux du lecteur. Les fiches **Joueurs** et **Équipe** proposent aussi un accès
-direct au sujet sélectionné. La vidéo se met en pause. Échap ou le bouton de
+Les fiches **Joueurs** proposent un accès aux heatmaps du joueur sélectionné dans
+une fenêtre agrandie. Le bouton Heatmaps a été retiré de la vue tactique. Les heatmaps d’équipe sont intégrées à l’onglet **Équipe**
+avec des filtres indépendants de la fenêtre agrandie. La vidéo se met en pause. Échap ou le bouton de
 fermeture rend le focus au bouton d’origine ; la lecture ne redémarre pas seule.
 
 Choisir un **joueur ou une équipe**, puis **Attaque** ou **Défense**. Les cartes
@@ -151,11 +197,13 @@ confirmé termine la phase ; la récupération sous son propre panier et la
 remontée du terrain restent neutres jusqu’à l’arrivée dans le camp attaqué.
 Ces intervalles sont exclus des cartes, des passages et des libellés du viewer.
 
-La barre Attaque / Défense indique des **secondes de vidéo**, distinctes des
-secondes-joueurs collectives. Le quart-temps, les passages et les bornes temporelles
-permettent de cibler un moment. Les passages sont continus : ils ne regroupent pas
-deux attaques séparées par une transition. **Revoir les passages** ferme la
-fenêtre et positionne la vidéo, en pause, au début du passage choisi.
+Les boutons **Attaque / Défense** changent la situation affichée. Leurs durées,
+quand elles sont disponibles, indiquent des **secondes de vidéo**, distinctes des
+secondes-joueurs collectives. Le sélecteur **Quart-temps** couvre la période choisie ;
+**Tout l’extrait** reprend l’extrait entier. Les filtres Passage de jeu, Début et
+Fin ont été retirés. Les cartes gardent leur légende, sans bandeau de mesures,
+survol chiffré, tableau par zone, relecture de passages ni bloc explicatif sous
+les cartes. Les états sans données restent explicites.
 
 ### Comment les phases installées sont estimées
 
@@ -199,9 +247,7 @@ Le terrain NBA affiché mesure 14,3256 × 15,24 m ; le sens du panier reste à d
 
 La comparaison utilise automatiquement les **deux équipes de l’effectif**, sans
 sélecteur de sujet ou d’adversaire. Le joueur sélectionné reste mémorisé pour les
-autres vues. Passer à Comparaison depuis un passage isolé revient à tous les
-passages du quart-temps choisi ; les bornes saisies manuellement restent conservées
-si aucun passage n’était sélectionné.
+autres vues. La comparaison conserve la situation et le quart-temps choisis.
 
 La comparaison applique la situation à **chaque équipe**. Deux équipes en Attaque
 sont comparées sur leurs propres passages offensifs, à des moments potentiellement
@@ -225,15 +271,9 @@ Les cartes continues expriment une concentration du temps localisé dans le
 demi-terrain en **% par m²**. L’écart de comparaison est en
 points de pourcentage par m². Les cartes comparées partagent la même échelle
 calculée sur cette concentration, avec un traitement spatial identique.
-Le survol et les tableaux conservent les mesures brutes par maille ou par zone ;
-les totaux et couvertures ne changent pas avec le rendu. Les cartes PNG exportées
-indiquent le sujet, le mode,
-la situation, le quart-temps éventuel, la période, la légende et les limites de lecture. Pour une carte simple,
-elles conservent aussi le total et la couverture ; une différence indique A et B.
-Le tableau sous les cartes rend les neuf zones lisibles au clavier, y compris
-les écarts de comparaison.
+Les exports PNG ont été retirés des heatmaps et des cartes de tirs.
 
-### Ce que les chiffres mesurent
+### Mesures internes de l’API
 
 - **Temps dans ce camp** : somme des durées localisées dans le demi-terrain
   affiché, après orientation et découpage à la ligne médiane. Pour une équipe,
@@ -286,12 +326,10 @@ estimations conservatrices, et non des possessions officielles.
 | Lire / mettre en pause | Espace |
 | Reculer / avancer d’une seconde source | ← / → |
 | Image précédente / suivante | Maj + ← / → |
-| Plan précédent / suivant | P / N |
-| Fermer les réglages de calques | Échap |
+| Réduire la vidéo agrandie | Échap |
 
 Les raccourcis de lecture ne capturent pas les touches des boutons, sélecteurs,
-cases ou du bouton de dépliage des calques. Vitesse et plein écran sont accessibles
-sous la vidéo.
+cases de calques. La vitesse est accessible sous la vidéo.
 
 ## Vérifier
 
@@ -315,16 +353,20 @@ npm --prefix viewer run test:browser
 ```
 
 Le test utilise Chromium et axe-core uniquement pour le développement. Il couvre
-huit résolutions, les contrôles au clavier, les contrastes et libellés, les onglets Joueurs/Équipe,
+neuf résolutions, les contrôles au clavier, les contrastes et libellés, les onglets Joueurs/Équipe,
+les deux modes, le glissement latéral et sa réduction, la pause à l’ouverture des
+statistiques et la conservation du contexte entre les modes,
 les termes Bbox/Segmentation dans les deux langues, les calques,
 la langue persistante pendant la lecture, la sélection joueur, les listes longues,
 les données absentes et le repli sans callbacks de présentation. Un second scénario
-couvre les cinq angles pour joueur et équipe dans les deux situations, les périodes,
-les passages, les transitions masquées et les exports,
+couvre les trois angles pour joueur et équipe dans les deux situations, les périodes
+et les transitions masquées,
 la traduction dans la fenêtre, les réponses réseau tardives et les comparaisons
 sans données. Le basculement entre zones continues et mailles vérifie que les
 mesures restent identiques, sans requête supplémentaire. Il vérifie aussi
-l’accessibilité des cartes et des tableaux. Les contrôles automatiques d’accessibilité ne remplacent pas une revue manuelle.
+l’accessibilité des cartes et des contrôles de situation. Le scénario des heatmaps intégrées
+vérifie aussi le sélecteur 75/25, la comparaison, les filtres conservés et les
+réponses tardives d’une autre équipe. Les contrôles automatiques d’accessibilité ne remplacent pas une revue manuelle.
 
 Options : `VIEWER_URL` pour une autre instance servant le sample,
 `VIEWER_SCREENSHOTS` pour enregistrer les captures et
@@ -358,9 +400,8 @@ les résultats et leurs limites.
 
 Le lecteur accepte un `scoreboard.json` dérivé, associé au SHA256 de la vidéo et
 aux deux équipes de l’effectif. La timeline affiche le score observé, le QT et le
-chronomètre du bandeau. Les points turquoise permettent de rejoindre les mises à
-jour du score. Ils n’indiquent pas l’instant exact d’un panier : le bandeau peut
-s’animer après l’action et le montage peut supprimer du jeu. Le temps de la
+chronomètre du bandeau. Les mises à jour du score ne créent plus de repères sur
+la timeline. Le temps de la
 vidéo et le chronomètre du match restent deux informations distinctes.
 
 Un champ non lisible reste `—`. Le chronomètre n’est pas extrapolé et une lecture
@@ -413,7 +454,7 @@ ne transforme pas une absence de contrôle de balle en possession connue. Il per
 cependant la classification de contexte décrite ci-dessous.
 
 Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
-**Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
+les boutons **Attaque / Défense** choisissent la situation. Les intervalles sont
 interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
 Les trois vues et la normalisation du panier à droite restent disponibles.
 
@@ -434,7 +475,25 @@ le cadrage final, la comparaison automatique et les vérifications associées.
 
 ## Événements de tir
 
-Le volet **Tirs**, sous les commandes vidéo, liste les tentatives estimées. Les
+Le terrain tactique occupe une zone réduite en hauteur. Le volet **Tirs**, juste
+en dessous, est ouvert par défaut et utilise l’espace restant, sans réduire la vidéo.
+Chaque ligne affiche le temps et la frame du tir, le tireur et le statut.
+Le bouton **Voir le tir**, comme toute la ligne, place la vidéo en pause avant le relâchement.
+La ligne **Interceptions — Arrive bientôt** reste non interactive, sans contenu
+ni ouverture possible.
+
+Les commandes vidéo sont centrées : image précédente, −1 s, lecture/pause, +1 s,
+image suivante. Le timecode reste à gauche et la vitesse à droite.
+Sur téléphone, les commandes centrales passent sur leur propre ligne.
+
+La timeline affiche uniquement les tirs probables et les candidats à vérifier.
+Les points sont centrés sur la ligne et mesurent tous 10 px de diamètre.
+La légende, placée sous la timeline à gauche, laisse
+respirer la zone avant les commandes vidéo. Elle distingue ces deux catégories, avec un
+repère creux pour les candidats ; leur filtre met aussi la légende à jour.
+Les repères et commandes de changements de plan ont été retirés.
+
+Les
 repères violets pleins correspondent aux **tirs probables** ; les repères creux
 sont des **candidats à vérifier**. Cliquer sur un repère ou une ligne place la
 vidéo en pause 0,6 s avant l’instant estimé du départ. La case **Inclure les
@@ -506,10 +565,12 @@ Voir le [rapport de développement et ses limites](../reports/shots-2026-10-26/R
 relâchements, sur un demi-terrain normalisé vers le panier attaqué à droite.
 La sélection d’équipe conserve une échelle commune en tirs/m². Les cercles sont
 les origines estimées ; le survol lit les timestamps proches ou le nombre par
-maille. **PNG** exporte la carte et son périmètre.
+maille. L’échelle chiffrée de densité et le message sur les tirs sans équipe
+ne sont pas affichés.
 
-Seuls les **probables** entrent dans la carte et dans le compteur **Tirs détectés**
-de chaque fiche joueur. Les candidats restent séparés dans la timeline. Le bilan
+Les **probables et candidats à vérifier** entrent dans la carte, respectivement
+avec un point plein et un point creux. Seuls les probables entrent dans le compteur
+**Tirs détectés** de chaque fiche joueur. Le bilan
 porte sur l’extrait entier, indépendamment du curseur vidéo et du filtre des
 candidats. Une absence de distance ne masque pas le compteur de tirs.
 
@@ -519,16 +580,17 @@ les dispersions supérieures à 1,25 m sont exclus. Le sens utilise les repères
 appris par plan et quart-temps ; il ne dépend pas simplement du côté occupé par
 le tireur. Aucune projection du ballon aérien ne remplace une origine manquante.
 
-Un probable sans position ou orientation est compté mais absent de la carte.
+Un probable ou candidat sans position ou orientation est compté mais absent de la carte.
 Les événements sans équipe connue restent hors des cartes et des compteurs
 nominatifs. Zéro signifie aucun probable attribué sur l’extrait ; `—` indique
 que les données nécessaires ne sont pas disponibles. Aucun taux de réussite
 ou statistique officielle n’est ajouté.
 
-Les métadonnées `shots` exposent `player_counts`, `unassigned_probable_count` et
-`shot_maps` (`scope: whole_clip`, `status: probable`). Chaque carte contient
-`detected_count`, `located_count`, `unlocated_count`, sa grille de comptage et ses
-points avec timestamp. Les événements exposent leur `origin` et leur
+Les métadonnées `shots` exposent `player_counts`, `unassigned_probable_count`,
+`unassigned_candidate_count` et `shot_maps` (`scope: whole_clip`,
+`statuses: [probable, candidate]`). Chaque carte contient `probable_count`,
+`candidate_count`, `detected_count`, `located_count`, `unlocated_count`, sa grille
+de comptage et ses points avec timestamp et statut. Les événements exposent leur `origin` et leur
 `court_direction`. Les statistiques historiques de déplacement restent inchangées.
 
 Voir la [revue des cartes de tirs](../reports/shot-maps-2026-10-26/README.md).

@@ -20,8 +20,8 @@ const base = process.env.VIEWER_URL || "http://127.0.0.1:8766";
       /BLU 2.*PNK 0/,
     );
     assert.equal(await page.locator("#scoreboardPeriod").innerText(), "QT1");
-    assert.equal(await page.locator("#timelineMarkers .score").count(), 4);
-    await page.locator("#timelineMarkers .score").nth(2).click();
+    assert.equal(await page.locator("#timelineMarkers .score, #scoreboardLegend").count(), 0);
+    await page.locator('#seek').fill('3');
     await page.waitForFunction(() => state.current >= 90 && video.paused);
     assert.equal(await page.locator("#scoreboardPeriod").innerText(), "QT3");
     assert.match(
@@ -30,14 +30,9 @@ const base = process.env.VIEWER_URL || "http://127.0.0.1:8766";
     );
     await page.locator('[data-language="en"]').click();
     assert.equal(await page.locator("#scoreboardPeriod").innerText(), "Q3");
-    assert.match(
-      await page
-        .locator("#timelineMarkers .score")
-        .nth(2)
-        .getAttribute("aria-label"),
-      /Q3.*Observed score/,
-    );
-    await page.locator("#openCourtHeatmaps").click();
+    assert.equal(await page.locator("#timelineMarkers .score, #scoreboardLegend").count(), 0);
+    await page.locator('#statisticsTab').click();
+    await page.locator('#openPlayerHeatmaps').click();
     await page.waitForFunction(
       () => document.querySelector("#heatmapStatus").hidden,
     );
@@ -65,19 +60,9 @@ const base = process.env.VIEWER_URL || "http://127.0.0.1:8766";
     await page.waitForFunction(
       () => document.querySelector("#heatmapStatus").hidden,
     );
-    assert.ok(
-      (await page.locator("#heatmapPassage option").allTextContents())
-        .slice(1)
-        .every((label) => label.startsWith("Q3")),
-    );
-    assert.match(
-      await page.locator("#heatmapOrientation").innerText(),
-      /Sides held per quarter/,
-    );
+    assert.equal(await page.locator('#heatmapPassage, #heatmapStart, #heatmapEnd').count(), 0);
     assert.match(await page.locator("#heatmapScope").innerText(), /Q3/);
-    const download = page.waitForEvent("download");
-    await page.locator(".hm-map-card button").first().click();
-    assert.match((await download).suggestedFilename(), /-q3-/);
+    assert.equal(await page.locator('#heatmapDialog .hm-export').count(), 0);
     await page.locator("#closeHeatmaps").click();
     await page.route("**/api/run?**", async (route) => {
       const response = await route.fetch();

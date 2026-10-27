@@ -45,6 +45,8 @@ print(json.dumps(p))
     });
     await page.goto(`${base}/?run=synthetic`);
     await page.waitForFunction(() => state.loaded && video.readyState >= 2);
+    assert.equal(await page.locator('#shotsPanel').evaluate(node => node.open), true, 'shots open by default');
+    assert.equal(await page.locator('#shotsHelp').isVisible(), false);
     assert.equal(
       await page.locator("#timelineMarkers .shot.probable").count(),
       1,
@@ -53,22 +55,37 @@ print(json.dumps(p))
       await page.locator("#timelineMarkers .shot.candidate").count(),
       1,
     );
+    assert.equal(await page.locator('#timelineMarkers button:not(.shot), #scoreboardLegend').count(), 0, 'only shots are shown on the timeline');
+    assert.equal(await page.locator('#shotsLegend').isVisible(), true);
+    assert.equal(await page.locator('#shotsCandidatesLegend').isVisible(), true);
+    await page.locator('#nextSecond').click();
+    await page.waitForFunction(() => state.current === nearestFrame(1));
+    await page.locator('#prevSecond').click();
+    await page.waitForFunction(() => state.current === 0);
+    const videoHeight = (await page.locator("#videoStage").boundingBox()).height;
     await page.locator("#shotsPanel summary").click();
+    await page.locator("#shotsPanel summary").click();
+    assert.equal(
+      (await page.locator("#videoStage").boundingBox()).height,
+      videoHeight,
+      "opening events keeps the video viewing space",
+    );
     assert.equal(await page.locator(".shot-row").count(), 2);
+    assert.ok((await page.locator('#shotsPanel').boundingBox()).height > (await page.locator('.court-panel').boundingBox()).height, 'open shots receive more height than the court');
     assert.match(
       await page.locator("#shotsSummary").innerText(),
       /1 probables.*1 à vérifier/,
     );
-    assert.match(
-      await page.locator(".shot-row").first().innerText(),
-      /Montée puis descente/,
-    );
+    assert.equal(await page.locator('.shot-row small').count(), 0, 'capture descriptions are removed');
+    assert.equal(await page.locator('.shot-frame').first().innerText(), `Frame ${data.events[0].frame_index}`);
+    assert.equal(await page.locator('.shot-review').first().innerText(), 'Voir le tir');
     assert.match(
       await page.locator(".shot-row").first().innerText(),
       /Tireur non attribué/,
     );
     await page.locator("#shotsCandidates").uncheck();
     assert.equal(await page.locator(".shot-row").count(), 1);
+    assert.equal(await page.locator('#shotsCandidatesLegend').isVisible(), false);
     assert.equal(
       await page.locator("#timelineMarkers .shot.candidate").count(),
       0,
@@ -79,7 +96,11 @@ print(json.dumps(p))
       /1 probable.*1 to review/,
     );
     assert.equal(await page.locator("#shotsCandidates").isChecked(), false);
+    assert.equal(await page.locator('.shot-review').first().innerText(), 'View shot');
+    assert.equal(await page.locator('#shotsPanel').evaluate(node => node.open), true);
+    assert.match(await page.locator('#interceptionsPanel').innerText(), /Steals.*Coming soon/s);
     await page.locator("#shotsCandidates").check();
+    assert.equal(await page.locator('#shotsCandidatesLegend').isVisible(), true);
     await page.locator("#timelineMarkers .shot.candidate").click();
     await page.waitForFunction(
       () =>
@@ -93,7 +114,17 @@ print(json.dumps(p))
       updateClock(3.7);
     });
     assert.equal(await page.locator(".shot-row.active").count(), 1);
-    await page.locator(".shot-row").first().click();
+    await page.locator(".shot-review").first().click();
+    assert.ok(await page.evaluate(() => video.currentTime < 1));
+    assert.equal(await page.evaluate(() => video.paused), true);
+    await page.locator('#timelineMarkers .shot.candidate').click();
+    await page.waitForFunction(() => video.currentTime >= 2.9);
+    await page.locator('.shot-identity').first().click();
+    assert.ok(await page.evaluate(() => video.currentTime < 1));
+    await page.locator('#timelineMarkers .shot.candidate').click();
+    await page.waitForFunction(() => video.currentTime >= 2.9);
+    await page.locator('.shot-row').first().focus();
+    await page.keyboard.press('Enter');
     assert.ok(await page.evaluate(() => video.currentTime < 1));
     for (const [width, height] of [
       [1920, 1080],
@@ -109,6 +140,19 @@ print(json.dumps(p))
         true,
         `shot list fits ${width}`,
       );
+      for (const row of await page.locator('.shot-row').all()) {
+        assert.equal(await row.evaluate(node => node.scrollWidth <= node.clientWidth), true, `shot card fits ${width}`);
+        const time = await row.locator('.shot-time').boundingBox();
+        const frame = await row.locator('.shot-frame').boundingBox();
+        assert.ok(frame.y >= time.y + time.height, 'frame appears below the timestamp');
+      }
+      const seek = await page.locator('.seek-wrap').boundingBox();
+      for (const marker of await page.locator('#timelineMarkers .shot').all()) {
+        const point = await marker.boundingBox();
+        assert.equal(point.width, 10, 'shot markers retain their size');
+        assert.equal(point.height, 10, 'all shot markers have the same diameter');
+        assert.ok(Math.abs(point.y + point.height / 2 - seek.y - seek.height / 2) < 1, `shot markers sit on the timeline at ${width}`);
+      }
     }
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -140,6 +184,7 @@ print(json.dumps(p))
       await page.locator("#shotsSummary").innerText(),
       /insufficient data/,
     );
+    assert.equal(await page.locator('#shotsHelp').isVisible(), true);
     assert.deepEqual(errors, []);
     console.log(
       "Shots: detector-backed probable/candidate events, markers, filtering, seeking, FR/EN, missing data, responsive layout and accessibility passed",
