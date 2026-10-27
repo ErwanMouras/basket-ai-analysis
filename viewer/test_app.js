@@ -15,7 +15,7 @@ async function app() {
     const handlers = new Map();
     const attributes = new Map();
     return {
-      textContent: '', hidden: false, value: '', checked: true, paused: true,
+      textContent: '', hidden: false, value: '', checked: true, paused: true, children: [],
       width: 100, height: 50, currentTime: 0, style: { setProperty() {} },
       classList: {
         add: name => classes.add(name), remove: name => classes.delete(name), contains: name => classes.has(name),
@@ -222,10 +222,9 @@ test('a destination presented before the seeking event keeps its synchronized ov
 
 test('changing language preserves the playback position and category choices', async () => {
   const ui = await app();
-  ui.run("video.currentTime=12.5; $('playerDisplay').value='segmentation'; $('identityMode').value='identified'; setLanguage('en')");
+  ui.run("video.currentTime=12.5; $('playerDisplay').value='segmentation'; setLanguage('en')");
   assert.equal(ui.run('video.currentTime'), 12.5);
   assert.equal(ui.byId('playerDisplay').value, 'segmentation');
-  assert.equal(ui.byId('identityMode').value, 'identified');
   assert.equal(ui.run('t("coverage")'), 'Tracking coverage');
   assert.equal(ui.run('fmtDistance(12.5)'), '12.5');
   ui.run("setLanguage('fr')");

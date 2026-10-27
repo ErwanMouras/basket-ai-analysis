@@ -1,6 +1,36 @@
 /* Spatial analysis is separate from the frame/segmentation playback loop. */
-window.heatmapStudio = (() => {
-  const dialog = $("heatmapDialog");
+function createHeatmapStudio({inline = false} = {}) {
+  const dialog = document.getElementById("heatmapDialog");
+  const root = inline ? document.getElementById("teamHeatmapStudio") : dialog;
+  if (inline) {
+    const layout = dialog.querySelector('.hm-layout').cloneNode(true);
+    for (const node of layout.querySelectorAll('[id]')) node.id = `team-${node.id}`;
+    for (const node of layout.querySelectorAll('[for], [aria-labelledby], [aria-controls]')) {
+      for (const attr of ['for', 'aria-labelledby', 'aria-controls']) {
+        if (node.hasAttribute(attr)) node.setAttribute(attr, node.getAttribute(attr).split(' ').map(id => `team-${id}`).join(' '));
+      }
+    }
+    layout.querySelector('[data-heatmap-mode="comparison"]').remove();
+    const maps = document.createElement('div');
+    maps.className = 'team-map-grid';
+    const presence = document.createElement('section');
+    presence.className = 'team-presence-map';
+    const title = document.createElement('h4');
+    title.id = 'team-mapTitle';
+    presence.setAttribute('aria-labelledby', title.id);
+    presence.append(
+      title,
+      layout.querySelector('#team-heatmapStatus'),
+      layout.querySelector('#team-heatmapCharts'),
+      layout.querySelector('#team-heatmapPhaseSummary'),
+    );
+    maps.append(presence, document.getElementById('teamShotMap'));
+    layout.querySelector('.hm-content').append(maps);
+    root.append(layout);
+  }
+  const $ = id => document.getElementById(inline ? `team-${id}` : id);
+  const isOpen = () => inline || dialog.open;
+  let selectionKey = null;
   const modes = ["presence", "zones", "comparison"];
   const modeKeys = {
     presence: "hmPresence",
@@ -12,6 +42,7 @@ window.heatmapStudio = (() => {
   let metadataRun = null;
   let result = null;
   let mode = "presence";
+  let phase = "offense";
   let request = 0;
   let opener = null;
   let busy = false;
@@ -19,23 +50,11 @@ window.heatmapStudio = (() => {
   const number = (value, digits = 1) =>
     Number(value).toLocaleString(locale(), { maximumFractionDigits: digits });
   const share = (value, total) => (total > 0 ? (100 * value) / total : 0);
-  const unitLabel = (unit) =>
-    t(
-      unit === "player_s"
-        ? "hmPlayerSeconds"
-        : unit === "m"
-          ? "hmMetres"
-          : "hmSeconds",
-    );
   const selectedSubject = () =>
     metadata?.subjects.find((item) => item.id === $("heatmapSubject").value);
   const phaseKey = (phase) =>
     ({ offense: "hmOffense", defense: "hmDefense" })[phase];
-  const selectedPhase = () => $("heatmapPhase").value;
-  const selectedPassage = () =>
-    metadata?.phase_analysis?.episodes.find(
-      (item) => String(item.id) === $("heatmapPassage").value,
-    );
+  const selectedPhase = () => phase;
   const selectedPeriod = () =>
     (metadata?.scoreboard?.periods || []).find(
       (_, index) => String(index) === $("heatmapPeriod").value,
@@ -47,18 +66,6 @@ window.heatmapStudio = (() => {
           end_s: Math.min(metadata.bounds.end_s, selectedPeriod().end_s),
         }
       : metadata?.bounds;
-  const scopeBounds = () => selectedPassage() || periodBounds();
-  const matchingRole = (episode) =>
-    (!selectedPeriod() ||
-      (episode.period === selectedPeriod().period &&
-        episode.start_s < periodBounds().end_s &&
-        episode.end_s > periodBounds().start_s)) &&
-    (mode === "comparison" ||
-      (selectedPhase() === "offense"
-        ? episode.attacking_team_id === selectedSubject()?.team_id
-        : selectedPhase() === "defense" &&
-          episode.attacking_team_id !== selectedSubject()?.team_id));
-
   function element(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -73,12 +80,7 @@ window.heatmapStudio = (() => {
   function clearCharts() {
     result = null;
     $("heatmapCharts").replaceChildren();
-    $("heatmapTables").replaceChildren();
-    $("heatmapData").hidden = true;
-    $("heatmapInspect").textContent = "";
-    $("heatmapPhaseSummary").replaceChildren();
-    $("heatmapOrientation").textContent = "";
-    $("heatmapPassages").hidden = true;
+    renderPhases();
   }
   function subjectOptions(select, subjects, value) {
     select.replaceChildren();
@@ -112,32 +114,13 @@ window.heatmapStudio = (() => {
 
   function updateControls() {
     const comparing = mode === "comparison";
-    $("heatmapSubjectField").hidden = comparing;
-    $("heatmapPassageField").hidden = comparing;
+    $("heatmapSubjectField").hidden = inline || comparing;
     $("heatmapMatchup").hidden = !comparing;
     $("heatmapMatchup").textContent = comparisonTeams()
       .map((team) => team.label)
       .join(" / ");
     $("heatmapSmoothField").hidden = mode === "zones";
     $("heatmapRenderNote").hidden = mode === "zones";
-  }
-  function passageOptions(value = "") {
-    const select = $("heatmapPassage");
-    select.replaceChildren(new Option(t("hmAllPassages"), ""));
-    for (const passage of metadata?.phase_analysis?.episodes || []) {
-      if (!matchingRole(passage)) continue;
-      select.add(
-        new Option(
-          `${passage.period ? `${periodLabel(passage.period)} · ` : ""}${fmtTime(passage.start_s)} – ${fmtTime(passage.end_s)}${passage.orientation_ready ? "" : ` · ${t("hmNoDirectionShort")}`}`,
-          passage.id,
-        ),
-      );
-    }
-    select.value = [...select.options].some(
-      (option) => option.value === String(value),
-    )
-      ? value
-      : "";
   }
   function periodOptions(value = "") {
     const periods = metadata?.scoreboard?.periods || [];
@@ -154,25 +137,13 @@ window.heatmapStudio = (() => {
     );
     select.value = value;
   }
-  function resetRange() {
-    const bounds = scopeBounds();
-    if (!bounds) return;
-    for (const id of ["heatmapStart", "heatmapEnd"]) {
-      $(id).min = bounds.start_s;
-      $(id).max = bounds.end_s;
-    }
-    $("heatmapStart").value = numberForInput(bounds.start_s);
-    $("heatmapEnd").value = numberForInput(bounds.end_s);
-  }
-  const numberForInput = (value) => String(Number(value.toFixed(6)));
-
   async function open(context = "court", trigger = document.activeElement) {
     if (!state.loaded || !state.name) return toast(t("hmNoRun"));
     opener = trigger;
     video.pause();
     mode = "presence";
     clearCharts();
-    if (!dialog.open) dialog.showModal();
+    if (!inline && !dialog.open) dialog.showModal();
     const token = ++request;
     busy = true;
     status("hmLoading");
@@ -180,7 +151,7 @@ window.heatmapStudio = (() => {
       const name = state.name;
       if (!metadata || metadataRun !== name) {
         const data = await json(`/api/heatmaps?${params({ name })}`);
-        if (token !== request || name !== state.name || !dialog.open) return;
+        if (token !== request || name !== state.name || !isOpen()) return;
         metadata = data;
         metadataRun = name;
       }
@@ -197,10 +168,8 @@ window.heatmapStudio = (() => {
             ? `team:${state.teamId}`
             : state.selected?.subject || `team:${state.teamId}`;
       subjectOptions($("heatmapSubject"), metadata.subjects, subject);
-      $("heatmapPhase").value = "offense";
+      phase = "offense";
       periodOptions();
-      passageOptions();
-      resetRange();
       updateControls();
       busy = false;
       translate();
@@ -215,29 +184,12 @@ window.heatmapStudio = (() => {
   async function calculate() {
     updateModeButtons();
     updateIntro();
-    if (!metadata?.available || !dialog.open) return;
-    const bounds = scopeBounds();
+    if (!metadata?.available || !isOpen()) return;
+    const bounds = periodBounds();
     const subject = querySubject();
     if (!bounds || !subject) {
       clearCharts();
       status("hmNoData");
-      return;
-    }
-    const rawStart = $("heatmapStart").value,
-      rawEnd = $("heatmapEnd").value;
-    const a = Math.max(bounds.start_s, Number(rawStart));
-    const b = Math.min(bounds.end_s, Number(rawEnd));
-    if (
-      !rawStart ||
-      !rawEnd ||
-      !Number.isFinite(a) ||
-      !Number.isFinite(b) ||
-      b <= a
-    ) {
-      ++request;
-      busy = false;
-      clearCharts();
-      status("hmBadRange");
       return;
     }
     if (mode === "comparison" && comparisonTeams().length !== 2) {
@@ -258,35 +210,39 @@ window.heatmapStudio = (() => {
           name,
           subject: subject.id,
           phase: selectedPhase(),
-          ...(selectedPassage() ? { episode: selectedPassage().id } : {}),
-          start: a,
-          end: b,
+          start: bounds.start_s,
+          end: bounds.end_s,
           mode,
         })}`,
       );
-      if (token !== request || name !== state.name || !dialog.open) return;
+      if (token !== request || name !== state.name || !isOpen()) return;
       result = data;
       busy = false;
       status(null);
       render();
     } catch (error) {
-      if (token !== request || !dialog.open) return;
+      if (token !== request || !isOpen()) return;
       busy = false;
       status("hmError");
     }
   }
   function updateModeButtons() {
-    document.querySelectorAll("[data-heatmap-mode]").forEach((button) => {
+    root.querySelectorAll("[data-heatmap-mode]").forEach((button) => {
       button.setAttribute(
         "aria-pressed",
         String(button.dataset.heatmapMode === mode),
       );
       button.disabled = !metadata?.available;
     });
+    if (inline) {
+      const compare = document.getElementById('compareTeamHeatmaps');
+      compare.disabled = !metadata?.available || comparisonTeams().length !== 2;
+      compare.setAttribute('aria-pressed', String(mode === 'comparison'));
+    }
   }
   function updateIntro() {
     $("heatmapModeTitle").textContent = t(modeKeys[mode]);
-    $("heatmapExplanation").textContent = t(`${modeKeys[mode]}Help`);
+    if (inline) document.getElementById('team-mapTitle').textContent = t(modeKeys[mode]);
     const subject = selectedSubject();
     $("heatmapScope").textContent = [
       mode === "comparison"
@@ -299,118 +255,62 @@ window.heatmapStudio = (() => {
     ]
       .filter(Boolean)
       .join(" / ");
-    $("heatmapLanguage").textContent = language === "fr" ? "EN" : "FR";
-    $("heatmapLanguage").setAttribute("aria-label", t("hmCloseLanguage"));
+    if (!inline) {
+      $("heatmapLanguage").textContent = language === "fr" ? "EN" : "FR";
+      $("heatmapLanguage").setAttribute("aria-label", t("hmCloseLanguage"));
+    }
   }
   function translate() {
-    if (!dialog.open) return;
+    if (!isOpen()) return;
     if (metadata?.available) {
       subjectOptions(
         $("heatmapSubject"),
         metadata.subjects,
         $("heatmapSubject").value,
       );
-      passageOptions($("heatmapPassage").value);
       periodOptions($("heatmapPeriod").value);
       updateControls();
     }
     const disabled = !metadata?.available;
     for (const id of [
       "heatmapSubject",
-      "heatmapPhase",
-      "heatmapPassage",
       "heatmapPeriod",
-      "heatmapStart",
-      "heatmapEnd",
     ])
       $(id).disabled = disabled;
-    document
+    root
       .querySelectorAll("[data-heatmap-mode]")
       .forEach((button) => (button.disabled = disabled));
     updateModeButtons();
     updateIntro();
+    renderPhases();
     if (statusKey) status(statusKey);
     if (result && !busy) render();
   }
 
   function renderPhases() {
     const summary = $("heatmapPhaseSummary");
-    summary.replaceChildren();
-    const durations = result.phase_analysis;
-    summary.hidden = mode === "comparison";
-    if (!durations) return;
     summary.setAttribute("role", "group");
-    summary.setAttribute("aria-label", t("hmPhaseBreakdown"));
-    for (const phase of ["offense", "defense"]) {
-      const button = element("button", `hm-phase-chip hm-phase-${phase}`);
-      button.type = "button";
-      button.setAttribute("aria-pressed", String(selectedPhase() === phase));
-      button.append(
-        element("span", "", t(phaseKey(phase))),
-        element("strong", "", `${number(durations[phase + "_s"])} s`),
-      );
-      button.addEventListener("click", () => changePhase(phase));
-      summary.append(button);
+    summary.setAttribute("aria-label", t("hmPhase"));
+    for (const value of ["offense", "defense"]) {
+      let button = summary.querySelector(`[data-heatmap-phase="${value}"]`);
+      if (!button) {
+        button = element("button", `hm-phase-chip hm-phase-${value}`);
+        button.type = "button";
+        button.dataset.heatmapPhase = value;
+        button.append(element("span"), element("strong"));
+        button.addEventListener("click", () => changePhase(value));
+        summary.append(button);
+      }
+      button.disabled = !metadata?.available;
+      button.setAttribute("aria-pressed", String(phase === value));
+      button.querySelector("span").textContent = t(phaseKey(value));
+      const seconds = mode === 'comparison' ? null : result?.phase_analysis?.[`${value}_s`];
+      button.querySelector("strong").textContent = seconds == null ? '' : `${number(seconds)} s`;
     }
-    const missing =
-      durations.orientation_missing_s > 0.05
-        ? ` · ${t("hmDirectionMissing", { value: number(durations.orientation_missing_s) })}`
-        : "";
-    $("heatmapOrientation").textContent =
-      t(selectedPhase() === "offense" ? "hmAttackBasket" : "hmDefendBasket") +
-      missing +
-      (metadata.phase_analysis.period_directions?.length
-        ? ` · ${t("hmQuarterLock")}`
-        : "");
-    const bounds = result.scope;
-    const passages = metadata.phase_analysis.episodes.filter(matchingRole);
-    const list = $("heatmapPassagesList");
-    list.replaceChildren();
-    for (const passage of passages) {
-      const a = Math.max(bounds.start_s, passage.start_s),
-        b = Math.min(bounds.end_s, passage.end_s);
-      if (
-        b - a < 0.2 ||
-        (selectedPassage() && passage.id !== selectedPassage().id)
-      )
-        continue;
-      const button = element("button", "hm-passage-review");
-      button.type = "button";
-      const team =
-        mode === "comparison"
-          ? comparisonTeams().find(
-              (item) =>
-                (item.team_id === passage.attacking_team_id) ===
-                (selectedPhase() === "offense"),
-            )
-          : null;
-      const label = [team?.label, `${fmtTime(a)} – ${fmtTime(b)}`]
-        .filter(Boolean)
-        .join(" · ");
-      button.append(
-        element("span", "", label),
-        element("small", "", t("hmReviewVideo")),
-      );
-      button.addEventListener("click", () => {
-        dialog.close();
-        video.pause();
-        seekToFrame(nearestFrame(a + 0.01));
-      });
-      list.append(button);
-    }
-    if (!list.children.length) list.append(element("p", "", t("hmNoPassages")));
-    $("heatmapPassagesTitle").textContent = t("hmReviewPassages");
-    $("heatmapPassages").hidden = false;
-    if ($("heatmapPassages").dataset.phase !== selectedPhase())
-      $("heatmapPassages").open = false;
-    $("heatmapPassages").dataset.phase = selectedPhase();
   }
-  function changePhase(phase) {
-    if (!["offense", "defense"].includes(phase)) return;
-    $("heatmapPhase").value = phase;
-    $("heatmapPhase").focus();
-    passageOptions();
-    resetRange();
+  function changePhase(value) {
+    if (!["offense", "defense"].includes(value)) return;
+    phase = value;
     calculate();
   }
   function render() {
@@ -418,8 +318,6 @@ window.heatmapStudio = (() => {
     renderPhases();
     const charts = $("heatmapCharts");
     charts.replaceChildren();
-    const tables = $("heatmapTables");
-    tables.replaceChildren();
     charts.classList.toggle("hm-multiple", result.maps.length > 1);
     charts.classList.toggle("hm-comparison", mode === "comparison");
     const continuous = $("heatmapSmooth").checked && mode !== "zones";
@@ -454,7 +352,6 @@ window.heatmapStudio = (() => {
           ? `${index ? "B" : "A"} · ${map.subject.label}`
           : map.subject.label;
       charts.append(mapCard(map, title, maximum, fields[index]));
-      tables.append(zoneTable(map, title));
     });
     if (mode === "comparison") {
       const [first, second] = result.maps;
@@ -490,42 +387,20 @@ window.heatmapStudio = (() => {
           field,
         ),
       );
-      tables.append(zoneTable(difference, t("hmDifference")));
     }
-    $("heatmapData").hidden = !result.maps.some((map) => map.total > 0);
-    $("heatmapInspect").textContent = t("hmHover");
-  }
-  function stat(label, value, hint, unit) {
-    const item = element("div", "hm-stat");
-    const name = element("span", "", t(label));
-    if (hint) name.title = t(hint);
-    const output = element("strong", "", value);
-    if (unit) output.append(element("small", "", ` ${unit}`));
-    item.append(name, output);
-    return item;
   }
   function mapCard(map, title, maximum, field) {
     const card = element("article", "hm-map-card");
-    const heading = element("div", "hm-map-heading");
-    const exportButton = element("button", "hm-export", t("hmExport"));
-    exportButton.type = "button";
-    exportButton.setAttribute("aria-label", `${t("hmExportLabel")} · ${title}`);
     const time = `${fmtTime(map.start_s)} – ${fmtTime(map.end_s)}`;
     const legendMaximum =
       mode === "zones"
         ? Math.max(0, ...map.zones.map((value) => share(value, map.total)))
         : maximum;
-    const labels = element("div");
-    labels.append(
-      element("h4", "", title),
-      element("span", "hm-map-period", time),
-    );
-    heading.append(labels, exportButton);
-    card.append(heading);
+    if (mode === "comparison") card.append(element("h4", "hm-map-title", title));
     const mapCanvas = element("canvas", "hm-canvas");
-    mapCanvas.width = 1100;
+    mapCanvas.width = 1440;
     mapCanvas.height =
-      Math.round((1010 * result.court.width) / result.court.length) + 90;
+      Math.round(((mapCanvas.width - 48) * result.court.width) / result.court.length) + 48;
     mapCanvas.setAttribute("role", "img");
     mapCanvas.setAttribute(
       "aria-label",
@@ -576,163 +451,11 @@ window.heatmapStudio = (() => {
       card.append(element("p", "hm-legend-caption", t(legendKey)));
     }
     card.append(legend);
-    if (!map.difference) {
-      const stats = element("div", "hm-map-stats");
-      stats.append(
-        stat("hmTotal", number(map.total), null, unitLabel(map.unit)),
-        stat(
-          "hmCoverage",
-          map.coverage == null ? "—" : number(map.coverage * 100, 0),
-          "hmCoverageHelp",
-          map.coverage == null ? null : "%",
-        ),
-        stat("hmVideoTime", number(map.half_court_video_s), "hmVideoHelp", "s"),
-      );
-      card.insertBefore(stats, mapCanvas);
-      if (map.outside_half_s > 0.05)
-        card.append(
-          element(
-            "p",
-            "hm-measure-note",
-            t("hmOutsideHalf", {
-              value: number(map.outside_half_s),
-              unit: unitLabel(map.unit),
-            }),
-          ),
-        );
-    } else {
-      const stats = element("div", "hm-map-stats hm-difference-stats");
-      stats.append(
-        stat(
-          "hmMaxDifference",
-          map.available ? `±${number(maximum)}` : "—",
-          null,
-          map.available ? displayUnit : null,
-        ),
-      );
-      card.insertBefore(stats, mapCanvas);
-    }
-    let hovered = null;
-    mapCanvas.addEventListener("pointermove", (event) => {
-      if (empty) return;
-      const bounds = mapCanvas.getBoundingClientRect();
-      const px =
-        ((event.clientX - bounds.left) / bounds.width) * mapCanvas.width;
-      const py =
-        ((event.clientY - bounds.top) / bounds.height) * mapCanvas.height;
-      const box = courtBox(mapCanvas);
-      if (
-        px < box.x ||
-        px > box.x + box.width ||
-        py < box.y ||
-        py > box.y + box.height
-      )
-        return;
-      const nx = mode === "zones" ? 3 : map.nx,
-        ny = mode === "zones" ? 3 : map.ny;
-      const x = Math.min(nx - 1, Math.floor(((px - box.x) / box.width) * nx));
-      const y = Math.min(ny - 1, Math.floor(((py - box.y) / box.height) * ny));
-      const key = `${x}:${y}`;
-      if (hovered === key) return;
-      hovered = key;
-      const value = (mode === "zones" ? map.zones : map.grid)[y * nx + x];
-      $("heatmapInspect").textContent = t(
-        map.difference ? "hmDeltaCell" : "hmCell",
-        {
-          x: x + 1,
-          y: y + 1,
-          value: number(value, 2),
-          unit: unitLabel(map.unit),
-          share: number(share(value, map.total), 2),
-        },
-      );
-    });
-    exportButton.addEventListener("click", () => {
-      const output = document.createElement("canvas");
-      output.width = mapCanvas.width;
-      output.height = mapCanvas.height + 220;
-      const ctx = output.getContext("2d");
-      ctx.fillStyle = "#1a1b1e";
-      ctx.fillRect(0, 0, output.width, output.height);
-      ctx.fillStyle = "#f3f0ea";
-      ctx.font = "bold 27px Arial";
-      ctx.fillText(`${t(modeKeys[mode])} · ${title}`, 35, 45, 1030);
-      ctx.font = "18px Arial";
-      ctx.fillStyle = "#b8b2aa";
-      ctx.fillText(
-        `${selectedPeriod() ? `${periodLabel(selectedPeriod().period)} · ` : ""}${t(phaseKey(selectedPhase()))} · ${t("hmEstimated")} · ${time}`,
-        35,
-        77,
-      );
-      ctx.fillText(
-        map.difference
-          ? `A · ${result.maps[0].subject.label} / B · ${result.maps[1].subject.label}`
-          : `${t("hmTotal")} : ${number(map.total)} ${unitLabel(map.unit)} · ${t("hmCoverage")} : ${map.coverage == null ? "—" : `${number(map.coverage * 100, 0)} %`}`,
-        35,
-        107,
-        1030,
-      );
-      ctx.drawImage(mapCanvas, 0, 130);
-      ctx.font = "15px Arial";
-      ctx.fillText(
-        `${t(legendKey)} · ${map.difference ? "±" : "0 – "}${number(legendMaximum)} ${displayUnit}`,
-        35,
-        output.height - 52,
-        1030,
-      );
-      ctx.fillText(t("hmExportCaveat"), 35, output.height - 22, 1030);
-      const link = document.createElement("a");
-      link.download = `heatmap-${mode}-${selectedPhase()}${selectedPeriod() ? `-q${selectedPeriod().period}` : ""}-${map.subject.id.replace(/[^a-z0-9-]/gi, "-")}.png`;
-      link.href = output.toDataURL("image/png");
-      link.click();
-    });
     return card;
   }
-  function zoneTable(map, title) {
-    const section = element("div", "hm-zone-table");
-    const table = element("table");
-    const caption = element("caption", "", title);
-    table.append(caption);
-    const head = element("thead"),
-      header = element("tr");
-    for (const key of ["hmZone", "hmValue", "hmShare"]) {
-      const th = element("th", "", t(key));
-      th.scope = "col";
-      header.append(th);
-    }
-    head.append(header);
-    table.append(head);
-    const body = element("tbody");
-    map.zones.forEach((value, index) => {
-      const row = element("tr");
-      row.append(
-        element("th", "", t(`hmZone${index}`)),
-        element(
-          "td",
-          "",
-          `${number(value, 2)} ${map.difference ? "pp" : unitLabel(map.unit)}`,
-        ),
-        element(
-          "td",
-          "",
-          map.total
-            ? map.difference
-              ? "—"
-              : `${number(share(value, map.total))} %`
-            : "—",
-        ),
-      );
-      row.firstChild.scope = "row";
-      body.append(row);
-    });
-    table.append(body);
-    section.append(table);
-    return section;
-  }
-
   function courtBox(canvas) {
     const geometry = result.court;
-    const margin = 45;
+    const margin = 24;
     const width = Math.min(
       canvas.width - margin * 2,
       ((canvas.height - margin * 2) * geometry.length) / geometry.width,
@@ -805,16 +528,6 @@ window.heatmapStudio = (() => {
         ctx.fillText(map.total ? `${number(value)} %` : "—", xx, yy);
       });
     }
-    ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = "#b8b2aa";
-    ctx.font = "28px Arial";
-    ctx.fillText(t("hmHalfCourt"), canvas.width / 2, box.y - 15);
-    ctx.fillText(
-      t(selectedPhase() === "offense" ? "hmBasketAttack" : "hmBasketDefend"),
-      canvas.width / 2,
-      box.y + box.height + 27,
-    );
   }
   function color(amount, blue) {
     const stops = blue
@@ -836,62 +549,76 @@ window.heatmapStudio = (() => {
     return `rgb(${rgb.join(",")})`;
   }
 
-  document
+  if (!inline) document
     .querySelectorAll("[data-heatmap-context]")
     .forEach((button) =>
       button.addEventListener("click", () =>
         open(button.dataset.heatmapContext, button),
       ),
     );
-  document.querySelectorAll("[data-heatmap-mode]").forEach((button) =>
-    button.addEventListener("click", () => {
-      if (!modes.includes(button.dataset.heatmapMode)) return;
-      mode = button.dataset.heatmapMode;
-      if (mode === "comparison" && selectedPassage()) {
-        $("heatmapPassage").value = "";
-        resetRange();
-      }
-      passageOptions($("heatmapPassage").value);
-      updateControls();
-      calculate();
-    }),
-  );
-  $("heatmapSubject").addEventListener("change", () => {
-    passageOptions();
-    resetRange();
+  let singleMode = 'presence';
+  function changeMode(next) {
+    if (!modes.includes(next)) return;
+    if (next !== 'comparison') singleMode = next;
+    mode = next;
     updateControls();
     calculate();
-  });
-  $("heatmapPhase").addEventListener("change", () =>
-    changePhase(selectedPhase()),
+  }
+  root.querySelectorAll("[data-heatmap-mode]").forEach(button =>
+    button.addEventListener('click', () => changeMode(button.dataset.heatmapMode)),
   );
-  $("heatmapPassage").addEventListener("change", () => {
-    resetRange();
-    calculate();
-  });
-  $("heatmapPeriod").addEventListener("change", () => {
-    passageOptions();
-    resetRange();
-    calculate();
-  });
-  for (const id of ["heatmapStart", "heatmapEnd"])
-    $(id).addEventListener("change", calculate);
+  if (inline) document.getElementById('compareTeamHeatmaps').addEventListener('click', () =>
+    changeMode(mode === 'comparison' ? singleMode : 'comparison'),
+  );
+  $("heatmapSubject").addEventListener("change", calculate);
+  $("heatmapPeriod").addEventListener("change", calculate);
   $("heatmapSmooth").addEventListener("change", render);
-  $("heatmapLanguage").addEventListener("click", () =>
-    setLanguage(language === "fr" ? "en" : "fr"),
-  );
-  $("closeHeatmaps").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => {
-    ++request;
-    busy = false;
-    if (opener?.isConnected) opener.focus();
-  });
+  if (!inline) {
+    $("heatmapLanguage").addEventListener("click", () => setLanguage(language === "fr" ? "en" : "fr"));
+    $("closeHeatmaps").addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => {
+      ++request;
+      busy = false;
+      if (opener?.isConnected) opener.focus();
+    });
+  }
+  function sync() {
+    if (!inline || state.mode !== 'statistics' || state.statsView !== 'team') return;
+    const key = JSON.stringify([state.name, state.teamId, state.loaded, Boolean(state.meta?.roster)]);
+    if (selectionKey === key) return;
+    selectionKey = key;
+    if (!state.loaded || !state.name || !state.teamId) {
+      ++request;
+      metadata = null;
+      busy = false;
+      clearCharts();
+      status(state.loaded ? 'hmNoRoster' : 'hmNoRun');
+      translate();
+      return;
+    }
+    if (!metadata || metadataRun !== state.name) {
+      open('team');
+      return;
+    }
+    if (!metadata.available) return;
+    $("heatmapSubject").value = `team:${state.teamId}`;
+    translate();
+    calculate();
+  }
   function reset() {
     ++request;
     metadata = null;
     metadataRun = null;
+    selectionKey = null;
+    busy = false;
     clearCharts();
-    if (dialog.open) dialog.close();
+    if (!inline && dialog.open) dialog.close();
   }
-  return { open, translate, reset };
-})();
+  updateControls();
+  if (inline) translate();
+  return { open, translate, reset, sync };
+}
+window.heatmapStudio = createHeatmapStudio();
+window.teamHeatmaps = createHeatmapStudio({inline: true});
+translateDocument();
+window.teamHeatmaps.sync();

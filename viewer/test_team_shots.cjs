@@ -19,10 +19,11 @@ r=json.loads((p/'roster.json').read_text());g=json.loads((p/'run.json').read_tex
 def event(i,team,subject,xy,direction,status='probable'):
  return {'id':f'shot-{i}','status':status,'type':'shot_attempt','time_s':i*.7,'start_s':i*.7-.6,'end_s':i*.7+.4,'release_window_s':[i*.7-.1,i*.7+.1],
          'shooter':{'team_id':team,'subject_id':subject,'track_id':i},'origin':{'position_m':xy},'court_direction':direction,
-         'evidence':{'release_observations':3,'arc':True,'rim_approach':True,'camera_compensated':True}}
+         'frame_index':i*21,'evidence':{'release_observations':3,'arc':True,'rim_approach':True,'camera_compensated':True}}
 events=[event(1,'blue','roster:blue:7',[24,4],1),event(2,'pink','roster:pink:12',[g['length']-24,g['width']-4],-1),
- event(3,'blue',None,None,1),event(4,'blue','roster:blue:7',[23,5],1,'candidate'),event(5,None,None,None,None)]
-meta={'available':True,'events':events,'probable_count':4,'candidate_count':1,**summarize_shots(events,g,r,True)}
+ event(3,'blue',None,None,1),event(4,'blue','roster:blue:7',[23,5],1,'candidate'),event(5,None,None,None,None),
+ event(6,'pink','roster:pink:12',[g['length']-23,g['width']-5],-1,'candidate')]
+meta={'available':True,'events':events,'probable_count':4,'candidate_count':2,**summarize_shots(events,g,r,True)}
 print(json.dumps(meta))
 `,
     ],
@@ -49,6 +50,7 @@ print(json.dumps(meta))
     });
     await page.goto(`${base}/?run=synthetic`);
     await page.waitForFunction(() => state.loaded && video.readyState >= 2);
+    await page.locator("#statisticsTab").click();
     await page
       .locator(".roster-player")
       .filter({ hasText: "Example A" })
@@ -64,17 +66,21 @@ print(json.dumps(meta))
     await page.locator("#teamTab").click();
     assert.match(
       await page.locator("#teamShotSummary").innerText(),
-      /Tirs détectés : 2.*localisés : 1/,
+      /2 probables.*1 à vérifier.*2\/3 localisés/,
     );
     assert.match(
       await page.locator("#teamShotMissing").innerText(),
       /Positions manquantes : 1/,
     );
     assert.equal(await page.locator("#teamShotCanvas").isVisible(), true);
+    assert.equal(await page.locator('#teamShotLegend').count(), 0, 'shot density scale removed');
+    assert.doesNotMatch(await page.locator('#teamShotMap').innerText(), /sans équipe identifiée|tirs\/m²/);
     let pixels = await page
       .locator("#teamShotCanvas")
       .evaluate((c) => c.toDataURL());
     const canvas = page.locator("#teamShotCanvas");
+    await page.waitForFunction(() => document.querySelector('#team-heatmapStatus').hidden);
+    await canvas.scrollIntoViewIfNeeded();
     const bounds = await canvas.boundingBox();
     const position = fixture.shot_maps.maps[0].points[0],
       geometry = fixture.shot_maps.court;
@@ -84,11 +90,11 @@ print(json.dumps(meta))
     }));
     await page.mouse.move(
       bounds.x +
-        ((48 + (position.x / geometry.length) * (sizes.width - 96)) /
+        ((24 + (position.x / geometry.length) * (sizes.width - 48)) /
           sizes.width) *
           bounds.width,
       bounds.y +
-        ((48 + (position.y / geometry.width) * (sizes.height - 96)) /
+        ((24 + (position.y / geometry.width) * (sizes.height - 48)) /
           sizes.height) *
           bounds.height,
     );
@@ -96,23 +102,23 @@ print(json.dumps(meta))
       await page.locator("#teamShotInspect").innerText(),
       /Tirs à proximité : 1/,
     );
-    const download = page.waitForEvent("download");
-    await page.locator("#exportTeamShots").click();
-    const exported = await download;
-    assert.equal(exported.suggestedFilename(), "shot-map-blue.png");
-    const png = await fs.readFile(await exported.path());
-    assert.equal(png.readUInt32BE(16), 900);
-    assert.equal(png.readUInt32BE(20), sizes.height + 200);
+    const candidate = fixture.shot_maps.maps[0].points.find(point => point.status === 'candidate');
+    await page.mouse.move(
+      bounds.x + ((24 + candidate.x / geometry.length * (sizes.width - 48)) / sizes.width) * bounds.width,
+      bounds.y + ((24 + candidate.y / geometry.width * (sizes.height - 48)) / sizes.height) * bounds.height,
+    );
+    assert.match(await page.locator('#teamShotInspect').innerText(), /À vérifier/, 'candidate origin is rendered and inspectable');
+    assert.equal(await page.locator('#exportTeamShots').count(), 0);
     await page.locator('[data-language="en"]').click();
     assert.match(
       await page.locator("#teamShotSummary").innerText(),
-      /Detected shots: 2.*located: 1/,
+      /2 probable.*1 to review.*2\/3 located/,
     );
     pixels = await canvas.evaluate((c) => c.toDataURL());
     await page.locator("#teamToggle button").nth(1).click();
     assert.match(
       await page.locator("#teamShotSummary").innerText(),
-      /Detected shots: 1.*located: 1/,
+      /1 probable.*1 to review.*2\/2 located/,
     );
     assert.equal(
       (await canvas.evaluate((c) => c.toDataURL())) === pixels,
@@ -125,7 +131,9 @@ print(json.dumps(meta))
     await page.locator("#teamTab").click();
     for (const [width, height] of [
       [1920, 1080],
+      [1840, 950],
       [1366, 768],
+      [1024, 640],
       [1024, 768],
       [390, 844],
     ]) {
@@ -136,6 +144,30 @@ print(json.dumps(meta))
         ),
         true,
       );
+      const presence = await page.locator('.team-presence-map').boundingBox();
+      const shots = await page.locator('#teamShotMap').boundingBox();
+      if (width > 700) {
+        assert.ok(Math.abs(presence.y - shots.y) < 1, 'presence and shots share a row');
+        assert.ok(shots.x >= presence.x + presence.width, 'shot map sits beside presence');
+      } else assert.ok(shots.y >= presence.y + presence.height, 'maps stack on phones');
+      if (width > 900) {
+        const layout = await page.evaluate(() => {
+          const panel = document.getElementById('teamPanel');
+          const presence = document.querySelector('.team-presence-map .hm-canvas').getBoundingClientRect();
+          const shots = document.getElementById('teamShotCanvas').getBoundingClientRect();
+          const phases = document.getElementById('team-heatmapPhaseSummary').getBoundingClientRect();
+          return {overflow: panel.scrollHeight - panel.clientHeight, presence, shots, phases};
+        });
+        assert.ok(layout.overflow <= 1, `both maps fit without scrolling at ${width}×${height}`);
+        assert.ok(Math.abs(layout.presence.y - layout.shots.y) < 1, 'courts align vertically');
+        assert.ok(Math.abs(layout.presence.height - layout.shots.height) < 1, 'courts have the same height');
+        assert.ok(layout.phases.y >= layout.presence.bottom, 'phase controls sit below presence');
+      }
+      assert.equal(await canvas.evaluate(c => c.width >= c.clientWidth * devicePixelRatio), true, 'shot map has enough pixels for the display');
+      if (width === 1920) {
+        assert.ok((await canvas.boundingBox()).width >= 500, 'shot court uses the available width');
+        assert.ok((await page.locator('.team-presence-map .hm-canvas').boundingBox()).width >= 500, 'presence court uses the available width');
+      }
     }
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
@@ -175,7 +207,7 @@ print(json.dumps(meta))
     assert.equal(await page.locator("#playerShotCount").innerText(), "—");
     assert.deepEqual(errors, []);
     console.log(
-      "Team shot maps: probable-only counts, missing positions, camera normalization, shared scale, player zeros/unavailable, teams, FR/EN, hover, PNG, responsive and accessibility passed",
+      "Team shot maps: probable and candidate maps, probable player counts, missing positions, camera normalization, shared scale, side-by-side layout, FR/EN, hover, responsive and accessibility passed",
     );
   } finally {
     await browser.close();

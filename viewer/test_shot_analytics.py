@@ -24,13 +24,24 @@ class ShotAnalyticsTests(unittest.TestCase):
     def summarize(self, events, geometry=None, available=True):
         return summarize_shots(events, geometry or GEOMETRY, ROSTER, available)
 
-    def test_only_probable_attempts_are_counted_once(self):
+    def test_maps_include_candidates_while_player_counts_use_probables(self):
         data = self.summarize([event(), event(2, status="candidate")])
         self.assertEqual(data["player_counts"]["roster:a:7"], 1)
         team = data["shot_maps"]["maps"][0]
         self.assertEqual(
-            (team["detected_count"], team["located_count"], sum(team["grid"])), (1, 1, 1)
+            (team["detected_count"], team["located_count"], sum(team["grid"])), (2, 2, 2)
         )
+        self.assertEqual((team["probable_count"], team["candidate_count"]), (1, 1))
+        self.assertEqual([p["status"] for p in team["points"]], ["probable", "candidate"])
+        self.assertEqual(data["shot_maps"]["statuses"], ["probable", "candidate"])
+
+    def test_candidates_with_missing_locations_or_teams_are_reported(self):
+        data = self.summarize([event(status="candidate", xy=None), event(2, status="candidate", team=None)])
+        team = data["shot_maps"]["maps"][0]
+        self.assertEqual((team["candidate_count"], team["unlocated_count"], sum(team["grid"])), (1, 1, 0))
+        self.assertEqual(data["unassigned_candidate_count"], 1)
+        self.assertEqual(data["unassigned_probable_count"], 0)
+        self.assertEqual(data["player_counts"]["roster:a:7"], 0)
 
     def test_camera_directions_rotate_origins_into_the_same_half_court(self):
         length, width = GEOMETRY["length"], GEOMETRY["width"]
