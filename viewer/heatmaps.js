@@ -1,12 +1,11 @@
 /* Spatial analysis is separate from the frame/segmentation playback loop. */
 window.heatmapStudio = (() => {
   const dialog = $("heatmapDialog");
-  const modes = ["presence", "zones", "evolution", "comparison"];
+  const modes = ["presence", "zones", "comparison"];
   const modeKeys = {
     presence: "hmPresence",
     zones: "hmZones",
     comparison: "hmComparison",
-    evolution: "hmEvolution",
   };
   const densityCache = new WeakMap();
   let metadata = null;
@@ -451,11 +450,9 @@ window.heatmapStudio = (() => {
     );
     result.maps.forEach((map, index) => {
       const title =
-        mode === "evolution"
-          ? t(index ? "hmSecond" : "hmFirst")
-          : mode === "comparison"
-            ? `${index ? "B" : "A"} · ${map.subject.label}`
-            : map.subject.label;
+        mode === "comparison"
+          ? `${index ? "B" : "A"} · ${map.subject.label}`
+          : map.subject.label;
       charts.append(mapCard(map, title, maximum, fields[index]));
       tables.append(zoneTable(map, title));
     });
@@ -752,10 +749,6 @@ window.heatmapStudio = (() => {
     const ctx = canvas.getContext("2d");
     const box = courtBox(canvas),
       geometry = result.court;
-    const sx = box.width / geometry.length,
-      sy = box.height / geometry.width;
-    const x = (value) => box.x + value * sx,
-      y = (value) => box.y + value * sy;
     ctx.fillStyle = "#171a1d";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#171c20";
@@ -782,50 +775,7 @@ window.heatmapStudio = (() => {
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(raster, box.x, box.y, box.width, box.height);
     }
-    ctx.strokeStyle = "#eee0bf99";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(box.x, box.y, box.width, box.height);
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(box.x, box.y, box.width, box.height);
-    ctx.clip();
-    if (geometry.league === "NBA") {
-      const circle = (cx, cy, radius) => {
-        ctx.beginPath();
-        ctx.arc(x(cx), y(cy), radius * sx, 0, Math.PI * 2);
-        ctx.stroke();
-      };
-      circle(0, geometry.width / 2, 1.8288);
-      const rim = geometry.length - 1.6002;
-      const foul = geometry.length - 5.7912;
-      ctx.strokeRect(
-        x(foul),
-        y((geometry.width - 4.8768) / 2),
-        5.7912 * sx,
-        4.8768 * sy,
-      );
-      circle(foul, geometry.width / 2, 1.8288);
-      circle(rim, geometry.width / 2, 0.23);
-      const radius = 7.239,
-        half = geometry.width / 2,
-        corner = 0.9144;
-      const join = Math.sqrt(radius * radius - (half - corner) ** 2);
-      for (const yy of [corner, geometry.width - corner]) {
-        ctx.beginPath();
-        ctx.moveTo(x(geometry.length), y(yy));
-        ctx.lineTo(x(rim - join), y(yy));
-        ctx.stroke();
-      }
-      ctx.beginPath();
-      for (let i = 0; i <= 80; i++) {
-        const yy = corner + ((geometry.width - 2 * corner) * i) / 80;
-        const dx = Math.sqrt(Math.max(0, radius * radius - (yy - half) ** 2));
-        if (!i) ctx.moveTo(x(rim - dx), y(yy));
-        else ctx.lineTo(x(rim - dx), y(yy));
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
+    HeatmapRenderer.court(ctx, box, geometry);
     if (mode === "zones" || !$("heatmapSmooth").checked) {
       ctx.strokeStyle = "#eee0bf40";
       ctx.lineWidth = 1;

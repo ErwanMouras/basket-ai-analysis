@@ -241,6 +241,7 @@ function updateClock(time = video.currentTime || 0) {
   $('seek').value = time;
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
   renderScoreboard(time);
+  window.shotStudio?.update(time);
   $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
   $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
@@ -710,6 +711,7 @@ function renderStatsNavigation(teams) {
     $('teamRosterCount').textContent = t('playerCount', {count: Array.isArray(team.players) ? team.players.length : 0});
   }
   $('teamStatsNote').textContent = t(team ? 'teamStatsEmpty' : 'noTeamStats');
+  window.teamShots?.render();
 }
 function renderStatsPanel() {
   const roster=matchRoster();
@@ -725,6 +727,9 @@ function renderStatsPanel() {
     $('detailTeam').textContent=team.name;
     $('detailName').textContent=player.name;
     const stats=finalPlayerStats(team.team_id,player.number);
+    const shotCount = state.meta?.roster ? state.meta?.shots?.player_counts?.[state.selected.subject] : null;
+    $('playerShotCount').textContent = shotCount == null ? '—' : String(shotCount);
+    $('playerShotStat').title = t('playerShotsHelp');
     const tiles=$('finalStats');tiles.replaceChildren();
     for (const metric of FINAL_PLAYER_METRICS) {
       const tile=document.createElement('div');tile.className='final-stat';
@@ -792,7 +797,9 @@ function renderMarkers(){
     button.setAttribute('aria-label',button.title);
     button.addEventListener('click',()=>seekToFrame(nearestFrame(event.time_s)));target.append(button);
   }
+  window.shotStudio?.render();
 }
+
 function seekToFrame(index){
   if(!state.meta)return;
   index=Math.max(0,Math.min(index,state.meta.timestamps.length-1));

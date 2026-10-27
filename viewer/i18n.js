@@ -1,6 +1,52 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    teamShotExportScope:
+      "Probables uniquement · extrait complet · candidats exclus.",
+    teamShotExportPositions:
+      "Positions au sol estimées · panier attaqué à droite · échelle commune.",
+    teamShotUnassigned:
+      "Tirs probables sans équipe identifiée : {count}, hors des cartes.",
+    teamShotDensity: "tirs/m²",
+    playerShots: "Tirs détectés",
+    playerShotsHelp:
+      "Tirs probables attribués à ce joueur sur l’extrait entier. Les candidats à vérifier ne sont pas comptés.",
+    teamShotTitle: "Carte des tirs",
+    teamShotExport: "Exporter la carte des tirs en PNG",
+    teamShotSummary: "Tirs détectés : {count} · localisés : {located}",
+    teamShotUnavailable: "Données de tir indisponibles pour cette équipe.",
+    teamShotMissing:
+      "Positions manquantes : {count} (position ou sens du panier indisponible). Ces tirs restent comptés.",
+    teamShotHelp:
+      "Tirs probables uniquement · bilan de l’extrait. Les cercles indiquent les positions au sol estimées des tireurs ; la chaleur montre leur concentration.",
+    teamShotLegend:
+      "Panier attaqué à droite · plus clair : davantage de tirs dans cette zone.",
+    teamShotHere: "Tirs à proximité : {count}",
+    teamShotCell: "Tirs dans cette maille : {count}",
+
+    shotsLegend: "Tirs",
+    shotsSummary: "Tirs · {probable} probables · {candidates} à vérifier",
+    shotsNone: "Tirs · aucun événement repéré",
+    shotsUnavailable: "Tirs · données insuffisantes",
+    shotsHelp:
+      "Tentatives estimées à partir du ballon et des mains. Cliquez pour revoir le relâchement, en pause. Les candidats restent à vérifier ; aucun résultat marqué/raté ni total officiel n’est déduit.",
+    shotsUnavailableHelp:
+      "Il faut plusieurs positions du ballon, avec des poignets ou un contexte de terrain exploitable. L’absence de détection ne signifie pas qu’aucun tir n’a eu lieu.",
+    shotsIncludeCandidates: "Inclure les candidats à vérifier",
+    shotProbable: "Tir probable",
+    shotCandidate: "À vérifier",
+    shotUnassigned: "Tireur non attribué",
+    shotRelease: "Relâchement suivi",
+    shotReleaseHidden: "Relâchement peu visible",
+    shotArc: "Montée puis descente",
+    shotPartialArc: "Trajectoire partielle",
+    shotRim: "Proximité du panier",
+    shotRimUnknown: "Panier non confirmé",
+    shotCamera: "Caméra compensée",
+    shotRawCamera: "Mouvement caméra incertain",
+    shotReviewHelp:
+      "Revoir avant le tir · fenêtre de relâchement estimée : {start} – {end}",
+
     gamePhaseMatchup: "{attack} attaque · {defense} défense",
     gamePhaseHelp:
       "Attaque et défense correspondent au jeu installé dans un camp. Un changement de possession confirmé termine la phase ; la suivante commence à l’arrivée dans le camp opposé.",
@@ -49,15 +95,13 @@ const messages = {
     hmPlan: "Plan caméra",
     hmStart: "Début · s",
     hmEnd: "Fin · s",
-    hmAngles: "QUATRE ANGLES DE LECTURE",
+    hmAngles: "TROIS ANGLES DE LECTURE",
     hmPresence: "Présence",
     hmPresenceShort: "Où passe-t-on du temps ?",
     hmZones: "Zones",
     hmZonesShort: "Neuf zones, une répartition.",
     hmComparison: "Comparaison",
     hmComparisonShort: "Les deux équipes, face à face.",
-    hmEvolution: "Évolution",
-    hmEvolutionShort: "Première et seconde moitié.",
     hmSmooth: "Zones continues",
     hmRenderHelp:
       "Les zones claires indiquent une plus forte concentration. Survol et tableau : mesures brutes.",
@@ -75,8 +119,6 @@ const messages = {
       "Le demi-terrain est partagé en neuf zones. Les pourcentages répartissent le temps localisé dans ce camp, du milieu du terrain au panier de référence.",
     hmComparisonHelp:
       "Les deux équipes sont comparées sur leurs propres attaques ou défenses dans le même demi-terrain de référence, à des moments potentiellement différents. Chaque répartition est ramenée à 100 % du temps localisé dans ce camp. L’écart montre une différence d’occupation, pas une domination.",
-    hmEvolutionHelp:
-      "La période vidéo choisie est divisée en deux durées égales. Chaque carte conserve le temps passé dans ce demi-terrain, dans la situation choisie. Les répartitions sont normalisées séparément avec une échelle commune.",
     hmLoading: "Calcul de la répartition…",
     hmError: "Impossible de charger les heatmaps.",
     hmNoRun: "Choisissez d’abord une analyse.",
@@ -90,8 +132,6 @@ const messages = {
       "La comparaison nécessite les deux équipes de l’effectif du match.",
     hmBadRange:
       "Choisissez une fin après le début, à l’intérieur de la période sélectionnée.",
-    hmFirst: "Première moitié",
-    hmSecond: "Seconde moitié",
     hmDifference: "Écart des répartitions",
     hmMaxDifference: "Amplitude de l’écart",
     hmPlanLabel: "Plan {count}",
@@ -199,7 +239,7 @@ const messages = {
     team: "Équipe",
     teamStatsTitle: "Occupation du terrain",
     teamStatsEmpty:
-      "Explorez la présence, les déplacements et la répartition spatiale de cette équipe.",
+      "Explorez la présence et la répartition spatiale de cette équipe en attaque ou en défense.",
     noTeamStats:
       "Sélectionnez une analyse avec un effectif pour retrouver ses équipes.",
     playerStats: "Les joueurs",
@@ -257,6 +297,52 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    teamShotExportScope:
+      "Probable attempts only · whole clip · review candidates excluded.",
+    teamShotExportPositions:
+      "Estimated ground positions · attacked basket on the right · shared scale.",
+    teamShotUnassigned:
+      "Probable shots without an identified team: {count}, excluded from the maps.",
+    teamShotDensity: "shots/m²",
+    playerShots: "Detected shots",
+    playerShotsHelp:
+      "Probable attempts attributed to this player across the whole clip. Review candidates are excluded.",
+    teamShotTitle: "Shot map",
+    teamShotExport: "Export team shot map as PNG",
+    teamShotSummary: "Detected shots: {count} · located: {located}",
+    teamShotUnavailable: "Shot data is unavailable for this team.",
+    teamShotMissing:
+      "Shots without a usable position or basket direction: {count}. They remain counted.",
+    teamShotHelp:
+      "Probable attempts only · whole clip. Circles mark estimated player ground positions; heat shows their concentration.",
+    teamShotLegend:
+      "Attacked basket on the right · lighter areas contain more shots.",
+    teamShotHere: "Nearby shots: {count}",
+    teamShotCell: "Shots in this cell: {count}",
+
+    shotsLegend: "Shots",
+    shotsSummary: "Shots · {probable} probable · {candidates} to review",
+    shotsNone: "Shots · no event detected",
+    shotsUnavailable: "Shots · insufficient data",
+    shotsHelp:
+      "Attempts estimated from ball and wrist observations. Click to review the release, paused. Candidates need review; no made/missed result or official shot total is inferred.",
+    shotsUnavailableHelp:
+      "Several ball positions, with usable wrists or court context, are required. No detection does not mean that no shot occurred.",
+    shotsIncludeCandidates: "Include candidates to review",
+    shotProbable: "Probable shot",
+    shotCandidate: "To review",
+    shotUnassigned: "Unassigned shooter",
+    shotRelease: "Observed release",
+    shotReleaseHidden: "Release poorly visible",
+    shotArc: "Rise and descent",
+    shotPartialArc: "Partial trajectory",
+    shotRim: "Near the basket",
+    shotRimUnknown: "Basket unconfirmed",
+    shotCamera: "Camera compensated",
+    shotRawCamera: "Uncertain camera motion",
+    shotReviewHelp:
+      "Review before the shot · estimated release window: {start} – {end}",
+
     gamePhaseMatchup: "{attack} offense · {defense} defense",
     gamePhaseHelp:
       "Offense and defense describe settled play in one half. A confirmed possession change ends the phase; the next begins on arrival in the other half.",
@@ -304,15 +390,13 @@ const messages = {
     hmPlan: "Camera shot",
     hmStart: "Start · s",
     hmEnd: "End · s",
-    hmAngles: "FOUR WAYS TO READ THE GAME",
+    hmAngles: "THREE WAYS TO READ THE GAME",
     hmPresence: "Presence",
     hmPresenceShort: "Where is time spent?",
     hmZones: "Zones",
     hmZonesShort: "Nine zones, one distribution.",
     hmComparison: "Comparison",
     hmComparisonShort: "Both teams, side by side.",
-    hmEvolution: "Evolution",
-    hmEvolutionShort: "First half and second half.",
     hmSmooth: "Continuous areas",
     hmRenderHelp:
       "Lighter areas indicate greater concentration. Hover and tables show raw measurements.",
@@ -330,8 +414,6 @@ const messages = {
       "The half court is divided into nine zones. Percentages distribute localized time in this half, from midcourt to the reference basket.",
     hmComparisonHelp:
       "Both teams are compared on their own offensive or defensive passages in the same reference half court, potentially at different times. Each distribution is normalized to 100% of localized time in this half. The difference shows occupancy, not dominance.",
-    hmEvolutionHelp:
-      "The selected video period is split into two equal durations. Each map retains time spent in this half court in the selected situation. Distributions are normalized separately using a shared scale.",
     hmLoading: "Computing the distribution…",
     hmError: "Unable to load heatmaps.",
     hmNoRun: "Choose an analysis first.",
@@ -343,8 +425,6 @@ const messages = {
       "No usable position in this half court for the selected situation and period. Dark areas do not mean a true absence.",
     hmNoPair: "Comparison requires the two teams in the match roster.",
     hmBadRange: "Choose an end after the start, within this camera shot.",
-    hmFirst: "First half",
-    hmSecond: "Second half",
     hmDifference: "Distribution difference",
     hmMaxDifference: "Difference range",
     hmPlanLabel: "Shot {count}",
@@ -451,7 +531,7 @@ const messages = {
     team: "Team",
     teamStatsTitle: "Court occupation",
     teamStatsEmpty:
-      "Explore this team’s presence, movement and spatial distribution.",
+      "Explore this team’s presence and spatial distribution in offense or defense.",
     noTeamStats: "Choose an analysis with a roster to find its teams.",
     playerStats: "The players",
     roster: "ROSTER",

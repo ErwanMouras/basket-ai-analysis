@@ -206,16 +206,14 @@ si aucun passage n’était sélectionné.
 La comparaison applique la situation à **chaque équipe**. Deux équipes en Attaque
 sont comparées sur leurs propres passages offensifs, à des moments potentiellement
 différents dans la période choisie. Une période limitée à l’attaque d’une seule
-équipe peut donc laisser l’autre carte vide. L’évolution partage la période source
-en deux moitiés égales et conserve seulement les instants de la situation choisie.
-Le choix de langue conserve les filtres, le mode et les résultats.
+équipe peut donc laisser l’autre carte vide. Le choix de langue conserve les
+filtres, le mode et les résultats.
 
 | Angle | Lecture et intérêt |
 | --- | --- |
 | **Présence** | Part du temps localisé dans chaque maille : repérer les espaces occupés par un joueur ou la répartition collective. |
 | **Zones** | Le temps de présence réparti sur une grille 3 × 3 : une lecture chiffrée plus simple que les taches de chaleur. Les tiers vont de la ligne médiane au panier du demi-terrain affiché. |
 | **Comparaison** | Les deux équipes du match, puis leur différence. Chaque profil est normalisé à 100 % de son temps localisé dans le demi-terrain ; les deux premières cartes partagent une échelle. Orange : A davantage représenté ; bleu : B. L’écart est en points de pourcentage, pas une mesure de domination. |
-| **Évolution** | La période choisie divisée en deux durées égales. Chaque moitié est normalisée séparément et les deux cartes partagent une échelle : voir un changement d’occupation dans la situation choisie. |
 
 Le rendu **Zones continues**, actif par défaut, regroupe les positions proches
 avant d’appliquer des paliers de couleur aux contours nets. Les zones les plus
@@ -252,7 +250,7 @@ L’API expose `half_court_s`, `outside_half_s` et `half_court_video_s` pour sé
 le recadrage spatial de la qualité de localisation. Les requêtes de phases
 retournent `court.extent: "half"`, la demi-longueur affichée et `court.full_length`.
 Le chemin d’audit historique sans filtre de phase conserve ses coordonnées plein
-terrain et les contributions de distance ; le viewer propose les quatre vues
+terrain et les contributions de distance ; le viewer propose les trois vues
 ci-dessus. La comparaison API accepte uniquement les deux équipes du match et
 choisit l’adversaire automatiquement.
 
@@ -300,7 +298,7 @@ sous la vidéo.
 Sans dépendances JavaScript à installer pour les vérifications unitaires :
 
 ```bash
-python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled -v
+python -m unittest viewer.test_server viewer.test_heatmaps viewer.test_phases viewer.test_scoreboard viewer.test_settled viewer.test_shots viewer.test_shot_analytics -v
 node --check viewer/app.js
 node --check viewer/i18n.js
 node --check viewer/heatmaps.js
@@ -417,8 +415,7 @@ cependant la classification de contexte décrite ci-dessous.
 Dans les heatmaps, **Quart-temps** sélectionne la plage source correspondante ;
 **Passage de jeu** précise ensuite l’attaque ou la défense. Les intervalles sont
 interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
-Les quatre vues et la
-normalisation du panier à droite restent disponibles.
+Les trois vues et la normalisation du panier à droite restent disponibles.
 
 L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
 la couverture des lectures, les points contrôlés et leurs limites. La démo
@@ -434,3 +431,104 @@ et ne sont jamais proposées dans le sélecteur ni affichées sous la vidéo.
 
 La [revue des demi-terrains](../reports/half-court-2026-10-26/README.md) décrit
 le cadrage final, la comparaison automatique et les vérifications associées.
+
+## Événements de tir
+
+Le volet **Tirs**, sous les commandes vidéo, liste les tentatives estimées. Les
+repères violets pleins correspondent aux **tirs probables** ; les repères creux
+sont des **candidats à vérifier**. Cliquer sur un repère ou une ligne place la
+vidéo en pause 0,6 s avant l’instant estimé du départ. La case **Inclure les
+candidats** filtre à la fois la liste et la timeline. La langue conserve ce choix.
+
+Le détecteur lit les observations existantes une fois à l’ouverture du run :
+aucune inférence, OCR ou nouvelle dépendance ML ne s’exécute pendant la lecture.
+`/api/run` inclut `shots`, également accessible par `/api/shots?name=…`. L’index est
+invalidé avec les observations et les métadonnées du run. Un ancien run sans
+ballon ou contexte exploitable annonce **données insuffisantes**, sans fabriquer de
+zéro officiel.
+
+### Indices croisés
+
+1. Départ du ballon près d’un poignet suffisamment visible, au-dessus des épaules,
+   avec plusieurs observations proches dans le même suivi. Les mains concurrentes,
+   arbitres et identités contradictoires empêchent une attribution nominative.
+2. Ballon observé loin des mains sur au moins 65 % de la courte fenêtre de vol.
+   Une réception avant le panier peut écarter une passe ; un ballon tenu ou un
+   dribble ne suffit pas.
+3. Montée et descente cohérentes, ajustées par une courbe quadratique en temps
+   source. La courbure et les écarts sont normalisés par la taille apparente d’un
+   joueur, **pas exprimés en m/s²**. La grille du terrain ne projette pas le ballon
+   aérien comme s’il touchait le sol.
+4. Compensation du mouvement d’image par les homographies du terrain. Ce recalage
+   de plan est une approximation pour un ballon en hauteur ; un grand saut de
+   trajectoire, une coupe, une exclusion ou un trou supérieur à 0,2 s interrompt
+   la fenêtre. Les positions absentes ne sont pas interpolées.
+5. Proximité d’un panier élevé estimé à partir d’une caméra plausible et de la
+   calibration NBA. Le modèle suppose pixels carrés et point principal au centre
+   de l’image ; il renonce à l’ancrage quand ses contraintes ne sont pas plausibles.
+   Ce repère approximatif n’est pas une détection visuelle de l’arceau.
+
+Un **tir probable** exige relâchement soutenu, arc propre, proximité du panier et
+compensation disponibles. Un arc sans panier fiable, une finition partielle ou un
+relâchement masqué reste **à vérifier**. Un deuxième chemin peut proposer un arc
+près du panier sans mains associables ; il ne nomme alors aucun tireur et donne
+une fenêtre de départ plus large. Les propositions partageant le même vol sont
+regroupées. Le tireur n’est nommé que si le roster du run et l’identité résolue le
+permettent, sans conflit à proximité du départ.
+
+Le score TV n’est pas utilisé pour créer les tirs. **Marqué/raté, 2/3 points,
+lancer franc et statistiques officielles ne sont pas attribués.** Les ralentis,
+lobs, contres, dunks et tip-ins très courts peuvent encore tromper ou échapper
+au détecteur. Les catégories « probable » et « à vérifier » sont des niveaux de
+support heuristique, pas des probabilités calibrées.
+
+### Reproduire une extraction
+
+```bash
+python -m viewer.shot_experiment \
+  --run runs/analysis/hou-lal-sam-yolo26l-ball \
+  --review reports/shots-2026-10-26/review-checkpoints.json \
+  --output /tmp/shots.json
+```
+
+Sans `--review`, la commande fonctionne sur tout run terminé. `--compact` omet
+les points de trajectoire. L’export contient les hashes de la source déclarée,
+des observations, du manifeste, du roster et des deux fichiers du détecteur,
+ainsi que sa version, ses seuils et les indices de chaque événement. Il ne modifie
+aucun artefact d’entrée. Les checkpoints de revue doivent correspondre exactement
+aux hashes vidéo et observations.
+
+Voir le [rapport de développement et ses limites](../reports/shots-2026-10-26/README.md).
+
+### Cartes de tirs et compteurs joueurs
+
+**Équipe → Carte des tirs** présente les positions au sol estimées avant les
+relâchements, sur un demi-terrain normalisé vers le panier attaqué à droite.
+La sélection d’équipe conserve une échelle commune en tirs/m². Les cercles sont
+les origines estimées ; le survol lit les timestamps proches ou le nombre par
+maille. **PNG** exporte la carte et son périmètre.
+
+Seuls les **probables** entrent dans la carte et dans le compteur **Tirs détectés**
+de chaque fiche joueur. Les candidats restent séparés dans la timeline. Le bilan
+porte sur l’extrait entier, indépendamment du curseur vidéo et du filtre des
+candidats. Une absence de distance ne masque pas le compteur de tirs.
+
+L’origine est la médiane d’au moins deux positions calibrées du tireur dans les
+0,25 s avant le départ, sans franchir de coupe. Les changements de méthode et
+les dispersions supérieures à 1,25 m sont exclus. Le sens utilise les repères
+appris par plan et quart-temps ; il ne dépend pas simplement du côté occupé par
+le tireur. Aucune projection du ballon aérien ne remplace une origine manquante.
+
+Un probable sans position ou orientation est compté mais absent de la carte.
+Les événements sans équipe connue restent hors des cartes et des compteurs
+nominatifs. Zéro signifie aucun probable attribué sur l’extrait ; `—` indique
+que les données nécessaires ne sont pas disponibles. Aucun taux de réussite
+ou statistique officielle n’est ajouté.
+
+Les métadonnées `shots` exposent `player_counts`, `unassigned_probable_count` et
+`shot_maps` (`scope: whole_clip`, `status: probable`). Chaque carte contient
+`detected_count`, `located_count`, `unlocated_count`, sa grille de comptage et ses
+points avec timestamp. Les événements exposent leur `origin` et leur
+`court_direction`. Les statistiques historiques de déplacement restent inchangées.
+
+Voir la [revue des cartes de tirs](../reports/shot-maps-2026-10-26/README.md).

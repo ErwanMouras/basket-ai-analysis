@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from viewer.heatmaps import HeatmapIndex
 from viewer.scoreboard import ScoreboardIndex
+from viewer.shots import ShotIndex
+from viewer.shot_analytics import assign_directions
 from training.jersey.display import display_colors
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +38,7 @@ class RunIndex:
     heatmaps: HeatmapIndex
     auxiliary_signature: tuple
     scoreboard: ScoreboardIndex
+    shots: ShotIndex
 
 
 class ViewerServer(ThreadingHTTPServer):
@@ -76,6 +79,7 @@ class ViewerServer(ThreadingHTTPServer):
         roster = json.loads(roster_file.read_text(encoding='utf-8')) if roster_file.is_file() else None
         scoreboard = ScoreboardIndex.load(path, manifest, roster)
         heatmaps = HeatmapIndex(manifest, roster, scoreboard)
+        shots = ShotIndex(manifest, roster)
         offsets: list[int] = []
         timestamps: list[float] = []
         markers: list[dict] = []
@@ -89,6 +93,7 @@ class ViewerServer(ThreadingHTTPServer):
                     break
                 row = json.loads(line)
                 heatmaps.add_frame(row)
+                shots.add_frame(row)
                 offsets.append(offset)
                 timestamps.append(float(row['timestamp_s']))
                 if row.get('scene_cut') and row['frame_index']:
@@ -158,8 +163,10 @@ class ViewerServer(ThreadingHTTPServer):
                                   'team_group': next(iter(item['groups'])) if len(item['groups']) == 1 else None}
                             for key, item in jerseys.items()}
         heatmaps.finish()
+        shots.finish()
+        assign_directions(shots.events, heatmaps.phases, heatmaps.plans, scoreboard)
         result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
-                          heatmaps, auxiliary_signature, scoreboard)
+                          heatmaps, auxiliary_signature, scoreboard, shots)
         self.indices[path] = result
         while len(self.indices) > 3:
             self.indices.pop(next(iter(self.indices)), None)
@@ -200,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
                         continue
                 runs.sort(key=lambda x: x['name'])
                 return self.json({'runs': runs})
-            if parsed.path in ('/api/run', '/api/frame', '/api/frames', '/api/reads', '/api/video', '/api/heatmaps'):
+            if parsed.path in ('/api/run', '/api/frame', '/api/frames', '/api/reads', '/api/video', '/api/heatmaps', '/api/shots'):
                 name = query.get('name', [''])[0]
                 path = self.server.run_path(name)
                 manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
@@ -255,9 +262,12 @@ class Handler(BaseHTTPRequestHandler):
                         'spatial_handoffs': manifest.get('spatial_handoffs', []),
                         'scoreboard': index.scoreboard.metadata(),
                         'phase_timeline': index.heatmaps.phases.timeline(),
+                        'shots': index.shots.metadata(),
                         'markers': index.markers,
                         'video_available': source.is_relative_to(self.server.video_root) and source.is_file()})
                 index = self.server.index(path)
+                if parsed.path == '/api/shots':
+                    return self.json(index.shots.metadata())
                 if parsed.path == '/api/heatmaps':
                     subject = query.get('subject', [''])[0]
                     if not subject:
