@@ -42,7 +42,7 @@ def main():
         write_json(args.output / "summary.json", report)
         print(json.dumps(entry), flush=True)
     syntax_results = [subprocess.run(["node", "--check", source], cwd=ROOT, capture_output=True, text=True)
-                      for source in ("viewer/app.js", "viewer/i18n.js", "viewer/heatmaps.js", "viewer/heatmap-renderer.js", "viewer/shots.js", "viewer/team-shots.js")]
+                      for source in ("viewer/app.js", "viewer/i18n.js", "viewer/heatmaps.js", "viewer/heatmap-renderer.js", "viewer/shots.js", "viewer/team-shots.js", "viewer/player-shots.js", "scripts/build_demo_pack.cjs", "scripts/capture_viewer_demo.cjs")]
     (args.output / "javascript.log").write_text("".join(result.stdout + result.stderr for result in syntax_results))
     report["javascript_returncode"] = max(result.returncode for result in syntax_results)
     result = subprocess.run(["node", "--test", "viewer/test_app.js", "viewer/test_heatmap_renderer.cjs"], cwd=ROOT, capture_output=True, text=True)
