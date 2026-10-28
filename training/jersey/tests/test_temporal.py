@@ -252,6 +252,50 @@ class TemporalTests(unittest.TestCase):
         self.assertEqual(center["region"], "pose_number_center")
         self.assertLess(center["bbox"][3], crop["bbox"][3])
 
+    def test_instance_masks_distinguish_bbox_overlap_from_visible_occlusion(self):
+        from training.segmentation.masks import encode
+
+        target, neighbor = observation(), observation(2)
+        mask = np.ones(self.image.shape[:2], dtype=bool)
+        target['segmentation'] = {'status': 'ok', 'mask': encode(mask, target['bbox'])}
+        other_mask = np.zeros_like(mask)
+        other_mask[:20, :] = True
+        neighbor['segmentation'] = {'status': 'ok', 'mask': encode(other_mask, neighbor['bbox'])}
+        crop = candidate(self.image, target, [target, neighbor], settings())
+        self.assertIsNotNone(crop)
+        self.assertEqual(crop['bbox_overlap'], 1)
+        self.assertEqual(crop['overlap'], 0)
+        self.assertEqual(crop['overlap_method'], 'instance_masks_with_bbox_fallback')
+        neighbor['segmentation']['mask'] = encode(mask, neighbor['bbox'])
+        self.assertIsNone(candidate(self.image, target, [target, neighbor], settings()))
+        neighbor.pop('segmentation')
+        self.assertIsNone(candidate(self.image, target, [target, neighbor], settings()))
+
+    def test_small_target_mask_does_not_bypass_bbox_occlusion(self):
+        from training.segmentation.masks import encode
+
+        target, neighbor = observation(), observation(2)
+        mask = np.zeros(self.image.shape[:2], dtype=bool)
+        mask[55:57, 45:48] = True
+        target['segmentation'] = {'status': 'ok', 'mask': encode(mask, target['bbox'])}
+        neighbor['segmentation'] = {'status': 'ok', 'mask': encode(np.zeros_like(mask), neighbor['bbox'])}
+        self.assertIsNone(candidate(self.image, target, [target, neighbor], settings()))
+
+    def test_disjoint_visible_masks_still_reject_a_number_hidden_by_another_player(self):
+        from training.segmentation.masks import encode
+
+        target, neighbor = observation(), observation(2)
+        raw = candidate(self.image, target, [target], settings())
+        a, b, c, d = raw['bbox']
+        boundary = a + round((c - a) * .55)
+        own = np.zeros(self.image.shape[:2], dtype=bool)
+        other = np.zeros_like(own)
+        own[b:d, a:boundary] = True
+        other[b:d, boundary:c] = True
+        target['segmentation'] = {'status': 'ok', 'mask': encode(own, target['bbox'])}
+        neighbor['segmentation'] = {'status': 'ok', 'mask': encode(other, neighbor['bbox'])}
+        self.assertIsNone(candidate(self.image, target, [target, neighbor], settings()))
+
     def test_color_groups_require_clean_repeated_torso_crops(self):
         teams = TeamColors()
         warm = np.full((32, 128, 3), (230, 185, 35), dtype=np.uint8)

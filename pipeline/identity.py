@@ -26,7 +26,7 @@ def _color_timeline(key, observations_path, cap, signatures):
                 continue
             for person in row['persons']:
                 if person.get('role') == 'player' and person.get('track_id') == key[1]:
-                    boxes[row['frame_index']] = _torso_box(person)
+                    boxes[row['frame_index']] = (_torso_box(person), person.get('segmentation'))
     if not boxes:
         return {}, {}
     import cv2
@@ -39,7 +39,8 @@ def _color_timeline(key, observations_path, cap, signatures):
         if not ok:
             break
         if frame_index in boxes:
-            raw[frame_index] = _sample_team(frame, boxes[frame_index], signatures)
+            bbox, segmentation = boxes[frame_index]
+            raw[frame_index] = _sample_team(frame, bbox, signatures, segmentation)
     return raw, _smooth_colors(raw)
 
 
@@ -68,7 +69,7 @@ def load_team_votes(path, roster):
     if path is None or not Path(path).is_file():
         return {}
     document = json.loads(Path(path).read_text(encoding='utf-8'))
-    if document.get('roster_sha256') != roster.sha256 or document.get('evidence_version') not in (3, 4, 5):
+    if document.get('roster_sha256') != roster.sha256 or document.get('evidence_version') not in (3, 4, 5, 6):
         raise ValueError('Team votes do not match the roster or evidence version')
     result = {}
     for key, item in document['tracks'].items():
@@ -88,7 +89,7 @@ def load_team_votes(path, roster):
 
 def track_assignments(reads_path, roster, video_path=None, observations_path=None,
                       team_votes_path=None):
-    """Resolve a strict numeric majority against a whole-track color majority."""
+    """Resolve numeric votes using uniform evidence; keep shared numbers strict."""
     by_track = defaultdict(list)
     modern_tracks = set()
     with Path(reads_path).open(encoding='utf-8') as source:
@@ -132,12 +133,30 @@ def track_assignments(reads_path, roster, video_path=None, observations_path=Non
             evidence = team_votes.get(key)
             if evidence:
                 team_id = evidence['team_id']
+                corroborated = False
                 if team_id is None and (signatures or len(candidates) > 1):
-                    continue
+                    # A patterned jersey can yield fewer than five usable color
+                    # samples. Only a unique roster number, repeated with higher
+                    # confidence on distinct frames, may use this sparse evidence.
+                    supported = {team for team, count in evidence['counts'].items() if count > 0}
+                    strong_frames = {read['frame_index'] for read in reads
+                                     if (read.get('raw_number') or read.get('number')) == number
+                                     and read.get('confidence', 0) >= .95
+                                     and read.get('decoder') == 'digits_only_v4'}
+                    conflicting = any((read.get('raw_number') or read.get('number')) != number
+                                      and read.get('confidence', 0) >= .95 for read in reads)
+                    if (len(candidates) != 1 or share < .9 or len(strong_frames) < 3
+                            or max(strong_frames) - min(strong_frames) < 4
+                            or conflicting or supported != {candidates[0]['team_id']}):
+                        continue
+                    team_id = candidates[0]['team_id']
+                    corroborated = True
                 chosen = next((candidate for candidate in candidates
                                if candidate['team_id'] == team_id), None) if team_id else candidates[0]
                 if chosen is None or (team_id and chosen['team_id'] != team_id):
                     continue
+                if corroborated:
+                    chosen = {**chosen, 'resolution_method': 'unique_number_corroborated'}
                 # Read frames must belong to the team that won across the track.
                 classified = [(frame, color) for frame, color in evidence['raw'].items() if color]
                 local = []
@@ -228,7 +247,7 @@ def track_assignments(reads_path, roster, video_path=None, observations_path=Non
 
 
 def replay_artifacts(observations_path, tracks_path, reads_path, roster, video_path,
-                     distance_config, run_id, team_votes_path=None):
+                     distance_config, run_id, team_votes_path=None, *, progress=None):
     """Recompute both artifacts atomically before a run is committed."""
     observations_path, tracks_path = Path(observations_path), Path(tracks_path)
     team_votes = load_team_votes(team_votes_path, roster)
@@ -263,6 +282,8 @@ def replay_artifacts(observations_path, tracks_path, reads_path, roster, video_p
 
     # Do not merge two simultaneous tracker IDs into one player.
     collisions = set()
+    if progress:
+        progress('identity_collisions')
     with observations_path.open(encoding='utf-8') as source:
         for line in source:
             row = json.loads(line)
@@ -275,12 +296,16 @@ def replay_artifacts(observations_path, tracks_path, reads_path, roster, video_p
             for keys in seen.values():
                 if len(keys) > 1:
                     collisions.update((row['frame_index'], key) for key in keys)
+            if progress and (row['frame_index'] + 1) % 300 == 0:
+                progress('identity_collisions', row['frame_index'] + 1)
 
     temporary_observations = observations_path.with_name(observations_path.name + '.resolved')
     temporary_tracks = tracks_path.with_name(tracks_path.name + '.resolved')
     from training.jersey.display import display_colors, person_display_color
 
     palette = display_colors(roster)
+    if progress:
+        progress('statistics')
     try:
         with observations_path.open(encoding='utf-8') as source, \
              temporary_observations.open('w', encoding='utf-8') as observations, \
@@ -323,6 +348,8 @@ def replay_artifacts(observations_path, tracks_path, reads_path, roster, video_p
                 observations.write(json.dumps(row, ensure_ascii=False, separators=(',', ':')) + '\n')
                 for contribution in metric.update(row):
                     tracks.write(json.dumps(contribution, ensure_ascii=False, separators=(',', ':')) + '\n')
+                if progress and (row['frame_index'] + 1) % 300 == 0:
+                    progress('statistics', row['frame_index'] + 1)
         os.replace(temporary_observations, observations_path)
         os.replace(temporary_tracks, tracks_path)
     finally:
@@ -436,6 +463,13 @@ def enrich_completed_run(run_path, roster_path, *, rescue_tracks=None, rebuild_v
     team_votes_path = run_path / 'team_votes.json'
     existing_version = (json.loads(team_votes_path.read_text(encoding='utf-8'))
                         .get('evidence_version') if team_votes_path.is_file() else None)
+    color_audit = None
+    if existing_version == 5 and not rebuild_votes:
+        from pipeline.jersey_votes import rebuild_color_votes
+
+        color_audit = rebuild_color_votes(observations, run_path / 'jersey_reads.jsonl',
+                                         manifest['source']['path'], roster, team_votes_path)
+        existing_version = EVIDENCE_VERSION
     built_votes = rebuild_votes or ((existing_version != EVIDENCE_VERSION)
                                     and manifest.get('capabilities', {}).get('jersey') == 'ok')
     if built_votes:
@@ -459,11 +493,14 @@ def enrich_completed_run(run_path, roster_path, *, rescue_tracks=None, rebuild_v
     write_json(run_path / 'roster.json', roster.payload)
     manifest['roster_sha256'] = original_roster_sha
     total_rescued = manifest.get('identity_resolution', {}).get('rescued_ocr_reads', 0) + rescued
-    manifest['identity_resolution'] = {
+    manifest['identity_resolution'] = {**manifest.get('identity_resolution', {}),
         'mode': 'posthoc', 'roster_sha256': roster.sha256,
         'number_evidence': 'digit-only OCR every two frames until confirmed by episode majority',
         'shared_number_evidence': 'strict majority of classified torso colors across every track frame',
+        'team_color_evidence': 'foreground pixels of the segmented torso; bbox fallback only without segmentation',
     }
+    if color_audit is not None:
+        manifest['identity_resolution']['color_reclassification'] = {'audit': color_audit, 'model_inference': False}
     if total_rescued:
         manifest['identity_resolution']['rescued_ocr_reads'] = total_rescued
     manifest['display_colors'] = display_colors(roster)

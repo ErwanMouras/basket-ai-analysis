@@ -203,6 +203,7 @@ class JerseyRecognizer:
             if color_ready:
                 self.team_colors.observe(s, crop, now)
             crop.pop("color_image", None)
+            crop.pop("color_mask", None)
             if not ocr_ready:
                 continue
             s["last_sample"] = now

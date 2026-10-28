@@ -53,6 +53,120 @@ installent explicitement les trois autres modèles. L'inférence ne télécharge
 Le profil GPU utilise l'environnement CUDA joueurs ; un profil CPU doit mettre
 chaque `device` à `cpu` et employer l'environnement CPU joueurs.
 
+Les profils fournis privilégient CUDA pour les six modèles, y compris PARSeq
+dans la consolidation des identités. `device_fallback: cpu` permet aux modèles
+de perception de réessayer la même image sur CPU après un échec du device ;
+les erreurs de poids ou de données ne sont pas masquées. PARSeq utilise son
+réglage `fallback_device: cpu`. La provenance conserve le device effectivement
+utilisé et le motif du repli. Le suivi, les votes et la sérialisation restent
+des calculs CPU. `progress.json` indique désormais la phase de consolidation,
+son nombre d'images parcourues et le temps écoulé ; les timings distinguent
+perception, votes et résolution des identités.
+
+Pour calculer les distances, le lissage, les durées et la couverture sur CUDA,
+ajouter `distance: {device: 'cuda:0'}`. L'état numérique et les agrégations de
+ces métriques restent sur le GPU ; seuls les résultats destinés aux fichiers
+JSON sont rapatriés. Un GPU indisponible provoque un arrêt, sans repli CPU.
+La sélection des identités, les compteurs d'exclusion, ByteTrack, les couleurs
+et la calibration OpenCV restent des opérations CPU. Ce réglage ne transforme
+donc pas le pipeline entier en calcul exclusivement GPU.
+
+Le backend historique (`backend: legacy`, défaut des anciens profils) reste
+hybride. `compute_policy: gpu_only` le refuse avant le chargement vidéo/modèles.
+Le backend `backend: native_cuda` fournit désormais le parcours GPU complet :
+
+- NVDEC décode les images et les convertit en RGB directement en mémoire GPU ;
+  les PTS de présentation proviennent du conteneur, sans décodage logiciel.
+- Les prétraitements, YOLO, SAM 2.1, PARSeq et le décodage des sorties sont CUDA.
+  Le graphe RTMPose épinglé est exécuté par des opérateurs Torch CUDA, sans
+  partition ONNX Runtime sur CPU.
+- ByteTrack utilise Kalman XYAH et une affectation globale avec limite de coût
+  sur CUDA. Le profil choisit explicitement `tracker: bytetrack` et
+  `gmc_method: none` ; ce n'est pas le BoT-SORT des anciens profils.
+- Homographies DLT/RANSAC, flot Lucas–Kanade pyramidal, couleurs, votes,
+  raccords spatiaux, distances, durées, couverture et compteurs qualité sont CUDA.
+  Les kernels de calibration conservent les seuils de rejet ; ils ne sont pas
+  bit à bit identiques à OpenCV. Les métriques restent non validées par une
+  vérité terrain, comme dans le backend historique.
+
+Un contrôle TorchDispatch reste actif pendant tous les calculs numériques et
+arrête le run sur une opération de tenseur CPU. Les constantes scalaires et
+indices servant de paramètres aux kernels CUDA sont des métadonnées autorisées.
+Le CPU pilote le programme, lit les paquets/fichiers, attribue les IDs et écrit
+le JSON, les empreintes et le suivi. Il ne calcule pas les mesures vidéo.
+`run.json` conserve les devices, versions, empreintes et compteurs du contrôle ;
+aucun repli CPU n'est disponible dans ce parcours.
+
+Le mode `parallel` utilise des streams CUDA séparés pour la pose, SAM et la
+balle, avec événements de dépendance explicites. Les six modèles conservent
+leurs poids et leur précision FP32. Leurs calculs de forme fixe sont capturés
+sous contrôle CUDA puis rejoués comme graphes GPU. `run.json` conserve leurs
+formes, devices, empreintes et compteurs de rejeu. Le contrôle TorchDispatch
+couvre les opérations Torch et la capture ; les noyaux Triton natifs vérifient
+leurs entrées CUDA. Les affectations, enveloppes convexes, flot LK, masques de
+sol, couleurs et candidats RANSAC utilisent des noyaux fusionnés. Les mesures
+et la géométrie conservent le calcul FP64 ; les seuils et cadences ne changent pas.
+
+La consolidation charge les géométries par lots, calcule les histogrammes et
+collisions sur GPU et conserve les résumés de votes pendant les raccords.
+L'intégration des distances utilise les mêmes ruptures, filtres et règles de
+couverture avec un noyau CUDA fusionné. Les exports JSON sont regroupés par
+type de tenseur pour limiter les synchronisations. Le tableau de progression
+affiche aussi le débit récent et une estimation du temps restant pour les images,
+distincte des traitements finaux.
+
+`analyze --resume-from <ancien-run> --output <nouveau-run>` conserve les plans
+complets d'un run natif puis rejoue son dernier plan pour reconstruire les états
+de calibration, suivi et votes. La vidéo et le roster doivent avoir les mêmes
+empreintes, et les réglages numériques doivent correspondre. Le run source
+reste intact. Les anciennes observations, leurs IDs et la provenance du code
+sont conservés ; aucune reprise approximative des filtres n'est effectuée.
+
+La mesure reproductible `python -m pipeline.cuda.benchmark --video ... --roster ...
+--config ... --output ... --frames 150` compare les noyaux CUDA précédents et
+le parcours optimisé sur les mêmes images, jusqu'au contrôle final. La référence
+conserve certaines optimisations communes d'E/S et d'audit et constitue donc
+une comparaison conservatrice, pas une reproduction du backend historique CPU.
+
+Installer les dépendances supplémentaires dans l'environnement CUDA existant :
+
+```bash
+uv pip install --python .venv-players/bin/python -r pipeline/cuda/requirements.txt
+```
+
+Le parcours natif requiert actuellement un roster explicite, les six capacités
+actives, E-BARD, la balle YOLO et SAM 2.1 par boîtes sur un même device CUDA.
+Le profil local du match SAC–SAS est `datas/test/SAC_SAS/analysis.gpu.yaml`.
+L'audit statique est disponible sans calcul d'analyse :
+
+```bash
+.venv-players/bin/python -m pipeline preflight \
+  --config datas/test/SAC_SAS/analysis.gpu.yaml --roster
+```
+
+Le code de sortie 2 signale une incompatibilité avec la politique demandée.
+Cet audit décrit le chemin de calcul ; le lancement valide ensuite les poids,
+CUDA, les sorties GPU de NVDEC et l'absence de paramètres de modèle sur CPU.
+
+`device_fallback: null` et `jersey.fallback_device: null` interdisent le repli
+des modèles. `pose.allow_cpu_fallback: false` interdit aussi les partitions
+CPU internes à ONNX Runtime dans le backend historique. Le backend natif
+n'emploie pas ONNX Runtime et n'a pas cette limitation.
+
+Le suivi couvre chargement, perception, couleurs, OCR, identités, recalcul des
+statistiques, publication et contrôle d'intégrité. Le pourcentage global est
+une **estimation pondérée du travail**, pas du temps restant. Les compteurs de
+chaque passe sont exacts. Il atteint 100 % après le contrôle final seulement.
+Un heartbeat met à jour le temps écoulé même entre deux changements de phase.
+
+```bash
+# Suivi dans un terminal, y compris pendant le recalcul des statistiques.
+.venv-players/bin/python -m pipeline.monitor --run runs/analysis/mon-match
+
+# Tableau de suivi local sur http://127.0.0.1:8766.
+.venv-players/bin/python -m pipeline.monitor --run runs/analysis/mon-match --serve
+```
+
 ## Configuration et modèles
 
 - `people.adapter`: `yolo` (multiclasse) ou `rfdetr` (une classe source explicite,
@@ -173,7 +287,23 @@ sol par homographie. Les observations peuvent porter `null` et un motif explicit
 inconnus) ; chaque personne dans `observations.jsonl` porte `display_color`.
 La couleur d'une équipe provient du champ facultatif `color` du roster, ou de
 la palette stable du pipeline. Elle ne préjuge pas d'une équipe quand seul un
-groupe de maillots anonyme est connu.
+groupe de maillots anonyme est connu. Deux couleurs trop similaires sont remplacées
+par la paire cyan/rose ; les couleurs servant de preuve au modèle restent intactes.
+
+Pour récupérer uniquement les crops OCR débloqués par les masques dans un run
+existant, sans recalculer la détection ni toucher au run source :
+
+```bash
+.venv-players/bin/python -m pipeline.identity_recovery \
+  runs/analysis/mon-match runs/audit-mon-match/recovery
+```
+
+Cette commande exige CUDA et désactive le repli CPU. Elle exclut les tracks déjà
+nommées, échantillonne douze images par track et les voisines des lectures
+numériques fiables, garde au plus un vote par frame et écrit les preuves fusionnées
+dans un nouveau dossier. `audit.json` contient le GPU effectif et les compteurs.
+Ces preuves doivent être examinées avant le rejeu des identités ; voir
+[l'audit GSW–DEN](../reports/gsw-den-identity-colors-2026-10-28/README.md).
 
 Après les votes de numéro et de couleur, une continuité spatiale peut attribuer
 une nouvelle portion de track à un joueur déjà identifié, ou retrouver vers

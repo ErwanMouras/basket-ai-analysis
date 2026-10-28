@@ -12,7 +12,7 @@ from training.common.files import write_json
 from training.jersey.colors import color_distance, dominant_color
 
 
-EVIDENCE_VERSION = 5
+EVIDENCE_VERSION = 6
 NUMBER_FRAME_STEP = 2
 MIN_OCR_CONFIDENCE = 0.8
 
@@ -44,13 +44,18 @@ def torso_box(person):
             round(x2 - .22 * width), round(y1 + .56 * height)]
 
 
-def sample_team(frame, bbox, signatures):
+def sample_team(frame, bbox, signatures, segmentation=None):
     x1, y1, x2, y2 = map(int, bbox)
     x1, y1 = max(0, x1), max(0, y1)
     x2, y2 = min(frame.shape[1], x2), min(frame.shape[0], y2)
     if x2 <= x1 or y2 <= y1:
         return None
-    signature = dominant_color(cv2.cvtColor(frame[y1:y2, x1:x2], cv2.COLOR_BGR2RGB))
+    foreground = None
+    if (segmentation or {}).get('status') == 'ok':
+        from training.segmentation.masks import crop_mask
+
+        foreground = crop_mask(segmentation['mask'], [x1, y1, x2, y2])
+    signature = dominant_color(cv2.cvtColor(frame[y1:y2, x1:x2], cv2.COLOR_BGR2RGB), foreground)
     matches = [team for team, uniform in signatures.items()
                if signature and uniform and color_distance(signature, uniform) <= 6]
     return matches[0] if len(matches) == 1 else None
@@ -68,6 +73,10 @@ def majority(votes, *, min_votes=3, min_share=0.6):
 
 def split_color_episodes(frames, colors):
     """Split a tracker ID at gaps and sustained switches of uniform color."""
+    from pipeline.numeric import DEVICE
+    if DEVICE.get():
+        from pipeline.cuda.identity import split_episodes
+        return split_episodes(frames, colors, DEVICE.get())
     if not frames:
         return []
     episodes = []
@@ -114,13 +123,13 @@ def _selected_frames(observations_path):
 
 
 def build_track_votes(observations_path, reads_path, video_path, roster, run_id,
-                      output_path, jersey_config=None):
+                      output_path, jersey_config=None, *, progress=None):
     """Classify every torso; OCR each episode every two frames until confirmed."""
     from training.jersey.config import settings
     from training.jersey.crops import candidate
     from training.jersey.reader import ParseqReader
 
-    config = settings({**(jersey_config or {}), 'enabled': True, 'device': 'cpu'})
+    config = settings({**(jersey_config or {}), 'enabled': True})
     signatures = uniform_signatures(roster)
     votes = defaultdict(lambda: {'frames': [], 'classified': {}, 'counts': Counter()})
     cap = cv2.VideoCapture(str(video_path))
@@ -142,10 +151,12 @@ def build_track_votes(observations_path, reads_path, video_path, roster, run_id,
                     item = votes[key]
                     frame = row['frame_index']
                     item['frames'].append(frame)
-                    team = sample_team(image, torso_box(person), signatures)
+                    team = sample_team(image, torso_box(person), signatures, person.get('segmentation'))
                     if team:
                         item['classified'][str(frame)] = team
                         item['counts'][team] += 1
+                if progress and len(rows) % 300 == 0:
+                    progress('identity_colors', len(rows))
     finally:
         cap.release()
 
@@ -169,6 +180,8 @@ def build_track_votes(observations_path, reads_path, video_path, roster, run_id,
         raise FileNotFoundError(video_path)
     try:
         for row in rows:
+            if progress and row['frame_index'] % 300 == 0:
+                progress('identity_ocr', row['frame_index'])
             ok, image = cap.read()
             if not ok:
                 raise RuntimeError(f"Video ended before observation frame {row['frame_index']}")
@@ -206,6 +219,7 @@ def build_track_votes(observations_path, reads_path, video_path, roster, run_id,
                         'frame_index': row['frame_index'], 'processed_frame': row['frame_index'],
                         'timestamp_seconds': row['timestamp_s'], 'crop_bbox': crop['bbox'],
                         'region': crop['region'], 'quality': crop['quality'],
+                        'mask_audit': crop.get('mask_audit'),
                         'text': result['text'], 'number': number,
                         'raw_number': result['number'], 'confidence': result['confidence'],
                         'rejection_reason': None if accepted else
@@ -273,6 +287,7 @@ def build_track_votes(observations_path, reads_path, video_path, roster, run_id,
             'episodes': episode_summaries,
         }
     write_json(output_path, {'schema_version': 1, 'evidence_version': EVIDENCE_VERSION,
+        'color_method': 'segmented_torso_with_bbox_fallback',
         'roster_sha256': roster.sha256, 'number_frame_step': NUMBER_FRAME_STEP,
         'number_confirmation': {'min_votes': 3, 'min_share': .75},
         'min_ocr_confidence': MIN_OCR_CONFIDENCE,
@@ -318,3 +333,86 @@ def refresh_vote_summaries(output_path, reads_path):
                            number_majority=number, number_majority_share=share)
     write_json(output_path, document)
     return document
+
+
+def rebuild_color_votes(observations_path, reads_path, video_path, roster, output_path, *, progress=None):
+    """Reclassify saved torsos through their masks while preserving numeric OCR.
+
+    Use copies of votes/reads for a completed run, then replay its identities.
+    This changes no detections and performs no model inference.
+    """
+    output_path, reads_path = Path(output_path), Path(reads_path)
+    document = json.loads(output_path.read_text(encoding='utf-8'))
+    if (document.get('roster_sha256') != roster.sha256
+            or document.get('evidence_version') not in (5, EVIDENCE_VERSION)):
+        raise ValueError('Color evidence version or roster does not match')
+    before = {key: item.get('team_id') for key, item in document['tracks'].items()}
+    signatures = uniform_signatures(roster)
+    votes = defaultdict(lambda: {'frames': [], 'classified': {}, 'counts': Counter()})
+    audit = Counter()
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        raise FileNotFoundError(video_path)
+    next_frame = 0
+    try:
+        with Path(observations_path).open(encoding='utf-8') as source:
+            for line in source:
+                row = json.loads(line)
+                while next_frame < row['frame_index']:
+                    if not cap.grab():
+                        raise RuntimeError('Video ended before color observations')
+                    next_frame += 1
+                ok, image = cap.read()
+                if not ok:
+                    raise RuntimeError('Video ended before color observations')
+                next_frame += 1
+                for person in row['persons']:
+                    if person.get('role') != 'player' or person.get('track_id') is None:
+                        continue
+                    key = f"{row['segment_id']}:{person['track_id']}"
+                    item = votes[key]
+                    item['frames'].append(row['frame_index'])
+                    segmentation = person.get('segmentation')
+                    audit['masked_torsos' if (segmentation or {}).get('status') == 'ok' else 'bbox_fallbacks'] += 1
+                    team = sample_team(image, torso_box(person), signatures, segmentation)
+                    if team:
+                        item['classified'][str(row['frame_index'])] = team
+                        item['counts'][team] += 1
+                if progress and row['frame_index'] % 1000 == 0:
+                    progress('identity_masked_colors', row['frame_index'])
+    finally:
+        cap.release()
+    tracks = {}
+    for key, item in votes.items():
+        team, share = majority(item['counts'].elements(), min_votes=5, min_share=.5)
+        colors = {frame: item['classified'].get(str(frame)) for frame in item['frames']}
+        episodes = []
+        for frames in split_color_episodes(item['frames'], colors):
+            counts = Counter(colors[frame] for frame in frames if colors[frame])
+            local_team, local_share = majority(counts.elements(), min_votes=3, min_share=.6)
+            episodes.append({'start_frame': frames[0], 'end_frame': frames[-1],
+                             'team_id': local_team, 'team_votes': dict(counts),
+                             'team_majority_share': local_share, 'confirmation_frame': None})
+        tracks[key] = {**item, 'counts': dict(item['counts']), 'team_id': team,
+                       'majority_share': share, 'classified_frames': sum(item['counts'].values()),
+                       'episodes': episodes}
+    temporary = reads_path.with_name(reads_path.name + '.colors')
+    try:
+        with reads_path.open(encoding='utf-8') as source, temporary.open('w', encoding='utf-8') as target:
+            for line in source:
+                read = json.loads(line)
+                if read.get('decoder') == 'digits_only_v4':
+                    key = f"{read['segment_id']}:{read['track_id']}"
+                    episode = next(episode for episode in tracks[key]['episodes']
+                                   if episode['start_frame'] <= read['frame_index'] <= episode['end_frame'])
+                    read['episode_start_frame'] = episode['start_frame']
+                target.write(json.dumps(read, ensure_ascii=False, separators=(',', ':')) + '\n')
+        os.replace(temporary, reads_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    audit['changed_team_majorities'] = sum(before.get(key) != item['team_id'] for key, item in tracks.items())
+    document.update(evidence_version=EVIDENCE_VERSION, tracks=tracks,
+                    color_method='segmented_torso_with_bbox_fallback', color_audit=dict(audit))
+    write_json(output_path, document)
+    refresh_vote_summaries(output_path, reads_path)
+    return dict(audit)

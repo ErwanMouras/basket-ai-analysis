@@ -14,7 +14,8 @@ MODEL_SHA256 = "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00
 DEFAULTS = {
     "enabled": False,
     "weights": "models/jersey/parseq.pt",
-    "device": "cpu",
+    "device": "cuda:0",
+    "fallback_device": "cpu",
     "cpu_threads": 2,
     "batch_size": 4,
     "crops_per_video_second": 8.0,
@@ -53,6 +54,8 @@ def settings(overrides=None):
         r"cpu|cuda:\d+", cfg["device"]
     ):
         raise ValueError("jersey.device must be cpu or cuda:N")
+    if cfg["fallback_device"] not in (None, "cpu"):
+        raise ValueError("jersey.fallback_device must be cpu or null")
     for name in (
         "cpu_threads",
         "batch_size",

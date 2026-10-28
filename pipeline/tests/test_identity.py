@@ -8,11 +8,77 @@ import cv2
 import numpy as np
 
 from pipeline.identity import replay_artifacts, track_assignments
-from pipeline.jersey_votes import _selected_frames, build_track_votes, majority, split_color_episodes
+from pipeline.jersey_votes import (_selected_frames, build_track_votes, majority, split_color_episodes,
+                                   rebuild_color_votes, EVIDENCE_VERSION)
 from training.jersey.roster import Roster
 
 
 class IdentityReplayTests(unittest.TestCase):
+    def test_reclassifying_segmented_colors_preserves_existing_numeric_reads(self):
+        from training.segmentation.masks import encode
+
+        roster = Roster({'schema_version': 1, 'teams': [
+            {'team_id': 'white', 'name': 'White', 'uniform_color': '#FFFFFF',
+             'players': [{'number': '7', 'name': 'White Seven'}]},
+            {'team_id': 'blue', 'name': 'Blue', 'uniform_color': '#1D428A',
+             'players': [{'number': '7', 'name': 'Blue Seven'}]}]})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            video, observations, reads, votes = (root / name for name in
+                ('sample.avi', 'observations.jsonl', 'jersey_reads.jsonl', 'team_votes.json'))
+            image = np.full((160, 100, 3), (220, 60, 30), dtype=np.uint8)
+            image[:, 25:75] = 235
+            mask = np.zeros((160, 100), dtype=bool)
+            mask[:, 25:75] = True
+            writer = cv2.VideoWriter(str(video), cv2.VideoWriter_fourcc(*'MJPG'), 10, (100, 160))
+            with observations.open('w') as output:
+                for frame in range(6):
+                    writer.write(image)
+                    output.write(json.dumps({'frame_index': frame, 'segment_id': 0, 'persons': [
+                        {'role': 'player', 'track_id': 1, 'bbox': [0, 0, 100, 160],
+                         'segmentation': {'status': 'ok', 'mask': encode(mask, [0, 0, 100, 160])}}]}) + '\n')
+            writer.release()
+            old_reads = [{'segment_id': 0, 'track_id': 1, 'frame_index': frame,
+                          'episode_start_frame': 0, 'decoder': 'digits_only_v4',
+                          'raw_number': '7', 'number': '7', 'confidence': .99} for frame in (0, 2, 4)]
+            reads.write_text(''.join(json.dumps(read) + '\n' for read in old_reads))
+            votes.write_text(json.dumps({'evidence_version': 5, 'roster_sha256': roster.sha256,
+                'tracks': {'0:1': {'team_id': 'blue'}}}))
+            audit = rebuild_color_votes(observations, reads, video, roster, votes)
+            document = json.loads(votes.read_text())
+            self.assertEqual(document['evidence_version'], EVIDENCE_VERSION)
+            self.assertEqual(document['tracks']['0:1']['team_id'], 'white')
+            self.assertEqual(document['tracks']['0:1']['number_votes'], {'7': 3})
+            self.assertEqual([json.loads(line) for line in reads.read_text().splitlines()], old_reads)
+            self.assertEqual(audit, {'masked_torsos': 6, 'changed_team_majorities': 1})
+
+            # Upgrading a completed v5 run must re-use its numeric evidence,
+            # without silently launching a full OCR pass on the historical device.
+            from pipeline.distance import Distance
+            from pipeline.identity import enrich_completed_run
+            from training.common.provenance import file_hash
+
+            document['evidence_version'] = 5
+            votes.write_text(json.dumps(document))
+            (root / 'roster.json').write_text(json.dumps(roster.payload, sort_keys=True, ensure_ascii=False))
+            distance = {'max_gap_s': .2, 'max_speed_m_s': 12, 'smoothing_tau_s': 0, 'deadband_m': 0}
+            metric = Distance(distance, 'test')
+            metric.spatial_handoffs = []
+            (root / 'tracks.jsonl').write_text('')
+            (root / 'statistics.json').write_text(json.dumps(metric.result()))
+            (root / 'run.json').write_text(json.dumps({'status': 'completed', 'run_id': 'test',
+                'source': {'path': str(video)}, 'capabilities': {'jersey': 'ok'},
+                'config': {'distance': distance, 'jersey': {'device': 'cpu'}},
+                'identity_resolution': {'recovery': {'device': 'cuda:0'}},
+                'artifacts': {'observations.jsonl': {'sha256': file_hash(observations)}}}))
+            with patch('pipeline.identity.replay_artifacts', return_value=(metric, 1)), \
+                    patch('pipeline.jersey_votes.build_track_votes', side_effect=AssertionError('No new OCR needed')):
+                enrich_completed_run(root, root / 'roster.json')
+            manifest = json.loads((root / 'run.json').read_text())
+            self.assertEqual(json.loads(votes.read_text())['evidence_version'], EVIDENCE_VERSION)
+            self.assertEqual(manifest['identity_resolution']['recovery'], {'device': 'cuda:0'})
+            self.assertEqual([json.loads(line) for line in reads.read_text().splitlines()], old_reads)
+
     def test_color_switch_splits_reused_track_id(self):
         frames = list(range(12))
         colors = {frame: 'dark' if frame < 6 else 'gold' for frame in frames}
@@ -165,6 +231,38 @@ class IdentityReplayTests(unittest.TestCase):
             reads.write_text(''.join(json.dumps({'segment_id': 0, 'track_id': 2,
                 'raw_number': '10', 'confidence': .99}) + '\n' for _ in range(2)))
             self.assertEqual(track_assignments(reads, roster), {})
+
+    def test_sparse_color_requires_unique_number_and_three_strong_distinct_frames(self):
+        roster = Roster({'schema_version': 1, 'teams': [
+            {'team_id': 'a', 'name': 'A', 'uniform_color': '#FFFFFF',
+             'players': [{'number': '27', 'name': 'Alice'}, {'number': '1', 'name': 'Shared A'}]},
+            {'team_id': 'b', 'name': 'B', 'uniform_color': '#1D428A',
+             'players': [{'number': '2', 'name': 'Bob'}, {'number': '1', 'name': 'Shared B'}]},
+        ]})
+        with tempfile.TemporaryDirectory() as directory:
+            reads, votes = Path(directory) / 'reads.jsonl', Path(directory) / 'votes.json'
+
+            def resolve(numbers=('27',) * 3, frames=(0, 2, 4), confidence=.99, colors=None):
+                colors = {'a': 1} if colors is None else colors
+                reads.write_text(''.join(json.dumps({'segment_id': 0, 'track_id': 2,
+                    'frame_index': frame, 'raw_number': number, 'confidence': confidence,
+                    'decoder': 'digits_only_v4'}) + '\n' for frame, number in zip(frames, numbers)))
+                votes.write_text(json.dumps({'evidence_version': 5, 'roster_sha256': roster.sha256,
+                    'tracks': {'0:2': {'frames': list(range(5)), 'classified': {'0': next(iter(colors), None)},
+                                      'counts': colors, 'team_id': None, 'majority_share': 0}}}))
+                return track_assignments(reads, roster, team_votes_path=votes)
+
+            player = resolve()[(0, 2)]
+            self.assertEqual(player['player_name'], 'Alice')
+            self.assertEqual(player['resolution_method'], 'unique_number_corroborated')
+            self.assertEqual(resolve(colors={}), {})
+            self.assertEqual(resolve(colors={'b': 1}), {})
+            self.assertEqual(resolve(colors={'a': 2, 'b': 1}), {})
+            self.assertEqual(resolve(frames=(0, 0, 0)), {})
+            self.assertEqual(resolve(frames=(0, 1, 2)), {})
+            self.assertEqual(resolve(confidence=.94), {})
+            self.assertEqual(resolve(numbers=('1',) * 3), {})
+            self.assertEqual(resolve(numbers=('27',) * 10 + ('2',), frames=tuple(range(11))), {})
 
     def test_final_vote_discards_stale_causal_number(self):
         roster = Roster({'schema_version': 1, 'teams': [

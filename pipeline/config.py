@@ -15,24 +15,27 @@ from training.players.tracking import DEFAULTS as TRACKING_DEFAULTS, settings as
 from training.segmentation.config import DEFAULTS as SEGMENTATION_DEFAULTS, settings as segmentation_settings
 
 DEFAULTS = {
+    "backend": "legacy",
+    "compute_policy": "hybrid",
+    "device_fallback": "cpu",
     "mode": "parallel", "workers": 4, "prefetch": 2, "cpu_threads": 4,
     "gpu_concurrency": 1, "max_frames": None, "timestamp_policy": "source",
     "include_intervals": [], "exclude_intervals": [],
     "required": ["players", "court"],
     "people": {"adapter": "yolo", "weights": "models/players/ebard_yolov8n.pt",
                "registry_uri": None, "mlflow_uri": "sqlite:///mlflow.db",
-               "device": "cpu", "resolution": 640, "confidence": 0.1,
+               "device": "cuda:0", "resolution": 640, "confidence": 0.1,
                "max_detections": 100, "class_roles": {"2": "player", "3": "referee"},
                "variant": "rfdetr_nano"},
     "ball": {"enabled": True, "adapter": "tracknet_v5", "weights": None,
-             "reference_root": ".external/tracknet_v5", "device": "cpu",
+             "reference_root": ".external/tracknet_v5", "device": "cuda:0",
              "threshold": 0.5, "confidence": 0.25, "iou": 0.7,
              "input_width": 512, "input_height": 288, "checkpoint_sha256": None},
-    "court": {**COURT_DEFAULTS, "enabled": True, "overlay": False, "minimap": False},
-    "pose": {**POSE_DEFAULTS, "enabled": True}, "jersey": {**JERSEY_DEFAULTS, "enabled": True},
+    "court": {**COURT_DEFAULTS, "enabled": True, "device": "cuda:0", "overlay": False, "minimap": False},
+    "pose": {**POSE_DEFAULTS, "enabled": True, "device": "cuda:0"}, "jersey": {**JERSEY_DEFAULTS, "enabled": True},
     "tracking": TRACKING_DEFAULTS,
     "segmentation": SEGMENTATION_DEFAULTS,
-    "distance": {"smoothing_tau_s": 0.12, "deadband_m": 0.025,
+    "distance": {"device": "cpu", "smoothing_tau_s": 0.12, "deadband_m": 0.025,
                  "max_speed_m_s": 12.0, "max_gap_s": 0.2},
 }
 
@@ -59,6 +62,12 @@ def load_config(path=None, overrides=None):
             cfg[key] = value
     if cfg["mode"] not in ("parallel", "sequential"):
         raise ValueError("mode must be parallel or sequential")
+    if cfg["backend"] not in ("legacy", "native_cuda"):
+        raise ValueError("backend must be legacy or native_cuda")
+    if cfg["compute_policy"] not in ("hybrid", "gpu_only"):
+        raise ValueError("compute_policy must be hybrid or gpu_only")
+    if cfg["device_fallback"] not in (None, "cpu"):
+        raise ValueError("device_fallback must be cpu or null")
     for key in ("workers", "prefetch", "cpu_threads", "gpu_concurrency"):
         if type(cfg[key]) is not int or not 1 <= cfg[key] <= 64:
             raise ValueError(f"{key} must be an integer in [1,64]")
@@ -85,7 +94,11 @@ def load_config(path=None, overrides=None):
         raise ValueError("Direct segmentation currently requires the YOLO referee adapter")
     cfg["tracking"]["enabled"] = True
     for key, value in cfg["distance"].items():
-        positive(value, key, zero=key in ("smoothing_tau_s", "deadband_m"))
+        if key == "device":
+            if not isinstance(value, str) or not re.fullmatch(r"cpu|cuda:\d+", value):
+                raise ValueError("distance.device must be cpu or cuda:N")
+        else:
+            positive(value, key, zero=key in ("smoothing_tau_s", "deadband_m"))
     if cfg["people"]["adapter"] not in ("yolo", "rfdetr", "registry"):
         raise ValueError("people.adapter must be yolo, rfdetr or registry")
     if cfg["people"]["adapter"] == "registry":

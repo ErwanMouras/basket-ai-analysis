@@ -6,12 +6,20 @@ import cv2
 import numpy as np
 
 
-def dominant_color(rgb):
+def dominant_color(rgb, foreground=None):
     """Return a coarse uniform color, or None for a mixed/unreadable torso."""
     height, width = rgb.shape[:2]
     core = rgb[height // 10 : height - height // 10,
                width // 10 : width - width // 10]
     hsv = cv2.cvtColor(core, cv2.COLOR_RGB2HSV)
+    if foreground is not None:
+        if foreground.shape != rgb.shape[:2]:
+            raise ValueError('Color mask must match the RGB crop')
+        selected = foreground[height // 10 : height - height // 10,
+                              width // 10 : width - width // 10].astype(bool)
+        if selected.sum() < 16 or selected.mean() < .5:
+            return None
+        hsv = hsv[selected].reshape(-1, 1, 3)
     hue, saturation, value = cv2.split(hsv)
     colored = (saturation >= 75) & (value >= 50)
     if colored.mean() >= 0.70:
@@ -52,7 +60,7 @@ class TeamColors:
         if timestamp - state["last_color_sample"] < 0.35:
             return
         state["last_color_sample"] = timestamp
-        sample = dominant_color(crop.get("color_image", crop["image"]))
+        sample = dominant_color(crop.get("color_image", crop["image"]), crop.get('color_mask'))
         if sample is None:
             return
         votes = state["color_votes"]

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Suivi de l’analyse</title>
+<style>
+body{font:17px system-ui,sans-serif;background:#111820;color:#edf4fb;margin:0;padding:8vh 7vw}
+main{max-width:900px;margin:auto}h1{font-size:2rem}progress{width:100%;height:26px;accent-color:#4de2bc}
+#global{font-size:3rem;font-weight:700;margin:20px 0 4px}.muted{color:#a6b9ca}#error{color:#ff9e9e}
+li{padding:8px 0}li.active{color:#4de2bc;font-weight:bold}li.done{color:#a6b9ca}
+</style>
+<main><h1>Suivi de l’analyse</h1><p id="status" role="status">Connexion…</p>
+<div id="global">0 %</div><progress id="bar" max="100" value="0" aria-label="Progression globale"></progress>
+<p class="muted">Progression globale estimée par étape. Les compteurs d’images sont exacts ; 100 % inclut les statistiques et la vérification finale.</p>
+<h2 id="stage">Chargement</h2><p id="counter"></p><p id="elapsed" class="muted"></p><p id="speed" class="muted"></p>
+<p id="error" role="alert"></p><ol id="phases"></ol></main>
+<script>
+async function refresh(){
+ try {
+  const response=await fetch('/progress.json',{cache:'no-store'});
+  if(!response.ok)throw Error('Suivi indisponible');
+  const p=await response.json();
+  document.getElementById('status').textContent=({waiting:'En attente du lancement',running:'Analyse en cours',completed:'Analyse terminée',partial:'Analyse terminée avec capacités partielles',failed:'Échec',interrupted:'Analyse interrompue'})[p.status]||p.status;
+  document.getElementById('global').textContent=p.overall_percent.toFixed(2)+' %';
+  document.getElementById('bar').value=p.overall_percent;
+  document.getElementById('stage').textContent=p.labels[p.stage]||p.stage;
+  const counter=p.stage_total_frames ? `${p.stage_frames.toLocaleString('fr-FR')} / ${p.stage_total_frames.toLocaleString('fr-FR')} unités (${p.stage_percent.toFixed(1)} % de l’étape)`:'Étape en cours';
+  document.getElementById('counter').textContent=counter;
+  document.getElementById('elapsed').textContent=`Durée de cette exécution : ${(p.elapsed_s/60).toFixed(1)} min · Images vidéo traitées : ${p.frames.toLocaleString('fr-FR')} / ${p.total_frames||'?'}`;
+  document.getElementById('speed').textContent=p.stage==='perception'&&p.throughput_fps ? `${p.throughput_fps.toFixed(2)} images/s · Temps restant pour les images ≈ ${(p.perception_remaining_s/60).toFixed(0)} min (hors traitements finaux)`+(p.retained_frames?` · ${p.retained_frames.toLocaleString('fr-FR')} images conservées à la reprise`:'') : '';
+  document.getElementById('error').textContent=p.error||'';
+  const list=document.getElementById('phases');list.replaceChildren();
+  const names=Object.keys(p.phase_weights||{}),index=names.indexOf(p.stage);
+  names.forEach((name,i)=>{const li=document.createElement('li');li.textContent=p.labels[name]||name;li.className=i===index?'active':i<index?'done':'';list.append(li);});
+ }catch(error){document.getElementById('error').textContent=error.message;}
+}
+refresh();setInterval(refresh,2000);
+</script>
+</html>

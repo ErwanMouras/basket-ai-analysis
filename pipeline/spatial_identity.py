@@ -1,9 +1,8 @@
 """Conservative identity handoffs between nearby, non-overlapping track spans."""
 
 from collections import defaultdict
-from collections import Counter
+from pipeline.numeric import Counter, DEVICE, distance, rounded, fraction
 import json
-import math
 from pathlib import Path
 
 from pipeline.jersey_votes import split_color_episodes
@@ -17,22 +16,22 @@ MIN_SPAN_FRAMES = 4
 
 def _pixel_distance(first, second):
     a, b = first.get('bbox'), second.get('bbox')
-    if not a or not b:
+    if a is None or b is None or len(a) == 0 or len(b) == 0:
         return None
     heights = [box[3] - box[1] for box in (a, b)]
     if min(heights) <= 0:
         return None
     foot_a = ((a[0] + a[2]) / 2, a[3])
     foot_b = ((b[0] + b[2]) / 2, b[3])
-    return math.dist(foot_a, foot_b) / max(heights)
+    return distance(foot_a, foot_b) / max(heights)
 
 
 def _ground_distance(first, second):
     a, b = first.get('position_m'), second.get('position_m')
-    return math.dist(a, b) if a is not None and b is not None else None
+    return distance(a, b) if a is not None and b is not None else None
 
 
-def _span_team(span, team_votes, *, allow_pure_track_fallback=False):
+def _compute_span_team(span, team_votes, *, allow_pure_track_fallback=False):
     evidence = team_votes.get(span['key'])
     if not evidence:
         return None, Counter()
@@ -47,6 +46,19 @@ def _span_team(span, team_votes, *, allow_pure_track_fallback=False):
             and evidence['counts'].get(evidence['team_id'], 0) == sum(evidence['counts'].values())):
         return evidence['team_id'], counts
     return None, counts
+
+
+def _span_team(span, team_votes, *, allow_pure_track_fallback=False):
+    # A span's points and uniform evidence are immutable during a handoff pass.
+    # Recounting it for every neighboring body makes long tracks quadratic.
+    cache = span.get('_vote_cache')
+    if cache is None:
+        return _compute_span_team(span, team_votes,
+            allow_pure_track_fallback=allow_pure_track_fallback)
+    if allow_pure_track_fallback not in cache:
+        cache[allow_pure_track_fallback] = _compute_span_team(span, team_votes,
+            allow_pure_track_fallback=allow_pure_track_fallback)
+    return cache[allow_pure_track_fallback]
 
 
 def _neighbor_team(person, row, span_at, team_votes):
@@ -99,16 +111,16 @@ def _crowded_gap(first, last, rows, end_frame, start_frame, span_at, team_votes,
     a, b = first['bbox'], last['bbox']
     foot_a, foot_b = ((a[0] + a[2]) / 2, a[3]), ((b[0] + b[2]) / 2, b[3])
     for frame in range(end_frame + 1, start_frame):
-        fraction = (frame - end_frame) / (start_frame - end_frame)
-        expected = tuple(x + fraction * (y - x) for x, y in zip(foot_a, foot_b))
+        share = fraction(frame - end_frame, start_frame - end_frame)
+        expected = tuple(x + share * (y - x) for x, y in zip(foot_a, foot_b))
         for person in rows[frame]['persons']:
-            if person.get('role') != 'player' or not person.get('bbox'):
+            box = person.get('bbox')
+            if person.get('role') != 'player' or box is None or len(box) == 0:
                 continue
-            box = person['bbox']
             height = box[3] - box[1]
             neighbor = _neighbor_team(person, rows[frame], span_at, team_votes)
             if (height > 0
-                    and math.dist(expected, ((box[0] + box[2]) / 2, box[3])) / height < MIN_NEIGHBOR_DISTANCE_IN_HEIGHTS
+                    and distance(expected, ((box[0] + box[2]) / 2, box[3])) / height < MIN_NEIGHBOR_DISTANCE_IN_HEIGHTS
                     and (neighbor is None or neighbor == expected_team)):
                 return True
     return False
@@ -128,19 +140,41 @@ def _track_spans(rows, team_votes=None):
         for frames in split_color_episodes([frame for frame, _, _ in points], raw):
             episode = [by_frame[frame] for frame in frames]
             spans.append({'key': key, 'points': episode,
-                          'start': frames[0], 'end': frames[-1]})
+                          'start': frames[0], 'end': frames[-1], '_vote_cache': {}})
     return spans
 
 
-def expand_direct_identity_spans(observations_path, assignments, team_votes):
+def _temporal_index(spans, endpoint):
+    if DEVICE.get() is None:
+        return None
+    import torch
+    groups = defaultdict(list)
+    for span in spans:
+        groups[span['key'][0]].append(span)
+    return {segment: (group, torch.stack([span['points'][endpoint][1] for span in group]))
+            for segment, group in groups.items()}
+
+
+def _nearby_spans(segment, timestamp, fallback, index, *, forward):
+    if index is None:
+        return fallback
+    import torch
+    group, times = index[segment]
+    gaps = times - timestamp if forward else timestamp - times
+    selected = torch.nonzero((gaps > 0) & (gaps <= MAX_GAP_S)).flatten().tolist()
+    return [group[i] for i in selected]
+
+
+def expand_direct_identity_spans(observations_path, assignments, team_votes, *, rows=None):
     """Keep a direct identity through unclassified frames of one clean span."""
     if not team_votes:
         return
-    rows = {}
-    with Path(observations_path).open(encoding='utf-8') as source:
-        for line in source:
-            row = json.loads(line)
-            rows[row['frame_index']] = row
+    if rows is None:
+        rows = {}
+        with Path(observations_path).open(encoding='utf-8') as source:
+            for line in source:
+                row = json.loads(line)
+                rows[row['frame_index']] = row
     for span in _track_spans(rows, team_votes):
         key = span['key']
         player = assignments.get(key)
@@ -167,7 +201,7 @@ def expand_direct_identity_spans(observations_path, assignments, team_votes):
                 valid.add(frame)
 
 
-def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes):
+def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes, *, rows=None, all_reads=None, progress=None):
     """Return {(segment, track, first_frame): safe handoff} for complete spans.
 
     The source needs a direct identity supported by its local color evidence.
@@ -175,11 +209,12 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
     cross the image without hiding a same-team handoff. Only a conflict-free
     prefix of the target span can inherit the identity.
     """
-    rows = {}
-    with Path(observations_path).open(encoding='utf-8') as source:
-        for line in source:
-            row = json.loads(line)
-            rows[row['frame_index']] = row
+    if rows is None:
+        rows = {}
+        with Path(observations_path).open(encoding='utf-8') as source:
+            for line in source:
+                row = json.loads(line)
+                rows[row['frame_index']] = row
     spans = _track_spans(rows, team_votes)
     starts = defaultdict(list)
     span_at = {}
@@ -189,12 +224,14 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
             span_at[(frame, *span['key'])] = span
     for group in starts.values():
         group.sort(key=lambda span: span['start'])
+    temporal = _temporal_index(spans, 0)
 
     reliable_reads = defaultdict(list)
-    all_reads = []
-    with Path(reads_path).open(encoding='utf-8') as source:
-        for line in source:
-            all_reads.append(json.loads(line))
+    if all_reads is None:
+        all_reads = []
+        with Path(reads_path).open(encoding='utf-8') as source:
+            for line in source:
+                all_reads.append(json.loads(line))
     decoder = ('digits_only_v4' if any(read.get('decoder') == 'digits_only_v4'
                                        for read in all_reads) else 'digits_only_v3')
     for read in all_reads:
@@ -204,7 +241,11 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
             reliable_reads[key].append(read)
 
     candidates = []
-    for source in spans:
+    if progress:
+        progress(0, 2 * len(spans))
+    for source_index, source in enumerate(spans):
+        if progress and source_index % 30 == 0:
+            progress(source_index, 2 * len(spans))
         key = source['key']
         player = assignments.get(key)
         if player is None or len(source['points']) < 2:
@@ -234,7 +275,7 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
                for other_key in [(end_row['segment_id'], other['track_id'])]
                for other_player in [assignments.get(other_key)] if other_player):
             continue
-        for target in starts[key[0]]:
+        for target in _nearby_spans(key[0], end_time, starts[key[0]], temporal, forward=True):
             if target['key'] == key:
                 continue
             start_frame, start_time, start_person = target['points'][0]
@@ -301,8 +342,8 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
                 continue
             target = {**target, 'points': safe_points, 'end': safe_points[-1][0]}
             candidates.append({'source': source, 'target': target, 'player': player,
-                               'gap_s': round(gap, 4), 'distance_m': meters,
-                               'distance_in_heights': round(pixels, 4)})
+                               'gap_s': rounded(gap, 4), 'distance_m': meters,
+                               'distance_in_heights': rounded(pixels, 4)})
 
     by_source, by_target = defaultdict(list), defaultdict(list)
     for item in candidates:
@@ -319,11 +360,11 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
             'direction': 'forward',
             'source_segment_id': source['key'][0], 'source_track_id': source['key'][1],
             'source_end_frame': source['end'], 'gap_s': item['gap_s'],
-            'distance_m': round(item['distance_m'], 4) if item['distance_m'] is not None else None,
+            'distance_m': rounded(item['distance_m'], 4) if item['distance_m'] is not None else None,
             'distance_in_heights': item['distance_in_heights'],
         }
     reverse = _reverse_handoffs(rows, spans, span_at, reliable_reads,
-                                assignments, team_votes, accepted)
+                                assignments, team_votes, accepted, progress=progress)
     for key, item in reverse.items():
         identity = (item['player']['team_id'], item['player']['number'])
         if any((link['player']['team_id'], link['player']['number']) == identity
@@ -345,14 +386,19 @@ def find_spatial_handoffs(observations_path, reads_path, assignments, team_votes
                 conflicting.update((first_key, second_key))
     for key in conflicting:
         del accepted[key]
+    if progress:
+        progress(2 * len(spans), 2 * len(spans))
     return accepted
 
 
 def _reverse_handoffs(rows, spans, span_at, reliable_reads, assignments,
-                      team_votes, forward):
+                      team_votes, forward, *, progress=None):
     """Inherit a later direct identity on the safe suffix of an earlier span."""
     candidates = []
-    for source in spans:
+    temporal = _temporal_index(spans, -1)
+    for source_index, source in enumerate(spans):
+        if progress and source_index % 30 == 0:
+            progress(len(spans) + source_index, 2 * len(spans))
         player = assignments.get(source['key'])
         if not player or len(source['points']) < 2:
             continue
@@ -379,7 +425,7 @@ def _reverse_handoffs(rows, spans, span_at, reliable_reads, assignments,
                for other_player in [assignments.get(other_key)] if other_player):
             continue
 
-        for target in spans:
+        for target in _nearby_spans(source['key'][0], start_time, spans, temporal, forward=False):
             if (target['key'] == source['key']
                     or target['key'][0] != source['key'][0]
                     or len(target['points']) < MIN_SPAN_FRAMES):
@@ -461,9 +507,9 @@ def _reverse_handoffs(rows, spans, span_at, reliable_reads, assignments,
             safe_points.reverse()
             candidates.append({'source': source, 'target': target,
                                'safe_points': safe_points, 'player': player,
-                               'gap_s': round(gap, 4),
+                               'gap_s': rounded(gap, 4),
                                'distance_m': _ground_distance(end_person, start_person),
-                               'distance_in_heights': round(pixels, 4)})
+                               'distance_in_heights': rounded(pixels, 4)})
 
     by_source, by_target = defaultdict(list), defaultdict(list)
     for item in candidates:
@@ -481,7 +527,7 @@ def _reverse_handoffs(rows, spans, span_at, reliable_reads, assignments,
             'direction': 'backward',
             'source_segment_id': source['key'][0], 'source_track_id': source['key'][1],
             'source_start_frame': source['start'], 'gap_s': item['gap_s'],
-            'distance_m': (round(item['distance_m'], 4)
+            'distance_m': (rounded(item['distance_m'], 4)
                            if item['distance_m'] is not None else None),
             'distance_in_heights': item['distance_in_heights'],
         }

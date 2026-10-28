@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from training.common.provenance import file_hash
+from training.common.devices import device_error
 from training.jersey.config import MODEL_SHA256, MODEL_URL, number
 
 CHARSET = (
@@ -21,7 +22,7 @@ class ResourceDeferred(RuntimeError):
 
 class ParseqReader:
     def __init__(self, config, *, manage_threads=True):
-        self.config = config
+        self.config = dict(config)
         self.manage_threads = manage_threads
         if file_hash(Path(config["weights"])) != MODEL_SHA256:
             raise ValueError("Expected the pinned PARSeq checkpoint (SHA-256 mismatch)")
@@ -29,11 +30,14 @@ class ParseqReader:
             raise RuntimeError("Install timm==0.9.16 from the updated players lock")
         self.model = None
         self.failed_cuda = False
+        self._cpu_reader = None
         self.provenance = {
             "model": "PARSeq generic",
             "checkpoint_sha256": MODEL_SHA256,
             "model_url": MODEL_URL,
             "device": config["device"],
+            "preferred_device": config["device"],
+            "fallback_reads": {},
             "precision": "fp32",
             "input_size": [128, 32],
             "alphabet": string.digits,
@@ -63,6 +67,27 @@ class ParseqReader:
             raise ResourceDeferred("gpu_memory_reserve")
 
     def read(self, crops):
+        try:
+            results = self._read_on_device(crops)
+            self.provenance["device"] = self.config["device"]
+            return results
+        except (RuntimeError, ResourceDeferred) as error:
+            if not (self.config["device"].startswith("cuda:")
+                    and self.config.get("fallback_device") == "cpu"
+                    and (isinstance(error, ResourceDeferred) or device_error(error))):
+                raise
+            if self._cpu_reader is None:
+                self._cpu_reader = type(self)(
+                    {**self.config, "device": "cpu", "fallback_device": None},
+                    manage_threads=self.manage_threads)
+            results = self._cpu_reader.read(crops)
+            reason = f"{type(error).__name__}: {error}"
+            counts = self.provenance["fallback_reads"]
+            counts[reason] = counts.get(reason, 0) + len(crops)
+            self.provenance["device"] = "cpu"
+            return results
+
+    def _read_on_device(self, crops):
         if not crops:
             return []
         if len(crops) > self.config["batch_size"]:
