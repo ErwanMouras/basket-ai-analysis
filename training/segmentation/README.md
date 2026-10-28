@@ -70,15 +70,22 @@ le numéro. Le crop torse utilise les mêmes règles pose/bbox qu'avant.
 | `background_neutral` | Fond hors personne à RGB 127 ; repli sur crop initial si masque absent ou couverture insuffisante |
 | `require_mask` | Même masquage ; rejet du crop si masque absent ou couverture insuffisante |
 
+Ces politiques concernent le crop **numérique OCR** : sa position vient de la
+pose ou de la bbox, et le fond extérieur au masque est neutralisé avant PARSeq.
+Les lectures finales conservent aussi `mask_audit` pour rendre le repli visible.
+La **couleur d'équipe** utilise séparément le masque du torse dès qu'il est
+disponible, pour les groupes anonymes comme pour la consolidation finale.
+Les pixels neutralisés ne participent pas aux statistiques de couleur.
+
 La couverture minimale du crop est `min_mask_coverage: 0.5`. Elle ne garantit
 pas que tous les chiffres soient conservés. La netteté et le contraste sont
 calculés **avant** le masquage ; les bords artificiels ne peuvent améliorer la
-qualité du crop. Les crops couleur restent initiaux pour ne pas mélanger
-l'ablation OCR et le regroupement des équipes. Le filtre de chevauchement
+qualité du crop. Les crops couleur appliquent le masque dans les deux branches
+de l'ablation OCR, puis excluent les pixels neutralisés des votes. Le filtre de chevauchement
 existant reste actif. `mask_audit` est journalisé par le lecteur temporel dans `jersey_reads.jsonl`.
 La postpasse existante de votes reçoit aussi la politique de masque via la
 configuration et conserve ses propres variantes, seuils et règles de sélection ;
-son journal v4 ne sérialise pas ce champ supplémentaire.
+son journal v4 sérialise également `mask_audit` pour les nouvelles lectures.
 
 ## Protocole et reproduction
 

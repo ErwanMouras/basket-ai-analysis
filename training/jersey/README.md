@@ -42,7 +42,9 @@ intra-équipe et champs inconnus sont refusés.
 
 `color` est facultatif pour chaque équipe et accepte une couleur hexadécimale
 `#RRGGBB`. Le pipeline lui attribue une couleur d'affichage stable si elle est
-absente. Une équipe non identifiée reste neutre ; les groupes de maillots
+absente. Si les deux couleurs sont trop proches (distance RGB inférieure à 120),
+la paire d'affichage cyan/rose les remplace, également à l'ouverture des anciens
+runs dans le viewer. `uniform_color` reste inchangé. Une équipe non identifiée reste neutre ; les groupes de maillots
 anonymes utilisent leur propre palette et ne sont pas assimilés à une équipe
 de l'effectif.
 
@@ -59,12 +61,32 @@ au moins trois lectures fiables et une majorité stricte des lectures
 numériques fiables sur l'ensemble de la track.
 
 La couleur est estimée séparément sur la zone épaules–hanches de **chaque**
-image visible. L'équipe demande au moins cinq couleurs classifiables et une
+image visible. Si une segmentation est disponible, seuls les pixels du joueur
+votent : le parquet, les spectateurs et les autres corps hors masque sont exclus.
+Il faut au moins seize pixels de premier plan et 50 % de couverture dans le
+cœur du torse ; un masque insuffisant provoque une abstention. Le rectangle brut
+reste un repli explicite pour les observations sans segmentation.
+Ce même traitement s'applique aux groupes anonymes pendant l'analyse et aux
+votes finaux (`evidence_version: 6`). L'équipe demande au moins cinq couleurs classifiables et une
 majorité stricte. Quand les deux équipes portent le même numéro, la couleur
 majoritaire doit aussi correspondre aux images où le numéro a été lu. Une
 portion de couleur contradictoire reste anonyme. Les identités sont appliquées
 rétroactivement aux images compatibles ; les distances de plusieurs tracks du
 même joueur sont additionnées sans relier leurs positions après une rupture.
+
+Si les couleurs sont trop rares pour cette majorité, un numéro **unique dans
+l'effectif éligible** peut être associé avec des preuves plus strictes : majorité
+numérique d'au moins 90 %, trois images distinctes à confiance ≥ 95 % couvrant
+au moins quatre frames, au moins une couleur concordante et aucune couleur
+ou lecture à haute confiance contradictoire. Le champ `resolution_method` vaut
+alors `unique_number_corroborated`. Un numéro partagé ou sans aucune couleur
+reste anonyme avec ce mécanisme.
+
+Le rejet des crops OCR utilise la fraction du crop occupée par le masque des
+autres joueurs lorsque les deux segmentations sont disponibles et que le masque
+cible couvre au moins 50 % du crop. Il conserve le seuil d'occultation de 40 %
+et le rejet par bbox si les masques sont absents ou insuffisants. Le chevauchement
+des rectangles seul ne suffit plus à écarter un numéro réellement visible.
 
 Un joueur peut porter `eligible: false` pour être conservé dans l'effectif sans
 autoriser la reconnaissance de son numéro. Le défaut est `true`. `status` est
@@ -157,8 +179,12 @@ Les recettes anciennes et `JERSEY=0` conservent le parcours précédent.
 
 ## Budget de calcul et sélection temporelle
 
-L'OCR utilise **le CPU par défaut, avec deux threads**, même si le détecteur et
-la pose sont sur GPU. Les threads Torch précédents sont restaurés après lecture.
+L'OCR utilise **CUDA par défaut**, dans la première passe et la consolidation
+des votes. `fallback_device: cpu` active un repli explicite si CUDA est absent,
+en échec ou manque de mémoire ; le device réel et les lectures de repli sont
+consignés dans la provenance. Le repli CPU utilise deux threads lorsque le
+lecteur gère les threads, puis restaure les réglages précédents. Un profil CPU
+peut toujours demander explicitement `device: cpu`.
 Le modèle est chargé une fois, au premier lot utile. Aucun travail OCR n'est
 lancé pour une frame vide, une boîte sans ID confirmé ou un crop rejeté.
 

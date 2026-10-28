@@ -1,0 +1,77 @@
+{
+  "run": "gsw-den-2026-10-26-full",
+  "source_sha256": "71a3076750756d6c0c7ba660c2dd714f880a1713568f7e52efa2baa79884ae89",
+  "roster_sha256": "5a1fac7562c281dcb61d8bf8b76ebfb9453ec193179a9b606fc122b8c0e0170d",
+  "before": {
+    "counts": {
+      "players": 550829,
+      "named": 122362,
+      "team_only": 102812,
+      "no_team": 325655,
+      "untracked": 52691
+    },
+    "named_tracks": 783
+  },
+  "after": {
+    "counts": {
+      "players": 550829,
+      "named": 133850,
+      "no_team": 318665,
+      "team_only": 98314,
+      "untracked": 52691,
+      "gained_named": 12194,
+      "lost_named": 706
+    },
+    "named_tracks": 882,
+    "ratios": {
+      "calibration_availability": 0.8190836660272032,
+      "ball_localization_availability": 0.7815281450372444,
+      "player_projection_availability": 0.6727332802012966,
+      "named_identity_availability": 0.24299737305043853
+    }
+  },
+  "gained_named_observations": 12194,
+  "lost_named_observations_due_to_conflicts": 706,
+  "changed_existing_identities": 0,
+  "lost_entire_named_tracks": 0,
+  "recovery": {
+    "run_id": "cdf1078297b547eda06d6bed75db0385",
+    "source_sha256": "71a3076750756d6c0c7ba660c2dd714f880a1713568f7e52efa2baa79884ae89",
+    "roster_sha256": "5a1fac7562c281dcb61d8bf8b76ebfb9453ec193179a9b606fc122b8c0e0170d",
+    "samples_per_track": 12,
+    "anchor_offsets": [
+      -16,
+      -8,
+      -4,
+      -2,
+      2,
+      4,
+      8,
+      16
+    ],
+    "excluded_named_tracks": 783,
+    "crops": 16657,
+    "recovered_source_frames": 7231,
+    "accepted_source_frames": 1081,
+    "elapsed_s": 128.12783177899996,
+    "ocr": {
+      "model": "PARSeq generic",
+      "checkpoint_sha256": "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00",
+      "model_url": "https://github.com/baudm/parseq/releases/download/v1.0.0/parseq-bb5792a6.pt",
+      "device": "cuda:0",
+      "preferred_device": "cuda:0",
+      "fallback_reads": {},
+      "precision": "fp32",
+      "input_size": [
+        128,
+        32
+      ],
+      "alphabet": "0123456789",
+      "max_decode_length": 2,
+      "refine_iters": 0,
+      "decoding": "digit-constrained autoregressive; confidence from full vocabulary",
+      "timm_version": "0.9.16",
+      "weights_only": true
+    }
+  }
+}
