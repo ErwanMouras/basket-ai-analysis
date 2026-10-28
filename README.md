@@ -1,51 +1,232 @@
 # Vyneros — Basketball Video Analytics
 
-**Turn basketball footage into actions you can explore and verify.**
+**From broadcast footage to basketball actions you can explore, measure and review.**
 
-Vyneros is a batch computer-vision pipeline with a browser viewer for exploring
-predictions alongside the source video. It combines player and referee detection,
-ball localization, court calibration and jersey recognition with a reproducible
-model workflow: versioned data, tracked experiments, evaluation, controlled model
-promotion and containerized inference.
+[![POC validation](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml/badge.svg?branch=main)](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml)
+![Project scope: ML and MLOps proof of concept](https://img.shields.io/badge/scope-ML%20%26%20MLOps%20POC-orange)
 
-**Python · PyTorch · Ultralytics · ONNX Runtime · MLflow · DVC · Docker · GitHub Actions**
+Vyneros turns basketball video into tracked players, ball trajectories, court
+positions and reviewable shot proposals. A browser studio connects predictions
+to their source frames, so an analyst can move from a team map to a player's
+attempts and inspect the evidence behind the numbers.
 
-[Try the viewer](#try-the-viewer) · [Architecture](#architecture) · [Results](#results) · [Model lifecycle](#model-lifecycle) · [Run inference](#run-inference)
+Built by [Erwan Mouras](https://github.com/ErwanMouras) as a **Machine Learning /
+Computer Vision engineering portfolio**, the project covers annotation, model
+experiments, reproducible inference, release controls and an interactive review tool.
 
-## See it in action
+**Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow · DVC · Docker · GitHub Actions**
 
-![Current viewer: playback, player statistics and team heatmaps on the synthetic scripted sample](imagesReadMe/viewer-2026-10-27-tour.gif)
+[Demo](#see-the-system-in-action) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Try it](#try-the-viewer) · [Roadmap](#where-i-would-take-it-next)
 
-**Interface walkthrough — synthetic, scripted sample.** This preview shows the
-current viewer, not learned-model predictions. Try the same interface locally
-with the commands below.
+## The project at a glance
 
-1. **Inspect an action.** Explore the video with independent player, referee,
-   ball and court layers. A shot proposal opens a paused review before its
-   estimated release; its source time, frame and status stay visible.
-2. **Read the player context.** Open a player profile without losing the roster
-   or playback position. Distance, measured duration and coverage describe only
-   valid observed intervals.
-3. **Compare spatial views.** Team presence and shot-origin maps sit side by
-   side. Offense/defense controls below presence leave the whole-clip shot map
-   unchanged. Filled and hollow markers distinguish probable shots and candidates.
+- **Measured model selection:** 12 ball checkpoints compared on a common causal
+  protocol; **0.9451 localization F1** and **71% lower median adapter latency**
+  for selected YOLO26L versus selected V5+TOTNet on the same validation targets.
+- **Native CUDA analysis:** NVDEC decoding through geometry, tracking, identity
+  votes and statistics, with graph capture, fused kernels and a runtime guard
+  against CPU tensor arithmetic.
+- **An exercised release lifecycle:** versioned data, MLflow provenance,
+  quality-gated promotion, rejected regression and audited rollback, with
+  inspectable decisions and regression checks.
 
-The real-inference presentation is prepared as a **36-second storyboard** with
-reviewed source moments, captions and an interview walkthrough in the
-[demo kit](docs/demo/README.md). Its local media are kept outside Git with the
-development footage; a public match-video link has not been published yet.
-Analyses are computed before playback: a smooth viewer is not a real-time
-inference benchmark.
+The reported scores measure development-validation performance; independent-match
+accuracy remains a separate milestone.
 
-| Focused example | What to inspect | Evidence |
+## See the system in action
+
+A broadcast camera moves, cuts away and loses players behind one another.
+Vyneros makes those conditions inspectable: overlays follow the presented frame,
+court maps normalize attacking direction, and player measurements retain the
+intervals that actually support them.
+
+1. **Inspect the play.** Switch player/referee boxes, masks, pose and court layers
+   independently, then step through the source video frame by frame.
+2. **Open a player's attempts.** Jump from the player profile into a bounded shot
+   review, keep synchronized overlays, and optionally include candidates.
+3. **Compare the teams.** Read presence and shot-origin maps side by side, with
+   attacking/defending filters and explicit reasons for missing positions.
+
+> **Spurs–Kings walkthrough — capture pending.** A 30–40 s, captioned MP4 will
+> show the completed real inference: annotated play → player shot review → team
+> maps → run provenance. A silent 6–8 s GIF will provide the inline GitHub preview.
+> Both will be captured after the run completes and its outputs pass review;
+> playback speed will be distinguished from inference speed.
+
+> **Two supporting visuals planned.** A wide PNG will pair an annotated source
+> frame with its projected court. A second PNG will show player coverage and team
+> maps with readable labels. Moments will be selected from the completed run;
+> missing identities or unavailable maps will remain visible when relevant.
+
+The [media brief](docs/demo/spurs-kings-media-brief.md) specifies formats,
+storyboard, captions and selection criteria. Existing
+[reviewed examples](docs/demo/evidence.md) document evidence available before this capture.
+
+## Measured results
+
+### A common task made the ball models comparable
+
+TrackNet heatmaps and YOLO boxes cannot be ranked by their training metrics alone.
+I evaluated both as **one ball position in source-image coordinates**, on the same
+**2,627 causal targets from two validation matches**. The protocol fixed decoder
+thresholds, checkpoint policy, 15-pixel tolerance and timing conditions before evaluation.
+
+| Configuration | Localization F1 | Error median / P95, source px | Adapter median / P95 |
+| --- | ---: | ---: | ---: |
+| **YOLO26L — selected** | **0.9451** | **3.24 / 8.14** | **5.19 / 5.92 ms** |
+| V5 + TOTNet | 0.9219 | 4.37 / 188.86 | 18.14 / 18.65 ms |
+| TrackNet V5 | 0.8148 | 4.45 / 903.85 | 18.18 / 18.60 ms |
+| TrackNet V3 | 0.8572 | 3.60 / 10.42 | 83.68 / 85.72 ms |
+
+Measured on an RTX 5080, FP32, batch 1, 512 × 288 input. Adapter latency excludes
+loading, disk access and other pipeline stages. YOLO uses one frame, V5 three
+and V3 eight; temporal models contribute only their final head. Common targets
+have enough context for every model. The cohort covers visible balls; absent-ball
+false alarms and occlusion robustness need separate evaluation.
+
+**Decision:** integrate the selected YOLO26L checkpoint into the reviewed studio
+profile. Its single-frame context also avoids temporal startup gaps after camera
+cuts. The historical default recipe retains V5; the
+[studio recipe](configs/segmentation/studio-sam-yolo26l-ball.yaml) pins YOLO26L by
+SHA-256. [All 12 checkpoints, per-match results and protocol](reports/ball-comparison-2026-10-25/README.md).
+
+### Detection and segmentation were selected for the task
+
+On **401 verified validation images**, E-BARD YOLOv8n reached **0.7318 player
+AP@50:95**, versus **0.5154** for the evaluated COCO YOLO26 Nano configuration.
+Median adapter latency was **4.46 vs 8.15 ms** under the recorded protocol.
+E-BARD supplies explicit player/referee roles used throughout the pipeline.
+These are existing pretrained checkpoints; this comparison did not train either
+model. [Evaluation and release evidence](reports/POC_DELIVERY_2026-10-18.md).
+
+I also compared **detector boxes → SAM 2.1** with direct YOLO26 L/X segmentation.
+SAM preserves the detector's boxes and roles, at a higher processing cost. Direct
+segmentation offers another speed/quality tradeoff, but its generic person class
+also includes people near the court. Segmentation stays configurable; mask and
+OCR accuracy need their own reviewed labels.
+[Segmentation study](reports/segmentation-comparison-2026-10-25/README.md).
+
+### Error analysis changed the system
+
+A plausible ball flight can be assigned to the wrong nearby hand. Reviewing a
+GSW–DEN event exposed a shot attributed to a defender. I added a context check
+that removes a shooter when court direction or a confirmed opposing settled
+attack contradicts the assignment. Across that development run, **14 unsupported
+attributions were removed while all 223 event proposals remained reviewable**.
+
+The same investigation led to foreground-only jersey color sampling and
+mask-aware crop overlap checks. This is the feedback loop behind the viewer:
+inspect a failure, identify its cause, update the rule, and protect the behavior
+with regression tests. [Cases, counts and limitations](reports/segmentation-shot-context-2026-10-28/README.md).
+
+## Engineering decisions
+
+| Problem | Decision and rationale | Evidence |
 | --- | --- | --- |
-| Shot review · 16.80 s | A probable attempt, frame 504; one click reviews from 16.20 s | [Reviewed source moments](docs/demo/storyboard.md#moments-source-retenus) |
-| Uncertainty · 47.57 s | A candidate remains explicitly marked for review | [Shot review and limitations](reports/shots-2026-10-26/README.md) |
-| Identity · 37.50 s | A probable event can remain without a named shooter | [Evidence and claim scope](docs/demo/evidence.md) |
+| Different model families expose incompatible scores | Normalize the output task, freeze evaluation settings and report context coverage alongside quality. | [Ball evaluation](training/ball/EVALUATION.md) |
+| Camera motion makes pixel displacement misleading | Estimate court homographies, use observed foot positions and break measurement across cuts, gaps or invalid calibration. | [Court](training/court/README.md) · [Distance logic](pipeline/distance.py) |
+| A jersey number may belong to both teams | Combine repeated OCR with roster and uniform evidence; keep conflicting identities unresolved and reject simultaneous collisions. | [Identity resolution](pipeline/identity.py) |
+| GPU models leave substantial work on the host | Implement native CUDA decoding, preprocessing, geometry, tracking and aggregation, with graph capture and Triton kernels where applicable. | [CUDA source](pipeline/cuda/) · [Parity and resume tests](pipeline/tests/test_cuda_optimizations.py) |
+| A polished overlay can hide a data error | Synchronize with presented timestamps, verify artifact hashes and expose uncertain events, excluded intervals and coverage. | [Viewer](viewer/README.md) · [Contracts](pipeline/contracts.py) |
+
+**My engineering contribution:** annotation/export tools, experiment and evaluation
+workflows, model adapters, identity and spatial logic, CUDA execution, artifact
+contracts, release tooling, tests and the browser studio. Reused neural
+foundations are credited below; ball training campaigns are documented in the
+[comparison report](reports/ball-comparison-2026-10-25/README.md).
+
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph Development[Data and model development]
+        A[Video and reviewed annotations] --> B[DVC references and verified exports]
+        B --> C[Training and experiments / MLflow]
+        C --> D[Common evaluation and quality gates]
+        D --> E[Versioned people-model registry]
+    end
+    subgraph Analysis[Batch video analysis]
+        F[Video and optional roster] --> G[People / ball / pose / court / masks / OCR]
+        E --> G
+        H[Local pinned checkpoints] --> G
+        G --> I[Role-aware tracking and identity resolution]
+        I --> J[Court positions and valid movement intervals]
+        J --> K[Observations / statistics / provenance / health]
+        K --> L[Browser studio: playback, shot review and maps]
+    end
+```
+
+Two execution paths share the analysis purpose. The **hybrid backend** supports
+the existing adapters and records device fallback. The **native CUDA backend**
+uses NVDEC and CUDA computation through final statistics, with CPU tensor
+arithmetic rejected at runtime. It currently requires the supported YOLO,
+SAM box-prompt and explicit-roster configuration on one CUDA device.
+
+The native path includes a CUDA execution implementation of the pinned RTMPose
+ONNX graph, CUDA streams, captured model calls and fused numerical kernels.
+Progress covers postprocessing and integrity checks as well as video inference.
+Resume retains complete camera segments and replays the final segment to
+reconstruct state. [Execution policies, setup and resume](pipeline/README.md).
+
+## From experiment to controlled release
+
+The people-model lifecycle has been exercised end to end:
+
+**Evaluate → register → promote → reject a regression → roll back → reload and predict.**
+
+The [accepted](reports/poc-2026-10-18/accepted.json) and
+[rejected](reports/poc-2026-10-18/rejected.json) decisions record the compared
+checkpoints and checks. Promotion requires compatible completed evaluations;
+the [policy](configs/quality_gates.yaml) checks reviewed-image support, AP/recall
+regression and P95 adapter latency. Alias changes record the expected previous
+version and a reason. The rollback exercise reloaded the restored model and ran
+inference. [Recorded lifecycle](reports/POC_DELIVERY_2026-10-18.md).
+
+- **Data lineage:** DVC references for private inputs, match-aware split checks,
+  verified YOLO/COCO exports and source hashes.
+- **Experiment lineage:** MLflow parameters, metrics, configurations and
+  checkpoint provenance; evaluation reports identify their data and protocol.
+- **Portable execution:** separate pinned CPU/CUDA environments, verified local
+  model bundles and containerized CPU inference exercised without network access.
+- **Inspectable outputs:** each run links source, configuration, model/code
+  fingerprints, timings and artifact hashes. Health reports check integrity and
+  describe availability; they complement accuracy evaluation.
+
+| Artifact | What it lets a reviewer inspect |
+| --- | --- |
+| `run.json` | Which video, models, configuration and code produced the run |
+| `observations.jsonl` | Frame-level detections, pose, masks, calibration and identity evidence |
+| `tracks.jsonl` | Movement contributions and reasons for excluded intervals |
+| `statistics.json` | Observed distance, measured duration and coverage per subject |
+| `health.json` | Integrity checks, capability availability and diagnostics |
+
+The [release guide](docs/EVALUATION_AND_RELEASE.md) covers reproduction,
+quality gates, registry operations and rollback.
+
+## Validation that reaches the interface
+
+Validation snapshot: [PR #9](https://github.com/ErwanMouras/basket-ai-analysis/pull/9),
+**28 October 2026**.
+
+| Check | Recorded outcome |
+| --- | --- |
+| Python regression suites in CUDA environment | **565 passed, 28 optional tests skipped**; all 141 pipeline tests passed |
+| Same suites in CPU environment | **514 passed, 79 skipped**, including CUDA-only tests |
+| JavaScript | **31 unit tests passed**, plus syntax checks |
+| Chromium | **Seven suites passed**: navigation, maps, scoreboard, shots, player review, team shots and team heatmaps |
+| Native CUDA integration | 30 real-video frames completed with all six capabilities; source timestamp/ID/hash checks passed, zero CPU tensor calculations or fallback events; recomputed statistics matched |
+| Model implementation parity | Native RTMPose matched the pinned ONNX reference; maximum observed absolute output error below **3 × 10⁻⁶** on the checked input |
+| Packaging and CI | Viewer Docker build, imports, assets, sample API/video playback and GitHub CPU/browser checks passed |
+
+Browser suites include responsive layouts, keyboard use, accessibility,
+localization and delayed-response handling. The offline runner disables real
+training integrations. CUDA integration and parity checks establish execution
+correctness on the checked cases; full-match accuracy needs reviewed labels.
 
 ## Try the viewer
 
-Explore the interface with Docker, without a GPU or model downloads:
+Docker is enough to explore the included **synthetic, scripted sample**.
+It requires no GPU, private dataset or model download.
 
 ```bash
 git clone https://github.com/ErwanMouras/basket-ai-analysis.git
@@ -53,344 +234,149 @@ cd basket-ai-analysis
 docker compose up --build -d viewer
 ```
 
-Open **http://127.0.0.1:8766**, play the sample, toggle layers and select a player.
-Stop with `docker compose down`.
-
-**The included sample is synthetic and scripted.** It exercises playback,
-overlays, player statistics, player/team heatmaps and unavailable calibration. It contains no learned
-predictions or NBA footage. See the [sample description](examples/demo/README.md).
+Open **http://127.0.0.1:8766**. Stop with `docker compose down`.
+The sample demonstrates the interface and missing-data states; it contains no
+learned predictions or NBA footage. [Sample contents](examples/demo/README.md).
 
 <details>
-<summary>Preview of the included interface sample</summary>
+<summary>Existing synthetic interface preview</summary>
 
-![Current playback view with the synthetic, scripted sample](imagesReadMe/viewer-2026-10-27-playback.png)
+![Synthetic scripted sample showing playback and overlay controls](imagesReadMe/viewer-2026-10-27-playback.png)
 
-![Player profile beside the roster, using the synthetic sample](imagesReadMe/viewer-2026-10-27-player.png)
-
-![Aligned team presence and shot-map panels using the synthetic sample](imagesReadMe/viewer-2026-10-27-team.png)
-
-Basketball-inspired viewer with FR/EN controls, category overlays, player summaries
-and half-court presence and zones views for players or teams, plus
-a direct comparison of the two teams. Estimated settled offensive or defensive
-passages share a common basket direction. Transitions are excluded from the maps;
-the full clip remains available for video review. Shot-attempt proposals appear
-in the timeline with probable/review categories and paused review actions.
-Team shot-origin maps include both categories; player attempt counts retain only
-probable events. The scripted sample has no detected shot events; its shot-map
-panel demonstrates the unavailable state.
-Made/missed outcomes are not inferred.
-The public sample is synthetic and scripted; it is not evidence of model accuracy.
+This existing image shows the portable sample. The planned Spurs–Kings media
+will show the completed real-inference run.
 
 </details>
 
-For an existing Python environment, `make demo-native` serves the same sample.
-See the [viewer guide](viewer/README.md) for controls and custom run folders.
+<details>
+<summary>Analyze your own footage and run the checks</summary>
 
-## Architecture
+Inference requires compatible local checkpoints and input footage. The
+[pipeline guide](pipeline/README.md) documents model installation, CPU/CUDA
+environments and configuration. Missing weights are installed explicitly before
+analysis. For the SAM + YOLO26L studio recipe, the selected ball checkpoint must
+match the configured SHA-256.
 
-```mermaid
-flowchart LR
-    subgraph Development[Data and model development]
-        D[Videos and reviewed annotations] --> E[Versioned exports and training]
-        E --> X[MLflow experiments and evaluation]
-        X --> Q[Quality gates]
-        Q --> R[People model registry]
-    end
-    subgraph Analysis[Batch video analysis]
-        V[Video and optional roster] --> P[People, ball, court, pose and OCR]
-        R -->|Explicit model version| P
-        W[Local model checkpoints] --> P
-        P --> T[Tracking and identity resolution]
-        T --> M[Court projection and valid movement intervals]
-        M --> A[Run artifacts and health report]
-        A --> U[Browser viewer]
-    end
+With those assets installed:
+
+```bash
+make analyze-video VIDEO=/path/to/clip.mp4 OUTPUT=runs/analysis/example \
+  ANALYSIS_CONFIG=configs/segmentation/studio-sam-yolo26l-ball.yaml \
+  ROSTER=/path/to/roster.json
+make view-analysis
 ```
 
-Perception combines people detection, TrackNet or YOLO ball localization, RTMPose-M,
-court landmarks and PARSeq OCR. Tracking is separated by role; identity uses
-jersey numbers, roster and color evidence. Movement statistics preserve coverage
-and the reasons intervals were excluded.
+Open **http://127.0.0.1:8765**. Use a new output directory for each analysis.
+The hybrid backend accepts analysis without `ROSTER`; native CUDA requires one.
+The [pipeline guide](pipeline/README.md) also describes the native backend's
+additional dependencies and execution-policy configuration.
 
-Local-checkpoint inference needs no MLflow server. Registry loading is optional
-for people models. The integrated ball adapters support V5/V5+TOTNet and the
-fine-tuned YOLO26 ball checkpoints; V3 integration remains to be implemented.
-Optional people segmentation supports detector boxes prompted into SAM 2.1 or
-direct YOLO26 L/X instances. The standard profile keeps bbox detection.
-
-## Results
-
-### Recorded detector comparison
-
-Two existing checkpoints were evaluated on the same **401 verified validation
-images** on 18 October 2026: resolution 640, FP32, batch 1, RTX 5080, five warmup
-calls and three timing repeats.
-
-| Configuration | Player AP@50:95 | Referee AP@50:95 | Adapter latency, median / P95 |
-| --- | ---: | ---: | ---: |
-| COCO YOLO26 Nano + E-BARD referees | 0.5154 | 0.6377 | 8.15 / 9.27 ms |
-| E-BARD YOLOv8n | 0.7318 | 0.6377 | 4.46 / 5.08 ms |
-
-These images cover roughly the first 6–7 seconds of two validation clips and are
-strongly correlated in time. Both systems use the same referee weights. The
-comparison supports a local selection decision; generalization to independent
-matches remains to be measured. Adapter latency excludes the rest of the video
-pipeline. [Protocol and recorded evidence](reports/POC_DELIVERY_2026-10-18.md).
-
-### Ball experiments and release selection
-
-**TrackNet V5, V5+TOTNet, V3 and YOLO26 S/M/L** were re-evaluated from their
-MLflow checkpoints using a common localization task. The comparison covers
-**12 saved checkpoints**, including the earlier two-epoch V5 baseline.
-
-**Before comparing:**
-
-1. Verify split identities, data versions and matching input pixels. A shared
-   dataset ID alone does not prove that format-specific exports are equivalent.
-2. Define the same output and scoring rule. Box AP and heatmap training F1
-   measure different things; here every model supplies one source-image point.
-3. Control temporal information and support. Use only past/current frames and
-   score the same targets, then report each model's context coverage separately.
-4. Freeze checkpoints, decoder thresholds, tolerance and timing conditions
-   before inference. Keep unknown positions out of absent-ball negatives.
-5. Select on validation, then confirm on untouched matches. Reusing validation
-   for training and checkpoint choice cannot provide an independent test score.
-
-The protocol was committed before evaluation: **2,627 common frames from two
-validation matches**, 512 × 288, causal last head, **15 source-pixel tolerance**,
-FP32, batch 1, RTX 5080. YOLO confidence is 0.25; the heatmap threshold is 0.5.
-These are fixed decoder settings, not calibrated probabilities across families.
-YOLO uses one frame, V5 three and V3 eight; temporal models score only their last head.
-
-| Model | Localization F1 | Error median / P95 (source px) | Context coverage | Adapter median / P95 (ms) |
-| --- | ---: | ---: | ---: | ---: |
-| YOLO26L | 0.9451 | 3.24 / 8.14 | 100.00% | 5.19 / 5.92 |
-| V5 + TOTNet | 0.9219 | 4.37 / 188.86 | 96.86% | 18.14 / 18.65 |
-| YOLO26M | 0.9211 | 3.18 / 9.64 | 100.00% | 4.06 / 4.79 |
-| YOLO26S | 0.9109 | 3.24 / 173.46 | 100.00% | 3.89 / 4.50 |
-| TrackNet V3 | 0.8572 | 3.60 / 10.42 | 89.69% | 83.68 / 85.72 |
-| TrackNet V5 | 0.8148 | 4.45 / 903.85 | 96.86% | 18.18 / 18.60 |
-| V5 (2 epochs, historical) | 0.7528 | 4.71 / 783.07 | 96.86% | 17.90 / 18.51 |
-
-Each row selects its best archived checkpoint on validation. Errors describe
-returned positions; the full report preserves recall, displaced predictions and all
-12 checkpoint outcomes. Latency includes preprocessing and model inference from
-decoded RGB windows, excluding disk access, loading and other pipeline stages.
-
-**Development candidate: YOLO26L `best_f1.pt` (epoch 30)** — F1 **0.9451**,
-versus **0.9219** for V5+TOTNet, with about **71% lower adapter latency**.
-Its single-frame ball adapter is integrated and has run on raw HOU–LAL footage
-alongside E-BARD + SAM, pose, court and OCR. The dedicated
-[studio profile](configs/segmentation/studio-sam-yolo26l-ball.yaml) pins the selected
-checkpoint SHA-256. The standard video recipe still uses the historical V5 checkpoint.
-
-![Ball localization quality versus adapter latency](reports/ball-comparison-2026-10-25/quality-latency.png)
-
-**Scope:** validation selection on visible-ball annotations. Independent matches,
-reviewed camera cuts, absent-ball negatives and localizable occlusions remain
-unmeasured. Context coverage refers to the exported frames; raw-video inference
-may have additional usable context. Training initialization and augmentation also
-differ, so the ranking compares complete configurations at the stated settings.
-
-[Protocol, all checkpoints, per-match results and limitations](reports/ball-comparison-2026-10-25/README.md)
-· [Reproduce the comparison](training/ball/EVALUATION.md)
-
-### Segmentation comparison and reviewed studio
-
-Two opt-in strategies were compared on **626 verified train/validation images**
-with **5,844 player boxes**, without segmentation fine-tuning: E-BARD bbox →
-SAM 2.1 Tiny (players and referees), or direct YOLO26 L/X segmentation (referees
-stay in detection only).
-
-| Configuration | Player precision / recall, IoU .50 | Bbox AP@50:95, validation | Perception median (ms) |
-| --- | ---: | ---: | ---: |
-| E-BARD baseline | 91.21% / 95.29% | 0.7296 | 3.75 |
-| E-BARD → SAM | 91.21% / 95.29% | 0.7296 | 50.53 |
-| YOLO26 L segmentation | 70.93% / 90.02% | 0.7325 | 19.95 |
-| YOLO26 X segmentation | 86.13% / 87.25% | 0.7617 | 28.68 |
-
-Precision/recall use all 626 images at score .25; AP uses the 401 validation
-images. Timings measure perception only, on an RTX 5080, FP32, batch 1, YOLO at
-640 and SAM at 1024. SAM preserves detector boxes, scores and roles. Direct COCO
-person segmentation includes extra people near the court. Masked OCR showed no
-demonstrated accuracy gain; mask quality still requires reviewed mask labels.
-[Protocol, per-split results, OCR and limitations](reports/segmentation-comparison-2026-10-25/README.md).
-
-The complete **E-BARD + SAM / fine-tuned YOLO26L ball** profile processed all
-**1,842 decoded HOU–LAL frames**, with all six capabilities available and no stage
-errors: **318.49 s processing**, **320.94 s total**, **5.78 frames/s**. The container
-declares 1,843 frames; decoding and source PTS checks both found 1,842. This is a
-development clip and a specific profile, not an independent accuracy benchmark.
-
-The studio offers **bbox, segmentation, both or hidden per category**, with
-independent pose and label controls for players and referees. Masks follow the
-presented video frame, including paused seeking and frame stepping. The
-[display audit](reports/segmentation-display-audit-2026-10-25/README.md) documents
-the corrected one-frame offset, pixel-exact RLE checks and remaining mask limits.
-
-**Review accepted by Erwan on 26 October 2026:** visual playback, segmentation
-display and category controls approved for integration. This confirms the reviewed
-functionality; the comparison does not establish a segmentation/OCR accuracy gain
-or promote a segmentation profile to the default.
-
-### Full-pipeline validation to complete
-
-| Release measurement | Status |
-| --- | --- |
-| Selected model quality on independent matches | Pending held-out clips and frozen evaluation |
-| Tracking IDF1, identity precision and coverage | Evaluator implemented; reviewed trajectory annotations pending |
-| Ground-position and observed-distance error | Evaluator implemented; independent reference measurements pending |
-| Processing time for the 30-second demo | Pending final recipe, with loading and processing reported separately |
-
-A historical full-pipeline run reached approximately **20 frames/s on an RTX
-5080**. The final recipe still needs benchmarking; 30 FPS has not been
-demonstrated. [Benchmark scope](pipeline/VALIDATION.md).
-
-## Model lifecycle
-
-An executed people-model release exercise covers **evaluation → registration →
-quality-gated promotion → rejected promotion → audited rollback**. The restored
-model was reloaded and used for inference.
-
-[Acceptance decision](reports/poc-2026-10-18/accepted.json) · [Rejected decision](reports/poc-2026-10-18/rejected.json) · [Lifecycle evidence](reports/POC_DELIVERY_2026-10-18.md)
-
-| Concern | Implementation |
-| --- | --- |
-| Data traceability | DVC references, paired YOLO/COCO exports, source hashes and split checks |
-| Experiment tracking | MLflow parameters, metrics, configurations and checkpoint provenance |
-| Model selection | Compatible completed evaluations required; configurable AP, recall and P95 latency gates |
-| Deployment | Pinned dependency locks, model bundles with checksums and Docker CPU inference |
-| Run diagnostics | `health.json` records integrity, availability, exclusions, timings and resources |
-| Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
-
-Validation of [PR #8](https://github.com/ErwanMouras/basket-ai-analysis/pull/8) on
-**27 October 2026**: **472 Python tests passed**, 28 optional tests
-skipped, plus **30 JavaScript regression tests**, syntax checking and six Chromium
-scenarios. GitHub CPU and browser checks passed. Real-training integrations are disabled.
-The pre-merge real-model check completed 30 source frames with all six capabilities
-available, no stage errors and 434 valid player/referee masks. Browser checks found
-no synchronization mismatch across 120 presented frames at 1×/2×, frame stepping,
-delayed annotations and the fallback without video presentation callbacks.
-The [CI workflow](.github/workflows/players.yml) runs the regression suites and
-builds the viewer container. Run checks in the configured players environment
-with a new output folder:
+In the configured players environment, run the offline suites with:
 
 ```bash
 make check-poc CHECK_OUTPUT=runs/checks/my-change
 ```
 
-Health reports describe availability and integrity; accuracy requires reviewed
-annotations. The [release guide](docs/EVALUATION_AND_RELEASE.md) documents
-quality policies, registry operations and rollback.
-
-See the [review and validation report](reports/PR_REVIEW_2026-10-25.md) for the fixes, browser checks and CPU container smoke test.
-
-## Run inference
-
-Inference requires input footage and explicitly installed checkpoints. The
-supplied profile uses CUDA; CPU setup is available below. See the
-[pipeline guide](pipeline/README.md) for model paths and configuration.
-
-<details>
-<summary>Set up the local CUDA environment and analyze a clip</summary>
+Run browser checks against the synthetic viewer after installing their dependencies:
 
 ```bash
-uv venv --python 3.12 .venv-players
-uv pip sync --python .venv-players/bin/python --torch-backend cu130 \
-  training/players/requirements-cu130.lock
-make setup-analysis
-make setup-court
-make setup-players-pose
-make setup-jersey
+npm --prefix viewer ci
+node viewer/node_modules/playwright/cli.js install chromium
+npm --prefix viewer run test:browser
 ```
 
-Install the pinned TrackNet reference and a compatible ball checkpoint, then
-set `ball.weights` in `configs/analysis.yaml`. These assets are required in
-addition to the setup commands above; inference does not download missing weights.
-
-```bash
-make analyze-video VIDEO=/path/to/clip.mp4 OUTPUT=runs/analysis/example
-# Add ROSTER=/path/to/jersey.json for roster-based identities.
-make view-analysis
-```
-
-Open **http://127.0.0.1:8765**. Each analysis needs a new output directory.
-For the reviewed SAM + YOLO26L ball configuration, install the segmentation
-checkpoints with `.venv-players/bin/python -m training.segmentation.setup`, then
-pass `ANALYSIS_CONFIG=configs/segmentation/studio-sam-yolo26l-ball.yaml` to
-`make analyze-video`. Its ball checkpoint must already exist locally at
-`ball.weights` with the pinned SHA-256; see the [segmentation guide](training/segmentation/README.md).
-For CPU setup, use `requirements-cpu.lock` with `--torch-backend cpu` and set each
-model's device to `cpu` in the analysis configuration.
+The sample viewer must be running on port 8766. The
+[CI workflow](.github/workflows/players.yml) provides the complete validation setup.
+Container inference and model-bundle commands are in the
+[release guide](docs/EVALUATION_AND_RELEASE.md).
 
 </details>
 
-<details>
-<summary>Bundle installed models and run CPU inference in Docker</summary>
+## Current scope and evaluation priorities
 
-```bash
-make bundle-models
-make verify-model-bundle
-make runtime-image
-make infer-container VIDEO=/path/to/clip.mp4 \
-  OUTPUT=release/inference-example MAX_FRAMES=150
-```
+Vyneros is a batch-analysis POC: the viewer plays completed analyses, with runtime
+reported separately from playback. Model latency, full-pipeline throughput and
+output accuracy are distinct measurements.
 
-Bundle creation needs installed local models and a new bundle directory. The
-container runs without network access, using read-only model and input mounts.
-The recorded CPU smoke test exercised all six capabilities on a few frames;
-representative CPU throughput remains to be benchmarked.
+The recorded people-data inventory contains **six training clips / 225 verified
+images** and **two validation clips / 401 verified images**. Those validation
+images are temporally correlated. The ball comparison uses its separately
+documented cohort. Private footage and annotations are managed outside Git;
+the public sample is synthetic.
 
-</details>
+Identity coverage, tracking continuity and geometry accuracy remain the key
+evaluation priorities. Distances describe valid observed intervals; off-screen
+movement is unmeasured. Ball positions remain in image coordinates. Shot events
+are probable/candidate proposals, with made/missed outcomes left unassigned.
+The [gold evaluator](mlops/gold.py) supports tracking, identity and geometric
+checks; independent reviewed annotations are still needed to publish those scores.
 
-Completed runs produce inspectable, versioned artifacts:
+## Explore the implementation
 
-| Output | Contents |
+| Area | Start here |
 | --- | --- |
-| `run.json` | Source, configuration, model/code provenance, timings and artifact hashes |
-| `observations.jsonl` | Frame-level detections, tracks, pose, ball, court and identity evidence |
-| `tracks.jsonl` | Movement contributions and reasons for excluded intervals |
-| `statistics.json` | Player summaries, observed distance, measured duration and coverage |
-| `health.json` | Output integrity and runtime diagnostics |
+| Pipeline, native CUDA and output contracts | [Pipeline guide](pipeline/README.md) · [CUDA source](pipeline/cuda/) |
+| Training, annotation and model evaluation | [People](training/players/README.md) · [Training](training/players/TRAINING.md) · [Ball evaluation](training/ball/EVALUATION.md) |
+| Geometry, masks and identity | [Court](training/court/README.md) · [Segmentation](training/segmentation/README.md) · [Jersey OCR](training/jersey/README.md) |
+| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Release guide](docs/EVALUATION_AND_RELEASE.md) |
+| Product behavior and presentation | [Viewer](viewer/README.md) · [Media brief](docs/demo/spurs-kings-media-brief.md) |
 
-## Data and measurement scope
+## Author and foundations
 
-The current inventory contains **six train clips / 225 verified people-annotation
-images** and **two validation clips / 401 verified images**. Independent test
-clips are pending. Raw footage and annotations remain private; the synthetic
-sample is included. See [data management](docs/DATA.md).
+**[Erwan Mouras](https://github.com/ErwanMouras)** — project design, ML/CV
+integration and MLOps engineering. For a technical discussion, the model
+comparison, native CUDA path and release lifecycle are three useful starting points.
 
-Distances cover valid observed intervals. Camera cuts, missing calibration,
-tracking gaps and identity conflicts interrupt measurement; off-screen movement
-is unobserved. Full-match distance accuracy is unverified. Court projection
-applies to people; ball positions remain in image coordinates.
+Vyneros builds on Ultralytics YOLO, the E-BARD player/referee checkpoint,
+TrackNet/TOTNet, SAM 2.1, RTMPose and PARSeq. Model sources, pinned weights and
+provenance are documented in their module guides. The vendored PARSeq subset
+includes its [license](training/jersey/vendor/parseq/LICENSE) and
+[notices](training/jersey/vendor/parseq/NOTICE). Third-party code, weights and
+footage retain their respective terms. A project-wide source license has not
+yet been designated.
 
-## Next release
+## Where I would take it next
 
-The [implementation plan](docs/ROADMAP.md) tracks the remaining work and completion criteria.
+### Near-term improvements — small scope, immediate value
 
-- [x] Compare ball checkpoints using a common causal evaluation; select YOLO26L for integration.
-- [x] Integrate the selected ball checkpoint into the video pipeline and validate on raw footage.
-- [x] Compare segmentation strategies and review category-specific studio overlays.
-- [ ] Publish the 30-second real-inference demo and reviewed examples.
-- [ ] Add independent test clips and report tracking, identity and geometry quality.
-- [ ] Publish a consistent source/data release and verify remote CI.
-- [ ] Confirm the project source license and distribution terms for demo assets.
+- **Publish the real-run visual story.** Complete the Spurs–Kings review, select
+  representative moments and attach the captioned walkthrough, stills and exact
+  configuration. Success: the main result is understandable without installation.
+- **Make the preferred inference recipe portable.** Add a checked-in native CUDA
+  configuration template and model-asset checklist, then verify them from a clean
+  checkout. Success: configuration and missing-asset errors are actionable.
+- **Consolidate the performance report.** Separate loading, perception, identity
+  processing, statistics and health checks for the completed native run. Success:
+  speed claims identify their workload, hardware and measurement boundary.
+- **Package a coherent portfolio release.** Refresh older scope/roadmap documents,
+  designate the source license and publish a tagged source release with its
+  validation evidence and asset terms.
 
-## Documentation and credits
+### Core reliability — high impact, substantial engineering
 
-| Topic | Guide |
-| --- | --- |
-| Pipeline, configuration and output contracts | [Pipeline](pipeline/README.md) |
-| Training and evaluating people detectors | [Training](training/players/TRAINING.md) · [Evaluation](training/players/EVALUATION.md) |
-| Ball evaluation and temporal policies | [Ball evaluation](training/ball/EVALUATION.md) |
-| Segmentation strategies, masks and OCR | [Segmentation](training/segmentation/README.md) · [Comparison](reports/segmentation-comparison-2026-10-25/README.md) · [Display audit](reports/segmentation-display-audit-2026-10-25/README.md) |
-| Jersey recognition and court geometry | [Jersey OCR](training/jersey/README.md) · [Court calibration](training/court/README.md) |
-| Registry, release and reproducibility | [Model registry](training/players/PIPELINE.md) · [Evaluation and release](docs/EVALUATION_AND_RELEASE.md) |
-| Viewer controls | [Viewer](viewer/README.md) |
-| Demo, interview walkthrough and LinkedIn draft | [Presentation kit](docs/demo/README.md) |
+- **Build an independent evaluation set.** Review unseen matches, camera cuts,
+  absent-ball negatives and persistent player identities. Publish per-match
+  detection/localization, IDF1, identity precision/coverage and geometric error.
+- **Improve identity continuity through occlusion and cuts.** Combine tracklet
+  association, appearance and jersey evidence, measuring false associations as
+  carefully as coverage. Preserve the current collision and abstention safeguards.
+- **Validate geometry and movement estimates.** Use independent landmarks and
+  reference trajectories, quantify uncertainty and measure distance error only
+  where the reference supports it.
+- **Evaluate shot and phase inference separately.** Annotate releases, shooters
+  and settled-play intervals, then measure event timing, false alarms and
+  attribution before expanding the statistics.
+- **Optimize complete CUDA workloads.** Benchmark repeated runs across resolutions
+  and clip lengths, profile synchronization/memory costs and verify numerical
+  behavior when changing kernels or model execution.
 
-Model sources and checkpoint provenance are documented in the module guides.
-The vendored PARSeq subset includes its [license](training/jersey/vendor/parseq/LICENSE)
-and [notices](training/jersey/vendor/parseq/NOTICE). Third-party code, weights and
-footage retain their respective terms. **Project source license: to be selected.**
+### Longer-term exploration — broader product and research scope
+
+- **Cross-broadcast generalization:** additional scoreboards, arenas and camera
+  styles, followed by other court geometries and competitions.
+- **Richer game understanding:** evaluated possessions, passes, shot outcomes and
+  tactical sequences once tracking and event evidence support them.
+- **A hosted analysis workflow:** queued GPU jobs, access-controlled artifacts,
+  cost tracking and drift monitoring when there is a concrete deployment need.
+- **Streaming analysis:** bounded-latency processing and incremental review,
+  after offline quality and resource budgets are established.
