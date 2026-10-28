@@ -11,7 +11,7 @@ from training.common.files import write_json
 from training.common.provenance import file_hash
 
 
-def build_health(run):
+def build_health(run, *, progress=None):
     run = Path(run).resolve(strict=True)
     manifest = json.loads((run / "run.json").read_text())
     if manifest.get("status") not in ("completed", "partial"):
@@ -31,6 +31,8 @@ def build_health(run):
                 raise ValueError("Observations must have increasing frames and source times")
             previous_index, previous_time = row["frame_index"], row["timestamp_s"]
             counts["frames"] += 1
+            if progress and counts["frames"] % 300 == 0:
+                progress(counts["frames"])
             counts["included_frames"] += bool(row.get("included", True))
             counts["calibrated_frames"] += (row.get("court") or {}).get("image_to_court") is not None
             counts["cuts"] += bool(row.get("scene_cut"))

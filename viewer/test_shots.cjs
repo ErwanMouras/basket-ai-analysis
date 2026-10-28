@@ -146,7 +146,7 @@ print(json.dumps(p))
         const frame = await row.locator('.shot-frame').boundingBox();
         assert.ok(frame.y >= time.y + time.height, 'frame appears below the timestamp');
       }
-      const seek = await page.locator('.seek-wrap').boundingBox();
+      const seek = await page.locator('.timeline .seek-wrap').boundingBox();
       for (const marker of await page.locator('#timelineMarkers .shot').all()) {
         const point = await marker.boundingBox();
         assert.equal(point.width, 10, 'shot markers retain their size');

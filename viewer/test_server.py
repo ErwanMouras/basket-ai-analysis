@@ -12,6 +12,26 @@ from training.jersey.display import display_colors, person_display_color
 
 
 class ViewerTests(unittest.TestCase):
+    def test_normalized_playback_is_bound_to_the_original_source(self):
+        from training.common.provenance import file_hash
+        run = self.server.runs_root / 'match'
+        manifest = json.loads((run / 'run.json').read_text())
+        original = Path(manifest['source']['path'])
+        manifest['source']['sha256'] = file_hash(original)
+        (run / 'run.json').write_text(json.dumps(manifest))
+        normalized = original.with_name('normalized.mp4')
+        normalized.write_bytes(b'normalized-video')
+        sidecar = {'schema_version': 1, 'source_sha256': manifest['source']['sha256'],
+                   'video_path': str(normalized), 'video_sha256': file_hash(normalized),
+                   'timestamp_policy': 'source_pts', 'frames': 3}
+        (run / 'playback.json').write_text(json.dumps(sidecar))
+        self.assertEqual(self.server.playback_path(run, manifest), normalized)
+        self.assertEqual(original.read_bytes(), b'0123456789')
+        sidecar['source_sha256'] = 'other-source'
+        (run / 'playback.json').write_text(json.dumps(sidecar))
+        with self.assertRaises(ValueError):
+            self.server.playback_path(run, manifest)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
@@ -91,6 +111,21 @@ class ViewerTests(unittest.TestCase):
             self.get('/api/video?name=match', {'Range': 'bytes=100-'})
         self.assertEqual(exc.exception.code, 416)
 
+    def test_existing_run_palette_is_refreshed_when_brand_colors_are_too_similar(self):
+        run = self.server.runs_root / 'match'
+        roster = {'schema_version': 1, 'teams': [
+            {'team_id': 'home', 'name': 'Home', 'color': '#1D428A', 'players': []},
+            {'team_id': 'away', 'name': 'Away', 'color': '#0E2240', 'players': []}]}
+        (run / 'roster.json').write_text(json.dumps(roster))
+        manifest = json.loads((run / 'run.json').read_text())
+        manifest['display_colors'] = {'teams': {'home': '#1D428A', 'away': '#0E2240'},
+                                      'referee': '#FFBD78'}
+        (run / 'run.json').write_text(json.dumps(manifest))
+        _, _, body = self.get('/api/run?name=match')
+        self.assertEqual(json.loads(body)['run']['display_colors']['teams'],
+                         {'home': '#45C7F5', 'away': '#F279C8'})
+        self.assertEqual(json.loads((run / 'roster.json').read_text()), roster)
+
     def test_portable_relative_video_paths_stay_inside_video_root(self):
         path = self.server.runs_root / 'match' / 'run.json'
         manifest = json.loads(path.read_text())
@@ -139,6 +174,17 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual(person_display_color({'role': 'player', 'jersey': {'team_id': 'home'}}, palette), '#123456')
         self.assertEqual(person_display_color({'role': 'player', 'jersey': {'team_group': 'team_2'}}, palette), palette['groups']['team_2'])
         self.assertEqual(person_display_color({'role': 'referee'}, palette), '#FFBD78')
+
+    def test_similar_roster_colors_use_distinct_overlays_without_changing_uniforms(self):
+        roster = {'teams': [
+            {'team_id': 'gsw', 'color': '#1D428A', 'uniform_color': '#FFFFFF'},
+            {'team_id': 'den', 'color': '#0E2240', 'uniform_color': '#1D428A'}]}
+        snapshot = json.dumps(roster)
+        palette = display_colors(roster)
+        self.assertEqual(palette['teams'], {'gsw': '#45C7F5', 'den': '#F279C8'})
+        self.assertEqual(json.dumps(roster), snapshot)
+        self.assertEqual(display_colors(roster), palette)
+
 
     def test_conflicting_confirmed_numbers_are_not_promoted(self):
         source = Path(self.temp.name) / 'runs/match/observations.jsonl'

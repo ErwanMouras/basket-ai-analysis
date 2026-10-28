@@ -17,6 +17,8 @@ from pipeline.identity import replay_artifacts
 from pipeline.jersey_votes import build_track_votes
 from pipeline.runtime import Runtime
 from pipeline.video import Video
+from pipeline.progress import Progress
+from pipeline.execution_policy import enforce_execution_policy
 from training.common.files import write_json
 from training.common.provenance import file_hash
 from training.court.calibration import CourtCalibrator
@@ -27,6 +29,7 @@ from training.jersey.roster import Roster
 from training.jersey.display import display_colors, person_display_color
 from training.jersey.temporal import JerseyRecognizer
 from training.players.pose import PlayerPose
+from training.common.devices import DeviceFallback
 
 
 class Models:
@@ -43,7 +46,8 @@ class Models:
         self.clock = 0.0
         self.ball = None
         for device in {config[name]["device"] for name in ("people", "court", "pose", "jersey")}:
-            if device.startswith("cuda") and torch.cuda.is_available():
+            if (device.startswith("cuda") and torch.cuda.is_available()
+                    and int(device.split(":")[1]) < torch.cuda.device_count()):
                 torch.cuda.init()
                 torch.cuda.reset_peak_memory_stats(int(device.split(":")[1]))
         # Check all required files before constructing expensive models.
@@ -54,11 +58,14 @@ class Models:
                 continue
             if not c.get("enabled", True) or not c.get("weights") or not Path(c["weights"]).is_file():
                 raise ValueError(f"Required capability {name} has no enabled local checkpoint")
-        if config["segmentation"]["strategy"] == "disabled":
-            self.people = People(config["people"])
-        else:
+        def people_factory(device):
+            people_config = {**config["people"], "device": device}
+            if config["segmentation"]["strategy"] == "disabled":
+                return People(people_config)
             from training.segmentation.adapters import SegmentedPeople
-            self.people = SegmentedPeople(config["people"], config["segmentation"])
+            return SegmentedPeople(people_config, config["segmentation"])
+
+        self.people = DeviceFallback(people_factory, config["people"]["device"], config["device_fallback"])
         self.provenance["people"] = self.people.provenance
         self.capabilities["players"] = "ok" if "player" in self.people.roles.values() else "unavailable"
         self.capabilities["referees"] = "ok" if "referee" in self.people.roles.values() else "unavailable"
@@ -83,7 +90,9 @@ class Models:
             return value
 
         try:
-            self.court_points = initialize("court", lambda: CourtKeypoints(config["court"]))
+            self.court_points = initialize("court", lambda: DeviceFallback(
+                lambda device: CourtKeypoints({**config["court"], "device": device}),
+                config["court"]["device"], config["device_fallback"]))
             if self.court_points:
                 points = self.court_points
 
@@ -94,12 +103,16 @@ class Models:
                         return runtime.call("court", config["court"]["device"], points.predict, image).result()
 
                 self.court = CourtCalibrator(config["court"], fps=fps, model=GuardedPoints())
-            self.pose = initialize("pose", lambda: PlayerPose(config["pose"]))
+            self.pose = initialize("pose", lambda: DeviceFallback(
+                lambda device: PlayerPose({**config["pose"], "device": device}),
+                config["pose"]["device"], config["device_fallback"]))
             self.jersey = initialize("jersey", lambda: JerseyRecognizer(
                 config["jersey"], roster=roster,
                 reader=ParseqReader(config["jersey"], manage_threads=False), clock=lambda: self.clock))
-            self.ball = initialize("ball", lambda: (YoloBall if config["ball"]["adapter"] == "yolo" else Ball)(
-                config["ball"], config["cpu_threads"]))
+            self.ball = initialize("ball", lambda: DeviceFallback(
+                lambda device: (YoloBall if config["ball"]["adapter"] == "yolo" else Ball)(
+                    {**config["ball"], "device": device}, config["cpu_threads"]),
+                config["ball"]["device"], config["device_fallback"]))
             for name in config["required"]:
                 if self.capabilities[name] != "ok":
                     raise ValueError(f"Required capability unavailable: {name}")
@@ -131,8 +144,14 @@ def _next(iterator):
     return next(iterator, None)
 
 
-def analyze(video_path, output, config, roster_path=None, *, models_factory=Models):
+def analyze(video_path, output, config, roster_path=None, *, models_factory=Models, resume_from=None):
     """Run one video. Injected models are useful for deterministic integration tests."""
+    execution_policy = enforce_execution_policy(config, roster=roster_path is not None)
+    if config.get('backend') == 'native_cuda':
+        from pipeline.cuda.run import analyze as analyze_cuda
+        return analyze_cuda(video_path, output, config, roster_path, resume_from=resume_from)
+    if resume_from is not None:
+        raise ValueError("--resume-from requires backend=native_cuda")
     # An explicitly invalid roster fails before output creation or any model load.
     roster = Roster.load(roster_path) if roster_path is not None else None
     palette = display_colors(roster)
@@ -145,7 +164,8 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
     video = models = None
     manifest = {"schema_version": 1, "run_id": run_id, "status": "running",
                 "config": config, "roster_sha256": roster.sha256 if roster else None,
-                "warnings": [], "artifacts": {}, "display_colors": palette}
+                "warnings": [], "artifacts": {}, "display_colors": palette,
+                "execution_policy": execution_policy}
     root = Path(__file__).resolve().parents[1]
     manifest["code_sha256"] = {str(path.relative_to(root)): file_hash(path)
                                for folder in ("pipeline", "mlops", "training/players", "training/segmentation", "training/court", "training/jersey", "training/ball", "training/common")
@@ -154,16 +174,25 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
     if roster:
         write_json(output / "roster.json", roster.payload)
     frames_done = 0
+    progress = Progress(output, run_id, identity=roster is not None)
     try:
         video = Video(video_path, config["timestamp_policy"])
+        total_frames = min(video.source["declared_frames"], config["max_frames"]) if config["max_frames"] else video.source["declared_frames"]
+        progress.update("loading", total_frames=total_frames)
+        # Validate the requested statistics device before loading perception models.
+        metric = Distance(config["distance"], run_id)
         models = models_factory(config, video.fps, roster, runtime)
         loaded = time.perf_counter()
         manifest.update(source=video.source, capabilities=models.capabilities, models=models.provenance,
                         errors=models.errors, court_coordinate_system=court_metadata(),
                         ocr_scheduling="source_time_reproducible",
                         tracking_time_basis="nominal_fps_buffer_and_source_timestamps_for_metrics")
+        manifest["statistics_device"] = metric.device
+        manifest["execution_devices"] = {"distance_duration_coverage": metric.device,
+            "tracking": "cpu", "court_calibration": "cpu", "identity_votes": "cpu",
+            "spatial_handoffs": "cpu", "health": "cpu"}
         write_json(output / "run.json", manifest)
-        metric = Distance(config["distance"], run_id)
+        progress.update("perception", 0, total_frames)
         pending = deque()
         history = deque(maxlen=3)
         iterator = iter(video.frames(config["max_frames"]))
@@ -292,23 +321,36 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
                 frames_done += 1
                 previous_time = frame.timestamp
                 if frames_done == 1 or frames_done % 30 == 0:
-                    write_json(output / "progress.json", {"run_id": run_id, "status": "running", "frames": frames_done,
-                                                          "elapsed_s": time.perf_counter() - started})
+                    progress.update("perception", frames_done, total_frames, frames=frames_done)
+        perception_finished = time.perf_counter()
+        postprocessing_timings = {}
+
+        def postprocessing_progress(stage, frame=0):
+            progress.update(stage, frame, frames_done, frames=frames_done)
+
         if models.jersey:
             models.jersey.finish()
         team_votes_path = None
         if roster and models.jersey and "jersey" not in stage_failures:
             team_votes_path = output / "team_votes.partial.json"
+            stage_started = time.perf_counter()
+            postprocessing_progress('identity_colors')
             manifest["track_vote_evidence"] = build_track_votes(
                 output / "observations.partial.jsonl", output / "jersey_reads.partial.jsonl",
-                video.source["path"], roster, run_id, team_votes_path, config["jersey"])
+                video.source["path"], roster, run_id, team_votes_path, config["jersey"],
+                progress=postprocessing_progress)
+            postprocessing_timings['identity_votes_s'] = time.perf_counter() - stage_started
         if roster:
+            stage_started = time.perf_counter()
+            postprocessing_progress('identity_resolution')
             metric, resolved_tracks = replay_artifacts(
                 output / "observations.partial.jsonl", output / "tracks.partial.jsonl",
                 output / "jersey_reads.partial.jsonl", roster, video.source["path"],
-                config["distance"], run_id, team_votes_path=team_votes_path)
+                config["distance"], run_id, team_votes_path=team_votes_path,
+                progress=postprocessing_progress)
             manifest["resolved_player_tracks"] = resolved_tracks
             manifest["spatial_handoffs"] = metric.spatial_handoffs
+            postprocessing_timings['identity_resolution_s'] = time.perf_counter() - stage_started
         manifest["source"] = dict(video.source)
         if config["max_frames"] is None and frames_done != video.source["declared_frames"]:
             manifest["warnings"].append("declared_decoded_frame_count_mismatch")
@@ -316,6 +358,7 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
         runtime.close()
         finished = time.perf_counter()
         partial = any(status != "ok" for status in models.capabilities.values())
+        progress.update("statistics", frames_done, frames_done, frames=frames_done)
         stats = {**metric.result(), "status": "partial" if partial else "completed", "source": dict(video.source),
                  "capabilities": models.capabilities, "artifacts": {"observations": "observations.jsonl", "tracks": "tracks.jsonl"}}
         validate_statistics(stats)
@@ -323,12 +366,14 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
         artifacts = ["observations.jsonl", "tracks.jsonl", "jersey_reads.jsonl", "statistics.json"]
         if team_votes_path:
             artifacts.append("team_votes.json")
-        for name in artifacts:
+        for artifact_index, name in enumerate(artifacts):
+            progress.update("publication", artifact_index, len(artifacts))
             stem, suffix = name.rsplit(".", 1)
             os.replace(output / f"{stem}.partial.{suffix}", output / name)
             manifest["artifacts"][name] = {"sha256": file_hash(output / name)}
         manifest.update(status=stats["status"], frames=frames_done, segments=segment + 1,
                         timings={"load_s": loaded - started, "processing_s": finished - loaded,
+                                 "perception_s": perception_finished - loaded, **postprocessing_timings,
                                  "total_s": finished - started, "fps": frames_done / (finished - loaded),
                                  "stages": dict(runtime.timings)},
                         peak_main_process_rss_mb=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
@@ -338,19 +383,24 @@ def analyze(video_path, output, config, roster_path=None, *, models_factory=Mode
         manifest["timings"]["finalization_s"] = time.perf_counter() - finished
         manifest["timings"]["total_s"] = time.perf_counter() - started
         write_json(output / "run.json", manifest)
-        write_json(output / "progress.json", {"run_id": run_id, "status": stats["status"], "frames": frames_done})
+        progress.update("health", 0, frames_done)
         from mlops.health import build_health
-        write_json(output / "health.json", build_health(output))
+        write_json(output / "health.json", build_health(output, progress=lambda frame: progress.update(
+            "health", frame, frames_done)))
         manifest["artifacts"]["health.json"] = {"sha256": file_hash(output / "health.json")}
         write_json(output / "run.json", manifest)
+        progress.update("health", frames_done, frames_done, status=stats["status"])
         return stats
     except BaseException as exc:
         manifest.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
                         frames=frames_done, error=f"{type(exc).__name__}: {exc}")
         write_json(output / "run.json", manifest)
-        write_json(output / "progress.json", {"run_id": run_id, "status": manifest["status"], "frames": frames_done})
+        progress.update(progress.state["stage"], progress.state["stage_frames"],
+                        progress.state["stage_total_frames"], frames=frames_done,
+                        status=manifest["status"], error=manifest["error"])
         raise
     finally:
+        progress.close()
         decoder.shutdown(wait=True, cancel_futures=True)
         runtime.close()
         if models:
@@ -363,6 +413,11 @@ def recompute(run_path, output_path, distance_config=None):
     """Recalculate metrics without model inference, only from a committed artifact."""
     run_path = Path(run_path)
     manifest = json.loads((run_path / "run.json").read_text())
+    enforce_execution_policy({**manifest["config"],
+                              "distance": distance_config or manifest["config"]["distance"]}, recompute=True)
+    if manifest['config'].get('backend') == 'native_cuda':
+        from pipeline.cuda.run import recompute as recompute_cuda
+        return recompute_cuda(run_path, output_path, distance_config)
     if manifest["status"] not in ("completed", "partial"):
         raise ValueError("Recompute requires a completed analysis artifact")
     source = run_path / "observations.jsonl"

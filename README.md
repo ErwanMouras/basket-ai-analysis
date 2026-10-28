@@ -1,6 +1,6 @@
 # Vyneros — Basketball Video Analytics
 
-**From basketball footage to tracked players, court positions and inspectable movement statistics.**
+**Turn basketball footage into actions you can explore and verify.**
 
 Vyneros is a batch computer-vision pipeline with a browser viewer for exploring
 predictions alongside the source video. It combines player and referee detection,
@@ -14,24 +14,34 @@ promotion and containerized inference.
 
 ## See it in action
 
-> **30-second real-inference demo — coming next.**
->
-> Space reserved for a clip showing tracked players and the ball, the projected
-> court view, and a player’s observed movement statistics.
+![Current viewer: playback, player statistics and team heatmaps on the synthetic scripted sample](imagesReadMe/viewer-2026-10-27-tour.gif)
 
-<!-- DEMO: Insert the public video link or a linked GIF here once reviewed.
-Record clip provenance, selected model versions, source duration and processing
-hardware. Identify footage used during development separately from held-out data.
-Do not use the scripted sample as evidence of learned-model performance. -->
+**Interface walkthrough — synthetic, scripted sample.** This preview shows the
+current viewer, not learned-model predictions. Try the same interface locally
+with the commands below.
 
-Analyses are computed before playback. The viewer reads completed run artifacts
-independently of the inference process.
+1. **Inspect an action.** Explore the video with independent player, referee,
+   ball and court layers. A shot proposal opens a paused review before its
+   estimated release; its source time, frame and status stay visible.
+2. **Read the player context.** Open a player profile without losing the roster
+   or playback position. Distance, measured duration and coverage describe only
+   valid observed intervals.
+3. **Compare spatial views.** Team presence and shot-origin maps sit side by
+   side. Offense/defense controls below presence leave the whole-clip shot map
+   unchanged. Filled and hollow markers distinguish probable shots and candidates.
 
-| Focused example | What it will show | Status |
+The real-inference presentation is prepared as a **36-second storyboard** with
+reviewed source moments, captions and an interview walkthrough in the
+[demo kit](docs/demo/README.md). Its local media are kept outside Git with the
+development footage; a public match-video link has not been published yet.
+Analyses are computed before playback: a smooth viewer is not a real-time
+inference benchmark.
+
+| Focused example | What to inspect | Evidence |
 | --- | --- | --- |
-| Ball localization | A fast or partly occluded ball, with a success and a failure explained | Clip and commentary pending |
-| Camera changes | A cut or unavailable calibration, with measurements interrupted at the boundary | Real example pending |
-| Player identity | A verified jersey identification and abstention on an ambiguous number | Reviewed example pending |
+| Shot review · 16.80 s | A probable attempt, frame 504; one click reviews from 16.20 s | [Reviewed source moments](docs/demo/storyboard.md#moments-source-retenus) |
+| Uncertainty · 47.57 s | A candidate remains explicitly marked for review | [Shot review and limitations](reports/shots-2026-10-26/README.md) |
+| Identity · 37.50 s | A probable event can remain without a named shooter | [Evidence and claim scope](docs/demo/evidence.md) |
 
 ## Try the viewer
 
@@ -53,15 +63,21 @@ predictions or NBA footage. See the [sample description](examples/demo/README.md
 <details>
 <summary>Preview of the included interface sample</summary>
 
-![Vyneros Film room displaying synthetic, scripted outputs](imagesReadMe/viewer-studio-fr.png)
+![Current playback view with the synthetic, scripted sample](imagesReadMe/viewer-2026-10-27-playback.png)
 
-Basketball-inspired Film room with FR/EN controls, category overlays, player summaries
+![Player profile beside the roster, using the synthetic sample](imagesReadMe/viewer-2026-10-27-player.png)
+
+![Aligned team presence and shot-map panels using the synthetic sample](imagesReadMe/viewer-2026-10-27-team.png)
+
+Basketball-inspired viewer with FR/EN controls, category overlays, player summaries
 and half-court presence and zones views for players or teams, plus
 a direct comparison of the two teams. Estimated settled offensive or defensive
 passages share a common basket direction. Transitions are excluded from the maps;
 the full clip remains available for video review. Shot-attempt proposals appear
-in the timeline with probable/review categories and inspectable evidence;
-team shot-origin maps and player attempt counts include probable events only.
+in the timeline with probable/review categories and paused review actions.
+Team shot-origin maps include both categories; player attempt counts retain only
+probable events. The scripted sample has no detected shot events; its shot-map
+panel demonstrates the unavailable state.
 Made/missed outcomes are not inferred.
 The public sample is synthetic and scripted; it is not evidence of model accuracy.
 
@@ -247,8 +263,10 @@ model was reloaded and used for inference.
 | Run diagnostics | `health.json` records integrity, availability, exclusions, timings and resources |
 | Regression checks | Python suites, JavaScript syntax checks and a GitHub Actions workflow |
 
-Local validation on **26 October 2026**: **371 Python tests passed**, 28 optional tests
-skipped, plus **17 JavaScript regression tests** and syntax checking. Real-training integrations are disabled.
+Validation of [PR #8](https://github.com/ErwanMouras/basket-ai-analysis/pull/8) on
+**27 October 2026**: **472 Python tests passed**, 28 optional tests
+skipped, plus **30 JavaScript regression tests**, syntax checking and six Chromium
+scenarios. GitHub CPU and browser checks passed. Real-training integrations are disabled.
 The pre-merge real-model check completed 30 source frames with all six capabilities
 available, no stage errors and 434 valid player/referee masks. Browser checks found
 no synchronization mismatch across 120 presented frames at 1×/2×, frame stepping,
@@ -370,6 +388,7 @@ The [implementation plan](docs/ROADMAP.md) tracks the remaining work and complet
 | Jersey recognition and court geometry | [Jersey OCR](training/jersey/README.md) · [Court calibration](training/court/README.md) |
 | Registry, release and reproducibility | [Model registry](training/players/PIPELINE.md) · [Evaluation and release](docs/EVALUATION_AND_RELEASE.md) |
 | Viewer controls | [Viewer](viewer/README.md) |
+| Demo, interview walkthrough and LinkedIn draft | [Presentation kit](docs/demo/README.md) |
 
 Model sources and checkpoint provenance are documented in the module guides.
 The vendored PARSeq subset includes its [license](training/jersey/vendor/parseq/LICENSE)

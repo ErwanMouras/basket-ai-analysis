@@ -59,6 +59,7 @@ DEFAULTS = {
     "enabled": False,
     "weights": "models/players/rtmpose-m.onnx",
     "device": "cpu",
+    "allow_cpu_fallback": True,
     "cpu_threads": 4,
     "batch_size": 16,
     "min_detection_confidence": 0.25,
@@ -72,6 +73,8 @@ def settings(overrides=None, *, score_floor=0.001):
     cfg = merge_settings(DEFAULTS, {} if overrides is None else overrides)
     if type(cfg["enabled"]) is not bool:
         raise ValueError("pose.enabled must be boolean")
+    if type(cfg["allow_cpu_fallback"]) is not bool:
+        raise ValueError("pose.allow_cpu_fallback must be boolean")
     if not isinstance(cfg["device"], str) or not re.fullmatch(
         r"cpu|cuda:\d+", cfg["device"]
     ):
@@ -196,8 +199,11 @@ def create_session(path, config):
             )
         providers = [
             ("CUDAExecutionProvider", {"device_id": device_id, "use_tf32": 0}),
-            "CPUExecutionProvider",
         ]
+        if config["allow_cpu_fallback"]:
+            providers.append("CPUExecutionProvider")
+        else:
+            options.add_session_config_entry("session.disable_cpu_ep_fallback", "1")
     session = ort.InferenceSession(str(path), sess_options=options, providers=providers)
     if (
         config["device"].startswith("cuda:")

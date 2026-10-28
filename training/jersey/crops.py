@@ -58,6 +58,16 @@ def candidate(image, detection, others, config, *, variant="lower"):
         return None
     area = (c - a) * (d - b)
     overlap = 0.0
+    bbox_overlap = 0.0
+    foreground = None
+    segmentation = detection.get("segmentation") or {}
+    if segmentation.get("status") == "ok":
+        from training.segmentation.masks import crop_mask
+
+        mask = crop_mask(segmentation["mask"], [a, b, c, d])
+        if float(mask.mean()) >= config.get("min_mask_coverage", 0.5):
+            foreground = mask
+    mask_overlap_used = False
     for other in others:
         if (
             other is detection
@@ -65,12 +75,20 @@ def candidate(image, detection, others, config, *, variant="lower"):
         ):
             continue
         ox1, oy1, ox2, oy2 = other["bbox"]
-        overlap = max(
-            overlap,
-            max(0, min(c, ox2) - max(a, ox1))
+        intersection = (max(0, min(c, ox2) - max(a, ox1))
             * max(0, min(d, oy2) - max(b, oy1))
-            / area,
-        )
+            / area)
+        bbox_overlap = max(bbox_overlap, intersection)
+        other_segmentation = other.get("segmentation") or {}
+        if intersection and foreground is not None and other_segmentation.get("status") == "ok":
+            from training.segmentation.masks import crop_mask
+
+            other_mask = crop_mask(other_segmentation["mask"], [a, b, c, d])
+            # Visible instance masks can be disjoint even during occlusion.
+            # Measure the other player's coverage of the number crop itself.
+            intersection = float(other_mask.mean())
+            mask_overlap_used = True
+        overlap = max(overlap, intersection)
     if overlap > config["max_overlap"]:
         return None
     crop = image[b:d, a:c]
@@ -110,17 +128,32 @@ def candidate(image, detection, others, config, *, variant="lower"):
     ca, cb, cc, cd = [round(v) for v in color_box]
     ca, cb, cc, cd = max(0, ca), max(0, cb), min(iw, cc), min(ih, cd)
     torso = image[cb:cd, ca:cc]
+    color_mask = None
+    color_audit = {'status': 'bbox_fallback', 'coverage': None}
+    if (detection.get('segmentation') or {}).get('status') == 'ok':
+        from training.segmentation.masks import crop_mask
+
+        torso_mask = crop_mask(detection['segmentation']['mask'], [ca, cb, cc, cd])
+        color_audit = {'status': 'foreground_only', 'coverage': float(torso_mask.mean())}
+        torso = torso.copy()
+        torso[~torso_mask] = 127
+        color_mask = np.asarray(Image.fromarray(torso_mask).resize(
+            (128, 32), Image.Resampling.NEAREST)).copy()
     color_rgb = Image.fromarray(cv2.cvtColor(torso, cv2.COLOR_BGR2RGB)).resize(
         (128, 32), Image.Resampling.BICUBIC
     )
     return {
         "image": np.asarray(rgb).copy(),
         "color_image": np.asarray(color_rgb).copy(),
+        "color_mask": color_mask,
+        "color_audit": color_audit,
         "bbox": [a, b, c, d],
         "region": region,
         "quality": quality,
         "sharpness": sharpness,
         "contrast": contrast,
         "overlap": overlap,
+        "bbox_overlap": bbox_overlap,
+        "overlap_method": "instance_masks_with_bbox_fallback" if mask_overlap_used else "bbox",
         "mask_audit": mask_audit,
     }

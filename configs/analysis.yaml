@@ -27,6 +27,7 @@ pose:
   device: cuda:0
 jersey:
   enabled: true
-  device: cpu
+  device: cuda:0
+  fallback_device: cpu
 include_intervals: []
 exclude_intervals: []

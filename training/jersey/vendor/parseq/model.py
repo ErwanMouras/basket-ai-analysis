@@ -61,7 +61,7 @@ class PARSeq(nn.Module):
         self.text_embed = TokenEmbedding(num_tokens, embed_dim)
 
         # +1 for <eos>
-        self.pos_queries = nn.Parameter(torch.Tensor(1, max_label_length + 1, embed_dim))
+        self.pos_queries = nn.Parameter(self.head.weight.new_empty((1, max_label_length + 1, embed_dim)))
         self.dropout = nn.Dropout(p=dropout)
         # Encoder has its own init.
         # Local inference-only adaptation: every parameter is loaded strictly.

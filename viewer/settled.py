@@ -82,6 +82,7 @@ def classify_settled(blocks, spans, teams, geometry, directions, score_changes):
             span.owner, span.direction, span.method, span.reason = None, None, "none", "unobserved"
             direction = directions.get((frame.period, frame.plan))
             if len(teams) != 2 or not geometry or not direction:
+                span.reason = 'orientation_unavailable' if geometry and len(teams) == 2 else 'geometry_unavailable'
                 continue
             changes = score_changes.get(frame.period, ())
             score_changed = bisect_right(changes, end) > bisect_right(changes, start)
@@ -152,10 +153,14 @@ def classify_settled(blocks, spans, teams, geometry, directions, score_changes):
                 and frame.contact.team in (None, candidate)
             ):
                 active = candidate
-            if not frame.court_visible or frame.contact.reason in (
+            if not frame.court_visible:
+                span.reason = 'calibration_unavailable'
+                continue
+            if frame.contact.reason in (
                 "unassigned_contact",
                 "contested_contact",
             ):
+                span.reason = frame.contact.reason
                 continue
             if active:
                 span.owner = active
@@ -163,5 +168,7 @@ def classify_settled(blocks, spans, teams, geometry, directions, score_changes):
                 span.method, span.reason = "settled", "settled_attack"
             elif pending or blocked_half or score_changed:
                 span.method, span.reason = "neutral", "transition"
+            else:
+                span.reason = 'insufficient_settled_evidence'
         waiting = pending if active is None else None
         previous = block[-1]

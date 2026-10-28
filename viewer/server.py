@@ -13,13 +13,14 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlsplit, urlencode
 
 from viewer.heatmaps import HeatmapIndex
 from viewer.scoreboard import ScoreboardIndex
 from viewer.shots import ShotIndex
-from viewer.shot_analytics import assign_directions
+from viewer.shot_analytics import assign_directions, validate_attributions
 from training.jersey.display import display_colors
+from training.common.provenance import file_hash
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_ROOT = Path(__file__).resolve().parent
@@ -49,10 +50,32 @@ class ViewerServer(ThreadingHTTPServer):
         self.runs_root = runs_root.resolve()
         self.video_root = video_root.resolve()
         self.indices: dict[Path, RunIndex] = {}
+        self.playbacks = {}
 
     def source_path(self, source):
         path = Path(source.get('path', ''))
         return (path if path.is_absolute() else self.video_root / path).resolve()
+
+    def playback_path(self, run, manifest):
+        sidecar = run / 'playback.json'
+        if not sidecar.is_file():
+            return self.source_path(manifest['source'])
+        document = json.loads(sidecar.read_text(encoding='utf-8'))
+        if (document.get('schema_version') != 1
+                or document.get('source_sha256') != manifest['source']['sha256']
+                or document.get('timestamp_policy') != 'source_pts'
+                or document.get('frames') != manifest['frames']):
+            raise ValueError('Playback does not match the analyzed source')
+        video = Path(document['video_path']).resolve()
+        if not video.is_relative_to(self.video_root):
+            raise ValueError('Playback escapes the allowed video root')
+        stat = video.stat()
+        signature = (stat.st_size, stat.st_mtime_ns, document['video_sha256'])
+        if self.playbacks.get(video) != signature:
+            if file_hash(video) != document['video_sha256']:
+                raise ValueError('Playback video hash mismatch')
+            self.playbacks[video] = signature
+        return video
 
     def run_path(self, name: str) -> Path:
         path = (self.runs_root / name).resolve()
@@ -165,6 +188,7 @@ class ViewerServer(ThreadingHTTPServer):
         heatmaps.finish()
         shots.finish()
         assign_directions(shots.events, heatmaps.phases, heatmaps.plans, scoreboard)
+        validate_attributions(shots.events, shots.geometry, heatmaps.phases.timeline(), heatmaps.plans)
         result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
                           heatmaps, auxiliary_signature, scoreboard, shots)
         self.indices[path] = result
@@ -213,11 +237,15 @@ class Handler(BaseHTTPRequestHandler):
                 manifest = json.loads((path / 'run.json').read_text(encoding='utf-8'))
                 source = self.server.source_path(manifest['source'])
                 if parsed.path == '/api/video':
+                    source = self.server.playback_path(path, manifest)
                     if not source.is_relative_to(self.server.video_root) or not source.is_file():
                         raise FileNotFoundError('Vidéo source inaccessible dans le dossier autorisé')
                     return self.video(source)
                 if parsed.path == '/api/run':
                     index = self.server.index(path)
+                    playback = path / 'playback.json'
+                    video_revision = (json.loads(playback.read_text())['video_sha256']
+                                      if playback.is_file() else manifest['source'].get('sha256', 'original'))
                     stats_path = path / 'statistics.json'
                     stats = json.loads(stats_path.read_text(encoding='utf-8')) if stats_path.is_file() else {}
                     roster_path = path / 'roster.json'
@@ -249,6 +277,8 @@ class Handler(BaseHTTPRequestHandler):
                             except (OSError, ValueError):
                                 pass
                     palette = manifest.get('display_colors') or display_colors(roster)
+                    if roster:
+                        palette = {**palette, 'teams': display_colors(roster)['teams']}
                     return self.json({'name': name, 'run': {
                         'run_id': manifest.get('run_id'), 'status': manifest.get('status'),
                         'source': manifest.get('source'), 'frames': manifest.get('frames'),
@@ -264,6 +294,7 @@ class Handler(BaseHTTPRequestHandler):
                         'phase_timeline': index.heatmaps.phases.timeline(),
                         'shots': index.shots.metadata(),
                         'markers': index.markers,
+                        'video_url': '/api/video?' + urlencode({'name': name, 'revision': video_revision}),
                         'video_available': source.is_relative_to(self.server.video_root) and source.is_file()})
                 index = self.server.index(path)
                 if parsed.path == '/api/shots':

@@ -1,0 +1,91 @@
+{
+  "source_sha256": "71a3076750756d6c0c7ba660c2dd714f880a1713568f7e52efa2baa79884ae89",
+  "curry_before": 5,
+  "curry_after": 4,
+  "events_before": 223,
+  "events_after": 223,
+  "attribution_rejections": {
+    "defensive_half": 12,
+    "opposing_settled_attack": 2
+  },
+  "color_reclassification": {
+    "audit": {
+      "masked_torsos": 498138,
+      "changed_team_majorities": 109
+    },
+    "model_inference": false
+  },
+  "number_mask_gpu_check": {
+    "frame": 750,
+    "track": 95,
+    "ocr": {
+      "model": "PARSeq generic",
+      "checkpoint_sha256": "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00",
+      "model_url": "https://github.com/baudm/parseq/releases/download/v1.0.0/parseq-bb5792a6.pt",
+      "device": "cuda:0",
+      "preferred_device": "cuda:0",
+      "fallback_reads": {},
+      "precision": "fp32",
+      "input_size": [
+        128,
+        32
+      ],
+      "alphabet": "0123456789",
+      "max_decode_length": 2,
+      "refine_iters": 0,
+      "decoding": "digit-constrained autoregressive; confidence from full vocabulary",
+      "timm_version": "0.9.16",
+      "weights_only": true
+    },
+    "crops": [
+      {
+        "text": "27",
+        "number": "27",
+        "confidence": 0.9962417715034705,
+        "eos": true,
+        "mask_audit": {
+          "policy": "background_neutral",
+          "status": "applied",
+          "coverage": 1.0
+        },
+        "color_audit": {
+          "status": "foreground_only",
+          "coverage": 1.0
+        },
+        "region": "pose_number_center"
+      },
+      {
+        "text": "27",
+        "number": "27",
+        "confidence": 0.9953087948964596,
+        "eos": true,
+        "mask_audit": {
+          "policy": "background_neutral",
+          "status": "applied",
+          "coverage": 1.0
+        },
+        "color_audit": {
+          "status": "foreground_only",
+          "coverage": 1.0
+        },
+        "region": "pose_number_upper"
+      },
+      {
+        "text": "27",
+        "number": "27",
+        "confidence": 0.9631219429245567,
+        "eos": true,
+        "mask_audit": {
+          "policy": "background_neutral",
+          "status": "applied",
+          "coverage": 1.0
+        },
+        "color_audit": {
+          "status": "foreground_only",
+          "coverage": 1.0
+        },
+        "region": "pose_number"
+      }
+    ]
+  }
+}

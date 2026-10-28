@@ -103,7 +103,7 @@ async function assertLayout(page, width, height) {
 
   assert.ok(layerBar.x >= 0 && layerBar.x + layerBar.width <= width, 'inline layers fit viewport');
   const legend = await page.locator('.timeline-legends').boundingBox();
-  const seek = await page.locator('.seek-wrap').boundingBox();
+  const seek = await page.locator('.timeline .seek-wrap').boundingBox();
   assert.ok(legend.y >= seek.y + seek.height, 'legend is below timeline');
   assert.ok(Math.abs(legend.x - seek.x) < 1, 'legend aligns left');
   assert.ok(controls.y >= legend.y + legend.height, 'transport is below legend');

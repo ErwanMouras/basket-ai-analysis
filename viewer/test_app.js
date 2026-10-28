@@ -75,6 +75,15 @@ test('a reference roster never attributes statistics to an unconfirmed player', 
   });
 });
 
+test('suppressed jersey numbers keep a validated team color and unresolved tracks stay neutral', async () => {
+  const ui = await app();
+  ui.run(`state.meta={run:{display_colors:{teams:{gsw:'#45C7F5',den:'#F279C8'},unassigned:'#C9F579'}}}`);
+  assert.equal(ui.run("personColor({role:'player',jersey_number_suppressed:true,resolved_team_id:'gsw',display_color:'#1D428A'},0)"), '#45C7F5');
+  assert.equal(ui.run("personColor({role:'player',jersey_number_suppressed:true,resolved_identity:{team_id:'gsw'},display_color:'#1D428A'},0)"), '#C9F579');
+  assert.equal(ui.run("personColor({role:'player',majority_jersey_number:null,display_color:'#0E2240'},0)"), '#C9F579');
+  assert.equal(ui.run("personColor({role:'player',resolved_identity:{team_id:'den'},display_color:'#0E2240'},0)"), '#F279C8');
+});
+
 test('zero distance is preserved and missing durations stay unavailable', async () => {
   const ui = await app();
   ui.run(`state.meta = {roster: {}, statistics: {players: [
