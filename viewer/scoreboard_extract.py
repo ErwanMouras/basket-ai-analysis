@@ -1,7 +1,7 @@
-"""Read a fixed NBA broadcast scorebug offline using OpenCV and Tesseract.
+"""Read a fixed NBA broadcast scorebug offline with GPU-first PARSeq OCR.
 
 Example: python -m viewer.scoreboard_extract --run runs/analysis/example
-         --left-team houston_rockets --right-team los_angeles_lakers
+         --left-team houston_rockets:HOU --right-team los_angeles_lakers:LAL
 The ESPN profile is specific to this graphic, not a universal NBA layout.
 """
 
@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 import re
 import subprocess
-import tempfile
 
 from viewer.scoreboard import confirm_readings
 
@@ -29,6 +28,37 @@ ESPN = {
         "clock": [1206, 958, 1377, 1001],
     },
 }
+
+PEACOCK = {
+    "name": "peacock-nba-bottom-v1",
+    "reference_size": [1920, 1080],
+    "fields": {
+        "left_team": [638, 920, 670, 1001],
+        "right_team": [1250, 920, 1285, 1001],
+        "left_score": [795, 921, 858, 998],
+        "right_score": [1060, 921, 1120, 998],
+        "period": [902, 977, 948, 1004],
+        "clock": [906, 944, 1013, 976],
+    },
+    "rotations": {"left_team": 90, "right_team": -90},
+}
+
+
+def gpu_fields(frame, boxes, profile, reader):
+    import cv2
+    crops = []
+    for name, (x1, y1, x2, y2) in boxes.items():
+        crop = frame[y1:y2, x1:x2]
+        rotation = profile.get("rotations", {}).get(name)
+        if rotation in (-90, 90):
+            crop = cv2.rotate(crop, cv2.ROTATE_90_CLOCKWISE if rotation == 90 else cv2.ROTATE_90_COUNTERCLOCKWISE)
+        crops.append(cv2.cvtColor(cv2.resize(crop, (128, 32)), cv2.COLOR_BGR2RGB))
+    results = []
+    batch = reader.config['batch_size']
+    for offset in range(0, len(crops), batch):
+        results.extend(reader.read(crops[offset:offset + batch]))
+    return {name: result['text'].upper() if result['confidence'] >= .65 and result['eos'] else ''
+            for name, result in zip(boxes, results)}
 
 
 def parse_clock(text):
@@ -117,7 +147,7 @@ def ocr_field(frame, box, kind, temporary):
     return ""
 
 
-def extract(run, video, left, right, profile, sample_s=0.5):
+def extract(run, video, left, right, profile, sample_s=0.5, *, device="cuda:0", progress=None):
     import cv2
 
     manifest = json.loads((run / "run.json").read_text())
@@ -144,28 +174,22 @@ def extract(run, video, left, right, profile, sample_s=0.5):
     }
     if any(not (0 <= b[0] < b[2] <= width and 0 <= b[1] < b[3] <= height) for b in boxes.values()):
         raise ValueError("Scorebug crop outside source")
-    end = min(
-        (manifest["frames"] - 1) / manifest["source"]["nominal_fps"],
-        (capture.get(cv2.CAP_PROP_FRAME_COUNT) - 1) / capture.get(cv2.CAP_PROP_FPS),
-    )
+    from training.jersey.config import settings
+    from viewer.scoreboard_ocr import ScorebugReader
+    reader = ScorebugReader(settings({'device': device}))
     samples, raw = [], []
-    with tempfile.TemporaryDirectory(prefix="vyneros-scoreboard-") as directory:
-        temporary = Path(directory) / "field.png"
-        time = 0.0
-        while time <= end + 1e-8:
-            capture.set(cv2.CAP_PROP_POS_MSEC, time * 1000)
-            ok, frame = capture.read()
+    try:
+        next_sample = 0.0
+        for index in range(manifest['frames']):
+            if not capture.grab():
+                break
+            time = capture.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            if time + 1e-8 < next_sample:
+                continue
+            ok, frame = capture.retrieve()
             if not ok:
                 break
-            fields = {
-                key: ocr_field(
-                    frame,
-                    box,
-                    "score" if key.endswith("score") else "clock" if key == "clock" else "text",
-                    temporary,
-                )
-                for key, box in boxes.items()
-            }
+            fields = gpu_fields(frame, boxes, profile, reader)
             period, clock = parse_period(fields["period"]), parse_clock(fields["clock"])
             scores = None
             if (
@@ -178,19 +202,20 @@ def extract(run, video, left, right, profile, sample_s=0.5):
                 {"time_s": round(time, 6), "period": period, "clock_s": clock, "scores": scores}
             )
             raw.append({"time_s": round(time, 6), **fields})
-            time += sample_s
-    capture.release()
-    version = subprocess.run(
-        ["tesseract", "--version"], capture_output=True, text=True, check=True
-    ).stdout.splitlines()[0]
+            next_sample += sample_s
+            if progress and len(samples) % 100 == 0:
+                progress({'video_time_s': time, 'samples': len(samples)})
+    finally:
+        capture.release()
     return {
         "schema_version": 1,
         "source_sha256": digest.hexdigest(),
         "sample_s": sample_s,
         "teams": [{"team_id": tid, "label": label} for tid, label in (left, right)],
         "provenance": {
-            "method": "fixed_crop_ocr_temporal_consensus_v1",
-            "engine": version,
+            "method": "fixed_crop_parseq_temporal_consensus_v2",
+            "engine": "PARSeq",
+            "ocr": reader.provenance,
             "profile": profile,
             "score_confirmation_reads": 2,
             "training": False,
@@ -248,6 +273,8 @@ def main():
     parser.add_argument(
         "--profile", type=Path, help="JSON with reference_size and field crop rectangles"
     )
+    parser.add_argument('--layout', choices=['espn', 'peacock'], default='espn')
+    parser.add_argument('--device', default='cuda:0')
     parser.add_argument("--sample-s", type=float, default=0.5)
     parser.add_argument(
         "--review-checkpoints", type=Path, help="Source-bound manual development checkpoints"
@@ -269,7 +296,7 @@ def main():
     video = args.video or Path(manifest["source"]["path"])
     if not video.is_absolute():
         parser.error("A relative source requires --video with its resolved path")
-    profile = json.loads(args.profile.read_text()) if args.profile else ESPN
+    profile = json.loads(args.profile.read_text()) if args.profile else PEACOCK if args.layout == 'peacock' else ESPN
 
     def team(value):
         tid, label = value.split(":", 1)
@@ -278,7 +305,8 @@ def main():
         return tid, label
 
     document = extract(
-        args.run, video, team(args.left_team), team(args.right_team), profile, args.sample_s
+        args.run, video, team(args.left_team), team(args.right_team), profile, args.sample_s,
+        device=args.device, progress=lambda row: print(json.dumps(row), flush=True)
     )
     output = args.run / "scoreboard.json"
     temporary = output.with_suffix(".json.tmp")

@@ -34,8 +34,17 @@ window.teamShots = (() => {
             candidates: current?.candidate_count ?? 0,
           });
     const missing = [];
-    if (current?.unlocated_count)
+    if (current?.unlocated_count) {
       missing.push(t("teamShotMissing", { count: current.unlocated_count }));
+      const grouped = {};
+      for (const [reason, count] of Object.entries(current.unlocated_reasons || {})) {
+        const key = reason === 'direction_unavailable' ? 'teamShotReasonDirection'
+          : reason === 'outside_attacking_half' ? 'teamShotReasonHalf'
+          : reason === 'outside_court' ? 'teamShotReasonCourt' : 'teamShotReasonPosition';
+        grouped[key] = (grouped[key] || 0) + count;
+      }
+      for (const [key, count] of Object.entries(grouped)) missing.push(t(key, {count}));
+    }
     $("teamShotMissing").textContent = missing.join(" ");
     $("teamShotMissing").hidden = !missing.length;
     $("teamShotInspect").textContent = "";

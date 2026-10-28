@@ -118,6 +118,7 @@ function setFocusMode(focused) {
 }
 function setWorkspaceMode(mode, { focus = false } = {}) {
   if (!['visualization', 'statistics'].includes(mode)) return;
+  if (mode !== state.mode) window.playerShotReview?.reset();
   if (mode !== 'visualization') setFocusMode(false);
   state.mode = mode;
   if (mode === 'statistics') video.pause();
@@ -171,6 +172,7 @@ async function init() {
 }
 async function loadRun(name) {
   if (!name) return;
+  window.playerShotReview?.reset();
   window.heatmapStudio?.reset();
   window.teamHeatmaps?.reset();
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
@@ -197,7 +199,7 @@ async function loadRun(name) {
     $('seek').max = Math.max(duration(), .001);
     $('seek').value = 0;
     $('seekFill').style.width = '0%';
-    if (data.video_available) { video.src = `/api/video?${params({ name })}`; video.load(); }
+    if (data.video_available) { video.src = data.video_url || `/api/video?${params({ name })}`; video.load(); }
     else { video.removeAttribute('src'); video.load(); setEmptyState('videoUnavailable', 'videoUnavailableHelp'); }
     renderMarkers();
     await fetchBatch(0);
@@ -264,6 +266,7 @@ function updateClock(time = video.currentTime || 0) {
   $('seekFill').style.width = `${max ? (time / max) * 100 : 0}%`;
   renderScoreboard(time);
   window.shotStudio?.update(time);
+  window.playerShotReview?.update(time);
   $('playIcon').querySelector('path').setAttribute('d', video.paused ? 'm7 4 9 6-9 6Z' : 'M5 4h4v12H5Zm6 0h4v12h-4Z');
   $('playButton').setAttribute('aria-label', t(video.paused ? 'play' : 'pause'));
   if (state.meta && video.currentTime > max + .04 && !video.paused) { video.pause(); video.currentTime = max; }
@@ -379,12 +382,11 @@ function personNumber(person, segment) {
 function personColor(person, segment) {
   const palette = state.meta?.run?.display_colors || {};
   if (person.role === 'referee') return palette.referee || C.referee;
-  if(person.jersey_number_suppressed)return person.display_color||C.player;
-  const resolved=person.resolved_identity;
+  const resolved=person.jersey_number_suppressed ? null : person.resolved_identity;
   if(resolved?.team_id)return palette.teams?.[resolved.team_id]
     ||state.meta?.reference_display_colors?.teams?.[resolved.team_id]||person.display_color||C.player;
   if(person.resolved_team_id)return palette.teams?.[person.resolved_team_id]||person.display_color||C.player;
-  if(Object.hasOwn(person,'majority_jersey_number'))return person.display_color||C.player;
+  if(person.jersey_number_suppressed || Object.hasOwn(person,'majority_jersey_number'))return palette.unassigned||person.display_color||C.player;
   const jersey = person.jersey || {};
   if(jersey.team_id)return palette.teams?.[jersey.team_id]||person.display_color||C.player;
   if(jersey.team_group)return palette.groups?.[jersey.team_group]||person.display_color||C.player;
@@ -737,6 +739,7 @@ function renderStatsNavigation(teams) {
   window.teamHeatmaps?.sync();
 }
 function renderStatsPanel() {
+  window.playerShotReview?.sync();
   const list = $('rosterList');
   const rosterScroll = list.scrollTop;
   const rosterFocused = document.activeElement && list.contains(document.activeElement);
@@ -755,7 +758,7 @@ function renderStatsPanel() {
     const stats=finalPlayerStats(team.team_id,player.number);
     const shotCount = state.meta?.roster ? state.meta?.shots?.player_counts?.[state.selected.subject] : null;
     $('playerShotCount').textContent = shotCount == null ? '—' : String(shotCount);
-    $('playerShotStat').title = t('playerShotsHelp');
+    $('playerShotStat').title = t(state.meta?.video_available ? 'playerShotsHelp' : 'videoUnavailable');
     const tiles=$('finalStats');tiles.replaceChildren();
     for (const metric of FINAL_PLAYER_METRICS) {
       const tile=document.createElement('div');tile.className='final-stat';
@@ -809,6 +812,7 @@ function renderMarkers(){
 function seekToFrame(index){
   if(!state.meta)return;
   index=Math.max(0,Math.min(index,state.meta.timestamps.length-1));
+  index=window.playerShotReview?.clampFrame(index) ?? index;
   const timestamp=state.meta.timestamps[index], next=state.meta.timestamps[index+1];
   // Seek inside the frame: browser timestamp rounding can otherwise select its predecessor.
   const margin=next==null ? .001 : Math.min(.001,(next-timestamp)/2);
@@ -871,7 +875,7 @@ for (const [id, view] of [['playersTab', 'players'], ['teamTab', 'team']]) {
 }
 $('runSelect').addEventListener('change',e=>loadRun(e.target.value));
 $('rosterBack').addEventListener('click',backToRoster);
-$('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast(t('videoUnavailable'));if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
+$('playButton').addEventListener('click',()=>{if(!state.meta?.video_available)return toast(t('videoUnavailable'));if(window.playerShotReview?.isOpen())return window.playerShotReview.togglePlayback();if(video.paused){if(video.currentTime>=duration())video.currentTime=0;video.play().catch(err=>toast(err.message));}else video.pause();});
 video.addEventListener('play',()=>updateClock());
 video.addEventListener('pause',()=>updateClock());
 video.addEventListener('timeupdate',()=>updateClock());
@@ -908,6 +912,7 @@ window.addEventListener('resize',resizeOverlay);
 new ResizeObserver(resizeOverlay).observe($('videoStage'));
 document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
 document.addEventListener('keydown',e=>{
+  if (window.playerShotReview?.isOpen()) return window.playerShotReview.keydown(e);
   if ($('heatmapDialog')?.open) return;
   if (e.code === 'Escape' && $('workspace').classList.contains('focus-video')) {
     setFocusMode(false);

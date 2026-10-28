@@ -33,6 +33,32 @@ python -m viewer.server --runs-root /chemin/vers/runs --video-root /chemin/vers/
 `observations.jsonl` et `statistics.json` ; `tracks.jsonl` fournit les distances
 progressives.
 
+Une découpe MP4 sans réencodage peut conserver des images de décodage avant le
+début visible. Firefox peut les présenter alors qu'OpenCV et Chromium les
+ignorent. Pour préparer une copie de lecture avec les mêmes timestamps et le
+même nombre d'images décodées que l'analyse :
+
+```bash
+.venv-players/bin/python -m viewer.prepare_playback --run runs/analysis/mon-match
+```
+
+NVENC est essayé en priorité, avec repli explicite sur libx264 si l'encodeur GPU
+est indisponible. Le fichier source et les observations restent intacts.
+`playback.json` lie la copie aux empreintes de la source et de la nouvelle vidéo ;
+le serveur vérifie cette liaison et change l'URL de lecture pour invalider le cache.
+
+Les quarts-temps sont nécessaires au partage de l'orientation entre plans. Pour
+le panneau Peacock observé sur GSW–DEN, l'extraction PARSeq privilégie CUDA :
+
+```bash
+.venv-players/bin/python -m viewer.scoreboard_extract --run runs/analysis/mon-match \
+  --left-team golden_state_warriors:GSW --right-team denver_nuggets:DEN --layout peacock
+```
+
+Les cartes de tirs détaillent les positions au sol absentes ou instables, les
+orientations manquantes et les positions hors de la moitié d'attaque. Ces
+tentatives restent comptées ; elles ne sont pas assimilées à du jeu non placé.
+
 ## Se repérer
 
 Deux modes se partagent l’espace sous le titre du match : **Visualisation**
@@ -366,7 +392,11 @@ sans données. Le basculement entre zones continues et mailles vérifie que les
 mesures restent identiques, sans requête supplémentaire. Il vérifie aussi
 l’accessibilité des cartes et des contrôles de situation. Le scénario des heatmaps intégrées
 vérifie aussi le sélecteur 75/25, la comparaison, les filtres conservés et les
-réponses tardives d’une autre équipe. Les contrôles automatiques d’accessibilité ne remplacent pas une revue manuelle.
+réponses tardives d’une autre équipe. `test_player_shots.cjs` couvre la revue
+individuelle : tirs limités au joueur, séquences bornées, réponses tardives,
+lecture et pas d'image, conservation du lecteur annoté, retour à la fiche,
+candidats seuls, données manquantes, langues, clavier et affichage mobile.
+Les contrôles automatiques d’accessibilité ne remplacent pas une revue manuelle.
 
 Options : `VIEWER_URL` pour une autre instance servant le sample,
 `VIEWER_SCREENSHOTS` pour enregistrer les captures et
@@ -574,6 +604,25 @@ avec un point plein et un point creux. Seuls les probables entrent dans le compt
 porte sur l’extrait entier, indépendamment du curseur vidéo et du filtre des
 candidats. Une absence de distance ne masque pas le compteur de tirs.
 
+Dans **Statistiques → Joueurs**, cliquer sur **Tirs détectés / Voir les tirs**
+ouvre la revue vidéo du joueur au-dessus de sa fiche. La liste est limitée aux
+événements attribués à ce joueur. Cliquer sur un tir lance sa séquence avec son
+amorce et au moins deux secondes après le relâchement, dans la limite de la vidéo.
+La lecture s'arrête à la fin de cette courte séquence ; **Relire le tir** la
+reprend depuis le début. Les boutons précédent/suivant parcourent les tirs.
+
+Le lecteur annoté est réutilisé avec ses bbox, segmentations, réglages de
+calques, ralenti, pas d'une seconde et image par image. Le curseur de la revue
+reste dans les bornes du tir. **Échap** ou **Fermer** ramène à la même fiche,
+dans le mode Statistiques ; le lecteur retrouve sa place en Visualisation,
+en pause à la dernière position revue. Une seule instance du lecteur vidéo est utilisée.
+
+Les candidats sont accessibles avec **Inclure les candidats à vérifier**, sans
+modifier le compteur des probables. Si le joueur n'a que des candidats, ils
+sont affichés directement avec leur statut. Le bouton reste désactivé sans
+événement attribué, sans vidéo disponible ou avec un simple effectif de référence.
+Un changement d'analyse ferme la revue et arrête la lecture.
+
 L’origine est la médiane d’au moins deux positions calibrées du tireur dans les
 0,25 s avant le départ, sans franchir de coupe. Les changements de méthode et
 les dispersions supérieures à 1,25 m sont exclus. Le sens utilise les repères
@@ -581,6 +630,16 @@ appris par plan et quart-temps ; il ne dépend pas simplement du côté occupé 
 le tireur. Aucune projection du ballon aérien ne remplace une origine manquante.
 
 Un probable ou candidat sans position ou orientation est compté mais absent de la carte.
+Avant de compter les tirs par joueur ou équipe, le viewer vérifie leur
+attribution avec l'orientation confirmée du plan et du quart-temps. Une origine
+nettement dans la moitié défensive (marge de 0,5 m autour du milieu), ou une
+phase installée confirmée de l'adversaire au même instant et dans le même plan,
+annule l'attribution au tireur. La trajectoire reste consultable sans tireur.
+Les champs `attribution.reason`, `previous_shooter` et `previous_origin`
+conservent la preuve du refus. La seule proximité d'un autre joueur ne suffit
+pas à lui attribuer le lâcher. L'absence d'orientation ou de position ne crée
+pas artificiellement une contradiction.
+
 Les événements sans équipe connue restent hors des cartes et des compteurs
 nominatifs. Zéro signifie aucun probable attribué sur l’extrait ; `—` indique
 que les données nécessaires ne sont pas disponibles. Aucun taux de réussite

@@ -70,7 +70,7 @@ print(json.dumps(meta))
     );
     assert.match(
       await page.locator("#teamShotMissing").innerText(),
-      /Positions manquantes : 1/,
+      /Tentatives non localisées : 1.*1 sans position au sol fiable/,
     );
     assert.equal(await page.locator("#teamShotCanvas").isVisible(), true);
     assert.equal(await page.locator('#teamShotLegend').count(), 0, 'shot density scale removed');

@@ -12,6 +12,7 @@
     <script src="/heatmap-renderer.js" defer></script>
     <script src="/heatmaps.js" defer></script>
     <script src="/shots.js" defer></script>
+    <script src="/player-shots.js" defer></script>
     <script src="/team-shots.js" defer></script>
   </head>
   <body>
@@ -355,10 +356,11 @@
                       <h2 id="detailName">—</h2>
                     </div>
                   </div>
-                  <div class="player-shot-stat" title="" id="playerShotStat">
+                  <button class="player-shot-stat" title="" id="playerShotStat" type="button" aria-haspopup="dialog" aria-controls="playerShotDialog" disabled>
                     <span data-i18n="playerShots">Tirs détectés</span>
                     <strong id="playerShotCount">—</strong>
-                  </div>
+                    <span class="player-shot-open" data-i18n="playerShotOpen">Voir les tirs →</span>
+                  </button>
                   <div class="stats-section">
                     <div class="detail-stats-heading">
                       <h3 data-i18n="movement">Déplacements</h3>
@@ -438,6 +440,48 @@
         >
       </footer>
     </div>
+    <dialog id="playerShotDialog" class="player-shot-dialog" aria-labelledby="playerShotTitle">
+      <header class="hm-header">
+        <div>
+          <div class="eyebrow" data-i18n="playerShotReview">REVUE DES TIRS</div>
+          <h2 id="playerShotTitle"></h2>
+        </div>
+        <div class="hm-header-actions">
+          <button id="playerShotLanguage" class="heatmap-entry" type="button">EN</button>
+          <button id="closePlayerShots" class="icon-button" type="button" data-i18n-aria="close" aria-label="Fermer" autofocus>×</button>
+        </div>
+      </header>
+      <div class="player-shot-layout">
+        <aside class="player-shot-sidebar">
+          <p id="playerShotSummary"></p>
+          <label id="playerShotCandidatesField" class="shots-candidates" hidden>
+            <input id="playerShotCandidates" type="checkbox" />
+            <span data-i18n="shotsIncludeCandidates">Inclure les candidats à vérifier</span>
+          </label>
+          <div id="playerShotList" class="player-shot-list" role="group" data-i18n-aria="playerShotList" aria-label="Tirs du joueur"></div>
+        </aside>
+        <section class="player-shot-playback" data-i18n-aria="videoPlayer" aria-label="Lecteur vidéo">
+          <div id="playerShotLayers"></div>
+          <div id="playerShotStage" class="player-shot-stage" tabindex="0" role="group" data-i18n-aria="videoPlayer" aria-label="Lecteur vidéo"></div>
+          <div class="player-shot-progress">
+            <div class="seek-wrap">
+              <div id="playerShotSeekFill" class="seek-fill"></div>
+              <input id="playerShotSeek" type="range" min="0" max="1" step="0.001" value="0" data-i18n-aria="playerShotPosition" aria-label="Position dans le tir" />
+            </div>
+            <output id="playerShotTime" aria-live="off"></output>
+          </div>
+          <div id="playerShotControls"></div>
+          <div class="player-shot-navigation">
+            <button id="replayPlayerShot" class="heatmap-entry" type="button" data-i18n="playerShotReplay">Relire le tir</button>
+            <div>
+              <button id="previousPlayerShot" class="icon-button" type="button" data-i18n-aria="playerShotPrevious" aria-label="Tir précédent">←</button>
+              <span id="playerShotIndex"></span>
+              <button id="nextPlayerShot" class="icon-button" type="button" data-i18n-aria="playerShotNext" aria-label="Tir suivant">→</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </dialog>
     <dialog
       id="heatmapDialog"
       class="heatmap-dialog"

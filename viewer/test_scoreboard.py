@@ -140,6 +140,9 @@ class ScoreboardTests(unittest.TestCase):
         self.assertEqual({s.direction for s in spans}, {1})
         self.assertEqual(index.period_directions[0]["period"], 1)
         self.assertTrue(all(e["orientation_source"] == "quarter_lock" for e in index.episodes))
+        inherited = next(e for e in index.orientation_evidence if e['plan_id'] == 1)
+        self.assertEqual(inherited['direction'], 1)
+        self.assertEqual(inherited['source'], 'quarter_lock')
 
     def test_small_opposing_layout_vote_cannot_flip_a_locked_quarter(self):
         rows = [

@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 import unittest
 
-from viewer.shot_analytics import assign_directions, ground_origin, summarize_shots
+from viewer.shot_analytics import assign_directions, ground_origin, summarize_shots, validate_attributions
 from viewer.test_shots import GEOMETRY, ROSTER, rows, detect
 from viewer.shots import ShotIndex
 
@@ -21,6 +21,66 @@ def event(index=1, team="a", subject="roster:a:7", xy=(24, 3), direction=1, stat
 
 
 class ShotAnalyticsTests(unittest.TestCase):
+    def test_defenders_are_unassigned_before_player_counts_and_team_maps(self):
+        # Same physical half, opposite attacking directions. The defender's
+        # proximity to the ball must not count as a shot for their team.
+        shots = [event(), event(2, direction=-1), event(3, xy=(3, 4), direction=1),
+                 event(4, xy=(3, 4), direction=-1)]
+        validate_attributions(shots, GEOMETRY, [], [])
+        self.assertIsNotNone(shots[0]['shooter']['subject_id'])
+        self.assertIsNotNone(shots[3]['shooter']['subject_id'])
+        for shot in shots[1:3]:
+            self.assertEqual(shot['attribution']['reason'], 'defensive_half')
+            self.assertIsNone(shot['shooter']['subject_id'])
+            self.assertIsNone(shot['shooter']['team_id'])
+            self.assertEqual(shot['status'], 'probable')
+            self.assertEqual(shot['attribution']['previous_shooter']['subject_id'], 'roster:a:7')
+        data = self.summarize(shots)
+        self.assertEqual(data['player_counts']['roster:a:7'], 2)
+        self.assertEqual(data['unassigned_probable_count'], 2)
+        validate_attributions(shots, GEOMETRY, [], [])  # Idempotent.
+        self.assertEqual(self.summarize(shots), data)
+
+    def test_midcourt_uncertainty_and_missing_orientation_do_not_invent_a_conflict(self):
+        shots = [event(xy=(GEOMETRY['length'] / 2 - .2, 3)),
+                 event(2, xy=(3, 4), direction=None), event(3, xy=None)]
+        validate_attributions(shots, GEOMETRY, [], [])
+        self.assertTrue(all(shot['shooter']['subject_id'] for shot in shots))
+
+    def test_only_a_current_settled_opposing_phase_can_remove_an_unlocated_shooter(self):
+        plan = {'id': 4, 'segment_id': 0, 'start_s': 0, 'end_s': 3}
+        phase = {'plan_id': 4, 'start_s': .9, 'end_s': 1.2,
+                 'source': 'settled', 'attacking_team_id': 'b'}
+        shot = event(xy=None)
+        validate_attributions([shot], GEOMETRY, [phase], [plan])
+        self.assertEqual(shot['attribution']['reason'], 'opposing_settled_attack')
+        for change in ({'end_s': 1.0}, {'plan_id': 5}, {'source': 'contacts'},
+                       {'start_s': 1.1}, {'attacking_team_id': 'a'}):
+            shot = event(xy=None)
+            validate_attributions([shot], GEOMETRY, [{**phase, **change}], [plan])
+            self.assertIsNotNone(shot['shooter']['subject_id'])
+
+    def test_origin_uses_the_shooters_observed_feet_even_when_ball_contact_is_brief(self):
+        player = {'track_id': 1, 'team_id': 'a', 'position_m': [24, 4],
+                  'ground_point_method': 'ankles', 'unique_track': True}
+        samples = [SimpleNamespace(time=i / 25, court=True, contact=None, players={1: player})
+                   for i in range(4)]
+        origin = ground_origin(samples, 3, {'track_id': 1, 'team_id': 'a'}, GEOMETRY, lambda a, b: False)
+        self.assertEqual(origin['position_m'], [24, 4])
+        self.assertEqual(origin['support_frames'], 4)
+        samples[2].players = {1: {**player, 'team_id': 'b'}}
+        samples[1].players = {}
+        samples[0].players = {}
+        self.assertIsNone(ground_origin(samples, 3, {'track_id': 1, 'team_id': 'a'}, GEOMETRY,
+                                        lambda a, b: False)['position_m'])
+
+    def test_unlocated_attempts_explain_position_direction_and_half_court_failures(self):
+        team = self.summarize([event(xy=None), event(2, direction=None), event(3, xy=(2, 3))])['shot_maps']['maps'][0]
+        self.assertEqual(team['unlocated_count'], 3)
+        self.assertEqual(team['unlocated_reasons'], {'ground_position_unavailable': 1,
+                                                   'direction_unavailable': 1,
+                                                   'outside_attacking_half': 1})
+
     def summarize(self, events, geometry=None, available=True):
         return summarize_shots(events, geometry or GEOMETRY, ROSTER, available)
 

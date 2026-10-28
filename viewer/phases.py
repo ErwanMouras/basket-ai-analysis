@@ -419,8 +419,9 @@ class PhaseIndex:
             else:
                 effective_directions[key] = locked[span.period]
                 sources[key] = "quarter_lock"
-        for (period, plan), votes in direction_votes.items():
-            if not votes:
+        for period, plan in dict.fromkeys([*direction_votes, *effective_directions]):
+            votes = direction_votes[(period, plan)]
+            if not votes and (period, plan) not in effective_directions:
                 continue
             self.orientation_evidence.append(
                 {
@@ -429,7 +430,7 @@ class PhaseIndex:
                     "reference_team_id": self.teams[0],
                     "left_contact_s": votes[-1],
                     "right_contact_s": votes[1],
-                    "vote_agreement": max(votes.values()) / sum(votes.values()),
+                    "vote_agreement": max(votes.values()) / sum(votes.values()) if votes else None,
                     "direction": effective_directions.get((period, plan)),
                     "source": sources.get((period, plan), "camera_plan"),
                 }
@@ -509,6 +510,11 @@ class PhaseIndex:
         eligible = self.duration_s
         classified = sum(s.end - s.start for s in self.spans if s.owner)
         oriented = sum(s.end - s.start for s in self.spans if s.owner and s.direction)
+        unknown_reasons = Counter()
+        for span in self.spans:
+            if not span.owner:
+                unknown_reasons[span.reason] += span.end - span.start
+        unknown_reasons['cuts_and_gaps'] = max(0.0, eligible - sum(s.end - s.start for s in self.spans))
         return {
             "experimental": True,
             "orientation_evidence": self.orientation_evidence,
@@ -537,6 +543,7 @@ class PhaseIndex:
             "eligible_s": eligible,
             "classified_s": classified,
             "unknown_s": eligible - classified,
+            "unknown_reasons_s": dict(unknown_reasons),
             "oriented_s": oriented,
             "episodes": self.episodes,
             "uncertain_intervals": self.uncertain_intervals,

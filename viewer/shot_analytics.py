@@ -1,9 +1,58 @@
 """Counts and team shot-origin maps, independent of trajectory reconstruction."""
 
 import math
+from bisect import bisect_right
 from statistics import median
 
 from viewer.shot_geometry import number, point
+
+DEFENSIVE_HALF_MARGIN_M = 0.5
+
+
+def validate_attributions(events, geometry, timeline, plans):
+    """Remove a shooter contradicted by a confirmed half or settled possession.
+
+    Keep the flight proposal for review. A nearby defender's hand is not proof
+    of a release, and proximity alone cannot identify an alternative shooter.
+    """
+    length, width = geometry.get('length'), geometry.get('width')
+    spatial = geometry.get('units') == 'metres' and all(
+        number(value) and value > 0 for value in (length, width))
+    starts = [span['start_s'] for span in timeline]
+    for event in events:
+        shooter = event.get('shooter') or {}
+        team = shooter.get('team_id')
+        if team is None:
+            continue
+        xy = (event.get('origin') or {}).get('position_m')
+        direction = event.get('court_direction')
+        reason = None
+        if (spatial and direction in (-1, 1) and point(xy)
+                and 0 <= xy[0] <= length and 0 <= xy[1] <= width):
+            attack_x = length - xy[0] if direction == -1 else xy[0]
+            if attack_x < length / 2 - DEFENSIVE_HALF_MARGIN_M:
+                reason = 'defensive_half'
+        index = bisect_right(starts, event['time_s']) - 1
+        phase = timeline[index] if index >= 0 else None
+        plan = next((plan for plan in plans if plan['segment_id'] == event['segment_id']
+                     and plan['start_s'] <= event['time_s'] <= plan['end_s']), None)
+        opposing_phase = (phase and plan and phase['start_s'] <= event['time_s'] < phase['end_s']
+                          and phase.get('plan_id') == plan['id']
+                          and phase.get('source') == 'settled'
+                          and phase.get('attacking_team_id')
+                          and phase['attacking_team_id'] != team)
+        if not reason and opposing_phase:
+            reason = 'opposing_settled_attack'
+        if reason:
+            event['attribution'] = {
+                'status': 'unassigned', 'reason': reason,
+                'previous_shooter': dict(shooter), 'previous_origin': event.get('origin'),
+                'team_direction': direction,
+                'attacking_team_id': phase['attacking_team_id'] if opposing_phase else None,
+            }
+            event['shooter'] = {'track_id': None, 'team_id': None, 'subject_id': None}
+            event['origin'] = {'position_m': None, 'reason': 'shooter_unassigned'}
+            event['court_direction'] = None
 
 
 def ground_origin(samples, index, shooter, geometry, boundary):
@@ -21,12 +70,13 @@ def ground_origin(samples, index, shooter, geometry, boundary):
         sample = samples[j]
         if seed.time - sample.time > 0.25 or j < index and boundary(sample, samples[j + 1]):
             break
-        contact = sample.contact
+        players = getattr(sample, "players", None)
+        contact = players.get(track) if players is not None else sample.contact
         if (
             not sample.court
             or not contact
-            or contact["ambiguous"]
-            or not contact["unique_track"]
+            or contact.get("ambiguous")
+            or not contact.get("unique_track")
             or contact["track_id"] != track
             or contact["team_id"] != team
         ):
@@ -98,6 +148,7 @@ def summarize_shots(events, geometry, roster, available):
             "candidate_count": 0,
             "located_count": 0,
             "unlocated_count": 0,
+            "unlocated_reasons": {},
             "nx": nx,
             "ny": ny,
             "grid": [0] * (nx * ny),
@@ -125,12 +176,20 @@ def summarize_shots(events, geometry, roster, available):
         team[f"{event['status']}_count"] += 1
         xy = (event.get("origin") or {}).get("position_m")
         direction = event.get("court_direction")
-        if not spatial or not point(xy) or direction not in (-1, 1):
+        reason = (
+            "geometry_unavailable" if not spatial else
+            (event.get("origin") or {}).get("reason", "ground_position_unavailable") if not point(xy) else
+            "direction_unavailable" if direction not in (-1, 1) else None
+        )
+        if reason:
             team["unlocated_count"] += 1
+            team["unlocated_reasons"][reason] = team["unlocated_reasons"].get(reason, 0) + 1
             continue
         x, y = (length - xy[0], width - xy[1]) if direction == -1 else xy
         if not length / 2 <= x <= length or not 0 <= y <= width:
             team["unlocated_count"] += 1
+            reason = "outside_attacking_half" if 0 <= y <= width else "outside_court"
+            team["unlocated_reasons"][reason] = team["unlocated_reasons"].get(reason, 0) + 1
             continue
         x -= length / 2
         gx, gy = min(nx - 1, int(x / (length / 2) * nx)), min(ny - 1, int(y / width * ny))

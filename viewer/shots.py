@@ -10,7 +10,7 @@ from statistics import median
 import math
 
 from viewer.heatmaps import player_subject
-from viewer.shot_analytics import ground_origin, summarize_shots
+from viewer.shot_analytics import DEFENSIVE_HALF_MARGIN_M, ground_origin, summarize_shots
 from viewer.phases import team_of
 from viewer.shot_geometry import inverse, matrix, number, point, quadratic, rim_anchors, warp
 
@@ -40,6 +40,7 @@ class Sample:
     shoulder_y: float
     cut: bool
     included: bool
+    players: dict | None = None
 
 
 def hand_contact(row, ball):
@@ -181,8 +182,20 @@ class ShotIndex:
                 shoulder_y,
                 bool(row.get("scene_cut")),
                 row.get("included", True),
+                self.player_positions(row),
             )
         )
+
+    @staticmethod
+    def player_positions(row):
+        people = [p for p in row.get("persons", []) if p.get("role") == "player"]
+        counts = Counter(p.get("track_id") for p in people)
+        return {p["track_id"]: {
+            "track_id": p["track_id"], "team_id": team_of(p),
+            "position_m": p.get("position_m"),
+            "ground_point_method": p.get("ground_point_method"),
+            "unique_track": True, "ambiguous": False,
+        } for p in people if p.get("track_id") is not None and counts[p["track_id"]] == 1}
 
     @staticmethod
     def boundary(a, b):
@@ -505,6 +518,12 @@ class ShotIndex:
         return {
             **summarize_shots(self.events, self.geometry, self.roster, available),
             "version": VERSION,
+            "attribution_rules": {'version': 'court-context-v1',
+                                  'defensive_half_margin_m': DEFENSIVE_HALF_MARGIN_M,
+                                  'reject_opposing_settled_attack': True},
+            "attribution_rejections": dict(Counter(
+                event['attribution']['reason'] for event in self.events
+                if event.get('attribution', {}).get('status') == 'unassigned')),
             "rules": RULES.copy(),
             "available": available,
             "reason": None if available else "ball_or_context_unavailable",
