@@ -20,14 +20,17 @@ async function refresh(){
   const response=await fetch('/progress.json',{cache:'no-store'});
   if(!response.ok)throw Error('Suivi indisponible');
   const p=await response.json();
-  document.getElementById('status').textContent=({waiting:'En attente du lancement',running:'Analyse en cours',completed:'Analyse terminée',partial:'Analyse terminée avec capacités partielles',failed:'Échec',interrupted:'Analyse interrompue'})[p.status]||p.status;
+  document.getElementById('status').textContent=({waiting:'En attente du lancement',running:'Analyse en cours',stalled:'Aucune progression récente — traitement bloqué ou très lent',completed:'Analyse terminée',partial:'Analyse terminée avec capacités partielles',failed:'Échec',interrupted:'Analyse interrompue'})[p.status]||p.status;
   document.getElementById('global').textContent=p.overall_percent.toFixed(2)+' %';
   document.getElementById('bar').value=p.overall_percent;
   document.getElementById('stage').textContent=p.labels[p.stage]||p.stage;
   const counter=p.stage_total_frames ? `${p.stage_frames.toLocaleString('fr-FR')} / ${p.stage_total_frames.toLocaleString('fr-FR')} unités (${p.stage_percent.toFixed(1)} % de l’étape)`:'Étape en cours';
   document.getElementById('counter').textContent=counter;
   document.getElementById('elapsed').textContent=`Durée de cette exécution : ${(p.elapsed_s/60).toFixed(1)} min · Images vidéo traitées : ${p.frames.toLocaleString('fr-FR')} / ${p.total_frames||'?'}`;
-  document.getElementById('speed').textContent=p.stage==='perception'&&p.throughput_fps ? `${p.throughput_fps.toFixed(2)} images/s · Temps restant pour les images ≈ ${(p.perception_remaining_s/60).toFixed(0)} min (hors traitements finaux)`+(p.retained_frames?` · ${p.retained_frames.toLocaleString('fr-FR')} images conservées à la reprise`:'') : '';
+  document.getElementById('speed').textContent=p.status==='running'&&p.stage==='perception'&&p.throughput_fps ? `${p.throughput_fps.toFixed(2)} images/s · Temps restant pour les images ≈ ${(p.perception_remaining_s/60).toFixed(0)} min (hors traitements finaux)`+(p.retained_frames?` · ${p.retained_frames.toLocaleString('fr-FR')} images conservées à la reprise`:'') : '';
+  if(p.status==='running'&&p.stage==='recovery'&&p.recovery_fps){
+   document.getElementById('speed').textContent=`${p.recovery_fps.toFixed(2)} images/s parcourues · ${p.recovery_crops.toLocaleString('fr-FR')} cadrages OCR · Temps restant pour la relecture ≈ ${(p.recovery_remaining_s/60).toFixed(0)} min (hors étapes suivantes)`;
+  }
   document.getElementById('error').textContent=p.error||'';
   const list=document.getElementById('phases');list.replaceChildren();
   const names=Object.keys(p.phase_weights||{}),index=names.indexOf(p.stage);

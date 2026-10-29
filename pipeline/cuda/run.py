@@ -1,5 +1,7 @@
 """Full video analysis with NVDEC and CUDA computation through final statistics."""
 
+import faulthandler
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -18,7 +20,7 @@ from pipeline.cuda.core import CudaOnly, Video, export, tensor
 from pipeline.cuda.distance import CudaDistance
 from pipeline.cuda.geometry import Court
 from pipeline.cuda.identity import replay, resolve
-from pipeline.cuda.integrity import observation_metadata, timestamps
+from pipeline.cuda.integrity import geometry_bytes, observation_metadata, timestamps
 from pipeline.cuda.models import Models, encode_mask
 from pipeline.cuda.resume import copy_prefix, inspect_prefix
 from pipeline.cuda.streams import ModelsInFlight
@@ -33,7 +35,8 @@ from training.jersey.display import display_colors
 from training.jersey.roster import Roster
 
 
-def health(output, manifest, device, progress, *, expected_timestamps=None):
+def health(output, manifest, device, progress, *, expected_timestamps=None, expected_geometry_digest=None):
+    geometry_digest = hashlib.sha256() if expected_geometry_digest else None
     counts = CudaCounter(device=device)
     stages = CudaCounter(device=device)
     exclusions = CudaCounter(device=device)
@@ -71,6 +74,8 @@ def health(output, manifest, device, progress, *, expected_timestamps=None):
             )
             frame_flags, person_flags, tags = [], [], []
             for row in batch:
+                if geometry_digest is not None:
+                    geometry_digest.update(geometry_bytes(row))
                 observation_metadata(row, manifest["run_id"], index)
                 index += 1
                 frame_flags.append(
@@ -113,6 +118,8 @@ def health(output, manifest, device, progress, *, expected_timestamps=None):
             progress.update("health", batch[-1]["frame_index"] + 1, frames)
     if not bool(counts["frames"] == frames):
         raise ValueError("CUDA health frame count mismatch")
+    if geometry_digest is not None and geometry_digest.hexdigest() != expected_geometry_digest:
+        raise ValueError("Color-only refinement changed source geometry or detections")
     statistics = json.loads((output / "statistics.json").read_text())
     for player in statistics["players"]:
         exclusions.update(player["excluded_intervals"])
@@ -141,6 +148,8 @@ def health(output, manifest, device, progress, *, expected_timestamps=None):
             "unique_resolved_identities_per_frame": True,
             "ordered_finite_timestamps": True,
             "timestamps_match_source": expected_timestamps is not None,
+            **({"source_geometry_and_detections_unchanged": True,
+                "immutable_geometry_sha256": geometry_digest.hexdigest()} if geometry_digest is not None else {}),
         },
         "ratios": {
             "calibration_availability": ratio("calibrated_frames", "frames"),
@@ -186,7 +195,9 @@ def analyze(video_path, output, config, roster_path, *, resume_from=None):
     output.mkdir(parents=True, exist_ok=False)
     run_id = checkpoint["manifest"]["run_id"] if checkpoint else uuid4().hex
     started = time.perf_counter()
-    progress = Progress(output, run_id)
+    progress = Progress(
+        output, run_id, on_stall=lambda: faulthandler.dump_traceback(all_threads=True)
+    )
     guard = CudaOnly()
     video = None
     in_flight = None
@@ -277,9 +288,9 @@ def analyze(video_path, output, config, roster_path, *, resume_from=None):
                 "prefix_verified": True,
             }
         total = (
-            min(video.source["declared_frames"], config["max_frames"])
+            min(video.source["presentation_frames"], config["max_frames"])
             if config["max_frames"]
-            else video.source["declared_frames"]
+            else video.source["presentation_frames"]
         )
         progress.update("loading", total_frames=total)
         models = Models(config)

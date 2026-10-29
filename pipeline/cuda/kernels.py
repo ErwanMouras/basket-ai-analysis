@@ -31,14 +31,19 @@ def _assignment(
 ):
     col = tl.arange(0, B)
     cols = M + N
-    for row in range(1, N + 1):
+    failed = tl.full((), False, tl.int1)
+    row = 1
+    while (row <= N) & (~failed):
         tl.store(P, row)
+        tl.debug_barrier()
         column = tl.full((), 0, tl.int32)
         minimum = tl.full((B,), float("inf"), tl.float64)
         used = tl.full((B,), False, tl.int1)
         way = tl.full((B,), 0, tl.int32)
         searching = tl.full((), True, tl.int1)
-        while searching:
+        steps = 0
+        while searching & (steps <= N) & (~failed):
+            steps += 1
             used = used | (col == column)
             active_row = tl.load(P + column)
             edge = tl.load(
@@ -57,19 +62,29 @@ def _assignment(
                 (~used) & (col > 0) & (col <= cols), minimum, float("inf")
             )
             delta = tl.min(candidates, 0)
-            next_column = tl.min(tl.where(candidates == delta, col, B), 0)
+            eligible = (~used) & (col > 0) & (col <= cols)
+            next_column = tl.min(tl.where(eligible & (candidates == delta), col, B), 0)
+            finite = (delta < float("inf")) & (delta > -float("inf")) & (next_column <= cols)
+            failed = ~finite
             owner = tl.load(P + col, col <= cols, other=0)
             previous_u = tl.load(U + owner, used & (col <= cols), other=0)
-            tl.store(U + owner, previous_u + delta, used & (col <= cols))
+            tl.store(U + owner, previous_u + delta, used & (col <= cols) & finite)
             previous_v = tl.load(V + col, col <= cols, other=0)
-            tl.store(V + col, previous_v - delta, used & (col <= cols))
+            tl.store(V + col, previous_v - delta, used & (col <= cols) & finite)
+            tl.debug_barrier()
             minimum = tl.where(~used, minimum - delta, minimum)
-            column = next_column
+            column = tl.where(finite, next_column, 0)
             searching = tl.load(P + column) != 0
-        while column != 0:
+        failed |= searching
+        steps = 0
+        while (column != 0) & (steps <= N) & (~failed):
+            steps += 1
             previous = tl.sum(tl.where(col == column, way, 0), 0)
             tl.store(P + column, tl.load(P + previous))
+            tl.debug_barrier()
             column = previous
+        failed |= column != 0
+        row += 1
     owner = tl.load(P + col, (col > 0) & (col <= M), other=0) - 1
     cost = tl.load(
         C + owner * S0 + (col - 1) * S1,
@@ -81,6 +96,7 @@ def _assignment(
         tl.where((owner >= 0) & (cost <= LIMIT), owner, -1),
         (col > 0) & (col <= M),
     )
+    tl.store(OUT + M, failed.to(tl.int32))
 
 
 def assignment(cost, threshold):
@@ -89,7 +105,7 @@ def assignment(cost, threshold):
     u = torch.zeros(n + 1, device=cost.device, dtype=torch.float64)
     v = torch.zeros(n + m + 1, device=cost.device, dtype=torch.float64)
     p = torch.zeros(n + m + 1, device=cost.device, dtype=torch.int32)
-    result = torch.empty(m, device=cost.device, dtype=torch.int32)
+    result = torch.empty(m + 1, device=cost.device, dtype=torch.int32)
     _assignment[(1,)](
         cost,
         u,
@@ -103,7 +119,9 @@ def assignment(cost, threshold):
         triton.next_power_of_2(n + m + 1),
         num_warps=4,
     )
-    return result
+    if bool(result[m]):
+        raise RuntimeError("CUDA assignment failed: invalid or cyclic augmenting path")
+    return result[:m]
 
 
 @triton.jit(do_not_specialize=["N"])

@@ -1,8 +1,50 @@
 """ID/sequence constraints are host metadata; timestamp arithmetic stays CUDA."""
 
+import json
+
 import torch
 
 from pipeline.cuda.core import tensor
+
+
+def geometry_bytes(row):
+    """Canonical I/O fingerprint of fields a color-only pass must preserve."""
+    fields = (
+        "frame_index",
+        "timestamp_s",
+        "segment_id",
+        "scene_cut",
+        "included",
+        "width",
+        "height",
+        "coordinate_space",
+        "distance_unit",
+        "ball",
+        "court",
+        "stages",
+    )
+    mutable = {
+        "observation_id",
+        "parent_observation_id",
+        "source_observation_id",
+        "source_detection_index",
+        "resolved_identity",
+        "jersey_number_suppressed",
+        "spatial_handoff",
+        "resolved_team_id",
+        "display_color",
+        "majority_jersey_number",
+        "cuda_evidence",
+    }
+    payload = {name: row.get(name) for name in fields}
+    payload["persons"] = [
+        {name: value for name, value in person.items() if name not in mutable}
+        for person in row["persons"]
+    ]
+    return (
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        + "\n"
+    ).encode()
 
 
 def observation_metadata(row, run_id, index):

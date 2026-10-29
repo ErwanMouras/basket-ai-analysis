@@ -229,7 +229,7 @@ def collision_frames(rows, direct, assigned, handoffs, device, progress=None):
     return collisions
 
 
-def resolve(output, roster, device, progress, frames):
+def resolve(output, roster, device, progress, frames, *, refinement=False, keep_rows=False):
     """Load compact evidence; numerical tallies and handoff geometry stay CUDA."""
     output = Path(output)
     rows = {}
@@ -285,7 +285,13 @@ def resolve(output, roster, device, progress, frames):
         named = CudaCounter(device=device)
         local_direct = {}
         reads_at = {read["frame_index"]: read for read in reads.get(key, [])}
-        for episode in split_episodes(source_frames, raw, device):
+        if refinement:
+            from pipeline.cuda.refined_identity import refinement_episodes
+
+            episodes = refinement_episodes(source_frames, raw, rows, key, device, reads_at)
+        else:
+            episodes = split_episodes(source_frames, raw, device)
+        for episode in episodes:
             frame_set = set(episode)
             local_colors = CudaCounter(
                 (raw[f] for f in episode if f in raw), device=device
@@ -317,7 +323,13 @@ def resolve(output, roster, device, progress, frames):
                         ),
                         device=device,
                     )
-                    if bool(strong.get(number) >= 5) and all(
+                    sparse_supported = (
+                        bool(strong.get(number) >= 3)
+                        and bool(number_share >= 0.9)
+                        and bool(local_colors.get(candidate["team_id"]) >= 1)
+                        and bool(tensor(episode[-1], device=device) - tensor(episode[0], device=device) >= 4)
+                    ) if refinement else False
+                    if (bool(strong.get(number) >= 5) or sparse_supported) and all(
                         color == candidate["team_id"] for color in local_colors
                     ):
                         selected = candidate
@@ -426,8 +438,9 @@ def resolve(output, roster, device, progress, frames):
     )
     collisions = collision_frames(rows, direct, assigned, handoffs, device, progress)
     # Release compact CUDA geometry before replaying full observations.
-    del rows, all_reads, tracks, reads
-    return direct, assigned, team_votes, handoffs, collisions
+    del all_reads, tracks, reads
+    identities = direct, assigned, team_votes, handoffs, collisions
+    return (identities, rows) if keep_rows else identities
 
 
 def replay(output, roster, config, run_id, progress, frames, identities, palette):
@@ -471,6 +484,14 @@ def replay(output, roster, config, run_id, progress, frames, identities, palette
                 key = (row["segment_id"], person["track_id"])
                 evidence = team_votes.get(key)
                 person.pop("resolved_identity", None)
+                person.pop("jersey_number_suppressed", None)
+                person.pop("spatial_handoff", None)
+                person.pop("resolved_team_id", None)
+                person["display_color"] = (
+                    palette["referee"]
+                    if person["role"] == "referee"
+                    else palette["unassigned"]
+                )
                 person["majority_jersey_number"] = None
                 if person["role"] == "player" and evidence:
                     episode = next(

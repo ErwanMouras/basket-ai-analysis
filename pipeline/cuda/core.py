@@ -232,7 +232,7 @@ class Video:
                     "-select_streams",
                     "v:0",
                     "-show_entries",
-                    "stream=avg_frame_rate,nb_frames,width,height,time_base:packet=pts",
+                    "stream=avg_frame_rate,nb_frames,width,height,time_base:packet=pts,flags",
                     "-of",
                     "json",
                     self.path,
@@ -253,21 +253,26 @@ class Video:
         # SimpleDecoder 2.2.3 exposes decode-order packet counters as timestamp
         # on this OBS recording. Read presentation timestamps from the container
         # instead; demuxing does not decode pixels. Sorting/scaling happens CUDA.
-        pts = (
-            tensor(
-                [packet["pts"] for packet in container["packets"]],
-                device=device,
-                dtype=torch.int64,
-            )
-            .sort()
-            .values
+        packets = container["packets"]
+        packet_pts = tensor(
+            [packet["pts"] for packet in packets], device=device, dtype=torch.int64
         )
+        display = tensor(
+            ["D" not in packet.get("flags", "") for packet in packets],
+            device=device,
+            dtype=torch.bool,
+        )
+        # AV_PKT_FLAG_DISCARD packets may be needed as codec references but
+        # must not be presented. Container nb_frames can include them. NVDEC
+        # handles reference decoding; count/map only presentation packets.
+        pts = packet_pts[display].sort().values
         time_base = tensor(
             [int(value) for value in metadata["time_base"].split("/")], device=device
         )
         self.timestamps = pts.double() * time_base[0] / time_base[1]
         if (
-            len(pts) != len(self.decoder)
+            len(packets) != len(self.decoder)
+            or not len(pts)
             or not bool((self.timestamps.diff() > 0).all())
             or bool(self.timestamps[0] < 0)
         ):
@@ -279,10 +284,12 @@ class Video:
             "sha256": file_hash(Path(self.path)),
             "nominal_fps": self.fps,
             "declared_frames": len(self.decoder),
+            "presentation_frames": len(pts),
+            "discarded_packets": len(packets) - len(pts),
             "decoded_frames": 0,
             "width": int(metadata["width"]),
             "height": int(metadata["height"]),
-            "timestamp_policy": "container_packet_PTS_presentation_order",
+            "timestamp_policy": "container_non_discard_packet_PTS_presentation_order",
             "decoder": "NVIDIA_NVDEC",
             "pixel_memory": device,
             "color_conversion": "NVIDIA_device_RGBP",
@@ -290,9 +297,9 @@ class Video:
 
     def frames(self, limit=None, *, start=0):
         total = (
-            self.source["declared_frames"]
+            self.source["presentation_frames"]
             if limit is None
-            else min(limit, self.source["declared_frames"])
+            else min(limit, self.source["presentation_frames"])
         )
         # Sequential batches avoid random seeking and keep the decode queue bounded.
         self.decoder.seek_to_index(start)
