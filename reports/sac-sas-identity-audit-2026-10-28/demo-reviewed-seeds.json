@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "method": "jersey_number_review_and_official_starting_lineup",
+  "source_run": "sac-sas-2026-10-27-native-cuda-final",
+  "seed_frame_index": 2476,
+  "review_frames": [2476, 2500, 2550, 2625, 2675],
+  "period": 1,
+  "clock_start": "9:26",
+  "clock_end": "9:21",
+  "official_source": "datas/test/SAC_SAS/sources/espn-summary-401909879.json",
+  "first_substitution_clock": "6:11",
+  "scope": "Reviewed initialization and five explicit detection decisions for this demo interval only; subsequent tracking is CUDA. Not an automatic full-match identification benchmark.",
+  "detection_reviews": [
+    {"observation_id": "4516e311e132462792d0ba913ad65bf1:2541:12", "action": "role_referee", "reason": "Grey referee at the far sideline, behind Hunter; one-frame detector role error"},
+    {"observation_id": "4516e311e132462792d0ba913ad65bf1:2579:13", "action": "duplicate", "reason": "Partial duplicate of Hunter's already detected visible body"},
+    {"observation_id": "4516e311e132462792d0ba913ad65bf1:2591:14", "action": "keep", "reason": "Hunter is visible; retain the existing weak detection without increasing its model confidence"},
+    {"observation_id": "4516e311e132462792d0ba913ad65bf1:2591:13", "action": "keep", "reason": "Sabonis remains partly visible behind Wembanyama; retain his existing weak detection and original confidence"},
+    {"observation_id": "4516e311e132462792d0ba913ad65bf1:2591:9", "action": "duplicate", "reason": "Partial duplicate of Hunter's body, represented by the reviewed source detection 2591:14"}
+  ],
+  "seeds": [
+    {"source_track_id": 777, "team_id": "sacramento_kings", "number": "5", "evidence": "Back number visible at seed frame"},
+    {"source_track_id": 778, "team_id": "sacramento_kings", "number": "8", "evidence": "Back number visible at seed frame"},
+    {"source_track_id": 779, "team_id": "san_antonio_spurs", "number": "1", "evidence": "Continuous body trajectory to visible back number 1 before frame 2625; official starting lineup"},
+    {"source_track_id": 780, "team_id": "san_antonio_spurs", "number": "5", "evidence": "Back number 5 visible at frame 2550"},
+    {"source_track_id": 781, "team_id": "san_antonio_spurs", "number": "4", "evidence": "Repeated OCR 4 and continuous body trajectory; official starting lineup"},
+    {"source_track_id": 783, "team_id": "sacramento_kings", "number": "9", "evidence": "Back number visible at seed frame"},
+    {"source_track_id": 784, "team_id": "san_antonio_spurs", "number": "2", "evidence": "Repeated OCR 2 and unique remaining official starter after reviewing other four Spurs"},
+    {"source_track_id": 786, "team_id": "sacramento_kings", "number": "11", "evidence": "Back number 11 visible at frame 2550"},
+    {"source_track_id": 787, "team_id": "sacramento_kings", "number": "15", "evidence": "Unique remaining official starter after reviewing other four Kings; no substitution before the interval"},
+    {"source_track_id": 789, "team_id": "san_antonio_spurs", "number": "24", "evidence": "Back number 24 visible at frame 2500 and 2550; existing pose crops cut off the leading 2"}
+  ]
+}

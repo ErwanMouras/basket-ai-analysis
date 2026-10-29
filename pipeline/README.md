@@ -305,6 +305,34 @@ dans un nouveau dossier. `audit.json` contient le GPU effectif et les compteurs.
 Ces preuves doivent être examinées avant le rejeu des identités ; voir
 [l'audit GSW–DEN](../reports/gsw-den-identity-colors-2026-10-28/README.md).
 
+Pour corriger les couleurs d'un run natif déjà passé par
+`pipeline.cuda.refine`, avec des maillots sombre/blanc :
+
+```bash
+.venv-players/bin/python -m pipeline.cuda.refine \
+  --source runs/analysis/sac-sas-2026-10-28-identites-v2 \
+  --output runs/analysis/nouvelle-correction-couleurs \
+  --colors-only
+```
+
+Ce mode réutilise les détections, masques, poses, lectures OCR et calibrations.
+Il complète seulement les mesures de couleur absentes avec NVDEC, estime les
+distributions de couleur du match sur CUDA puis recalcule les votes, identités
+et statistiques dépendantes. Aucun modèle visuel n'est relancé. Les anciens
+votes peuvent être remplacés ou effacés ; trois mesures concordantes peuvent
+prolonger la couleur sur une trajectoire continue. Les zones contradictoires et
+les échantillons éloignés des distributions apprises restent indéterminés.
+
+La calibration utilise des numéros uniques à deux chiffres corroborés par un
+cadrage large, et valide sur des trajectoires entières réservées au contrôle.
+L'accord avec ces ancres OCR est distinct d'une précision annotée manuellement.
+`color-calibration.json`, `color-readings.jsonl`, `color-audit.json` et
+`identity-quality.json` documentent les résultats. Le contrôle final vérifie
+par empreinte que toutes les détections et leur géométrie sont conservées.
+Les mesures déjà extraites peuvent être fournies avec
+`--color-features chemin/vers/features` ; leur provenance est vérifiée.
+Voir le [rapport SAC–SAS](../reports/sac-sas-identity-audit-2026-10-28/COLORS.md).
+
 Après les votes de numéro et de couleur, une continuité spatiale peut attribuer
 une nouvelle portion de track à un joueur déjà identifié, ou retrouver vers
 l'arrière une portion anonyme juste avant une track identifiée. Le découpage suit les

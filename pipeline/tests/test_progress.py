@@ -1,13 +1,48 @@
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
+from pipeline.monitor import read_progress
 from pipeline.progress import Progress
 
 
 class ProgressTests(unittest.TestCase):
+    def test_heartbeat_does_not_claim_work_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            progress = Progress(directory, 'test')
+            try:
+                progress.update('perception', 30, 100, frames=30, total_frames=100)
+                advanced = progress.state['last_progress_at']
+                progress.last_progress -= 100
+                progress._write()
+                self.assertEqual(progress.state['last_progress_at'], advanced)
+                self.assertGreaterEqual(progress.state['seconds_since_progress'], 100)
+                progress.update('perception', 60, 100, frames=60)
+                self.assertLess(progress.state['seconds_since_progress'], 1)
+            finally:
+                progress.close()
+
+    def test_monitor_hides_stale_speed_while_process_is_alive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'progress.json'
+            state = {'status': 'running', 'pid': 123, 'stage': 'perception',
+                     'last_progress_at': (datetime.now(UTC) - timedelta(minutes=3)).isoformat(),
+                     'throughput_fps': 11.2, 'perception_remaining_s': 200}
+            path.write_text(json.dumps(state))
+            with patch('pipeline.monitor.os.kill'):
+                shown = read_progress(directory)
+            self.assertEqual(shown['status'], 'stalled')
+            self.assertIsNone(shown['throughput_fps'])
+            self.assertIsNone(shown['perception_remaining_s'])
+            self.assertIn('Aucune progression', shown['error'])
+            state['last_progress_at'] = datetime.now(UTC).isoformat()
+            path.write_text(json.dumps(state))
+            with patch('pipeline.monitor.os.kill'):
+                self.assertEqual(read_progress(directory)['status'], 'running')
+
     def test_video_completion_leaves_statistics_and_health_pending(self):
         with tempfile.TemporaryDirectory() as directory:
             progress = Progress(directory, 'test')
@@ -32,9 +67,11 @@ class ProgressTests(unittest.TestCase):
         fixture = cases.IntegrationTests()
         fixture.setUp()
         try:
-            with patch('mlops.health.build_health', side_effect=RuntimeError('integrity failure')):
-                with self.assertRaisesRegex(RuntimeError, 'integrity failure'):
-                    fixture.run_video('health-failed')
+            with (
+                patch('mlops.health.build_health', side_effect=RuntimeError('integrity failure')),
+                self.assertRaisesRegex(RuntimeError, 'integrity failure'),
+            ):
+                fixture.run_video('health-failed')
             output = fixture.root / 'health-failed'
             state = json.loads((output / 'progress.json').read_text())
             self.assertEqual(state['stage'], 'health')

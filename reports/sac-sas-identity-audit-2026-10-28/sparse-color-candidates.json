@@ -1,0 +1,86 @@
+{
+  "episodes": 19,
+  "potential_observations_before_conflict_checks": 1654,
+  "examples": [
+    {
+      "track": "10:515",
+      "number": "24",
+      "team_id": "san_antonio_spurs",
+      "start": 1610,
+      "end": 1719,
+      "observations": 110
+    },
+    {
+      "track": "44:3404",
+      "number": "34",
+      "team_id": "sacramento_kings",
+      "start": 10764,
+      "end": 10846,
+      "observations": 83
+    },
+    {
+      "track": "46:3543",
+      "number": "4",
+      "team_id": "san_antonio_spurs",
+      "start": 11336,
+      "end": 11552,
+      "observations": 217
+    },
+    {
+      "track": "46:3546",
+      "number": "30",
+      "team_id": "san_antonio_spurs",
+      "start": 11260,
+      "end": 11482,
+      "observations": 223
+    },
+    {
+      "track": "52:4173",
+      "number": "1",
+      "team_id": "san_antonio_spurs",
+      "start": 13307,
+      "end": 13356,
+      "observations": 50
+    },
+    {
+      "track": "75:5532",
+      "number": "30",
+      "team_id": "san_antonio_spurs",
+      "start": 18001,
+      "end": 18046,
+      "observations": 46
+    },
+    {
+      "track": "79:5787",
+      "number": "33",
+      "team_id": "sacramento_kings",
+      "start": 18810,
+      "end": 18863,
+      "observations": 54
+    },
+    {
+      "track": "105:7588",
+      "number": "1",
+      "team_id": "san_antonio_spurs",
+      "start": 24845,
+      "end": 24986,
+      "observations": 142
+    },
+    {
+      "track": "108:7791",
+      "number": "40",
+      "team_id": "san_antonio_spurs",
+      "start": 25286,
+      "end": 25330,
+      "observations": 45
+    },
+    {
+      "track": "119:8527",
+      "number": "24",
+      "team_id": "san_antonio_spurs",
+      "start": 27644,
+      "end": 27751,
+      "observations": 108
+    }
+  ]
+}

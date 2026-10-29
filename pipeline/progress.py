@@ -27,14 +27,17 @@ PHASES = [
 
 
 class Progress:
-    def __init__(self, output, run_id, *, identity=True, heartbeat_s=5):
+    def __init__(self, output, run_id, *, identity=True, heartbeat_s=5, on_stall=None, phases=None):
         self.path = Path(output) / "progress.json"
         self.phases = [
             (name, weight)
-            for name, weight in PHASES
+            for name, weight in (PHASES if phases is None else phases)
             if identity or not name.startswith("identity_")
         ]
         self.started = time.perf_counter()
+        self.last_progress = self.started
+        self.on_stall = on_stall
+        self.stall_reported = False
         self.stage_started = self.started
         self.lock = Lock()
         self.stop = Event()
@@ -49,6 +52,7 @@ class Progress:
             "stage_total_frames": None,
             "stage_percent": None,
             "overall_percent": 0.0,
+            "last_progress_at": datetime.now(UTC).isoformat(),
             "overall_basis": "estimated_weighted_work_not_elapsed_time",
             "phase_weights": dict(self.phases),
         }
@@ -58,6 +62,7 @@ class Progress:
 
     def _write(self):
         self.state["elapsed_s"] = time.perf_counter() - self.started
+        self.state["seconds_since_progress"] = time.perf_counter() - self.last_progress
         self.state["stage_elapsed_s"] = time.perf_counter() - self.stage_started
         self.state["updated_at"] = datetime.now(UTC).isoformat()
         write_json(self.path, self.state)
@@ -66,6 +71,11 @@ class Progress:
         while not self.stop.wait(interval):
             with self.lock:
                 self._write()
+                report = self.state['seconds_since_progress'] > 120 and not self.stall_reported
+                if report:
+                    self.stall_reported = True
+            if report and self.on_stall:
+                self.on_stall()
 
     def update(
         self,
@@ -79,6 +89,16 @@ class Progress:
         error=None,
     ):
         with self.lock:
+            changed = (
+                stage != self.state["stage"]
+                or completed != self.state["stage_frames"]
+                or (frames is not None and frames != self.state["frames"])
+                or status != self.state["status"]
+            )
+            if changed:
+                self.last_progress = time.perf_counter()
+                self.stall_reported = False
+                self.state["last_progress_at"] = datetime.now(UTC).isoformat()
             if stage != self.state["stage"]:
                 self.stage_started = time.perf_counter()
             if frames is not None:

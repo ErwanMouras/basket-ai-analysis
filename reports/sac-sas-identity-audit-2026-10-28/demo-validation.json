@@ -1,0 +1,54 @@
+{
+  "frames_verified": 125,
+  "named_players_per_frame": 10,
+  "named_player_observations": 1250,
+  "baseline_named_observations_same_detections": 777,
+  "baseline_named_fraction": 0.6216,
+  "named_fraction": 1.0,
+  "source_unchanged": true,
+  "model_weights_unchanged": true,
+  "integrity": {
+    "expected_frames": 125,
+    "verified_frames": 125,
+    "contiguous_frame_indices": true,
+    "unique_observation_and_track_ids": true,
+    "unique_resolved_identities_per_frame": true,
+    "ordered_finite_timestamps": true,
+    "timestamps_match_source": true
+  },
+  "alignment": {
+    "decoded_frames": 125,
+    "checks": [
+      {
+        "index": 0,
+        "expected_source": 2476,
+        "mse": [
+          10740.7236328125,
+          1.766034722328186,
+          316.48260498046875
+        ],
+        "best_offset": 1,
+        "color_error": 0.7256746292114258
+      },
+      {
+        "index": 124,
+        "expected_source": 2600,
+        "mse": [
+          392.9539489746094,
+          2.497807264328003,
+          280.941162109375
+        ],
+        "best_offset": 1,
+        "color_error": 0.8739021420478821
+      }
+    ]
+  },
+  "max_frame_motion_in_body_heights": 0.2751646056598511,
+  "numerical_device": "cuda:0",
+  "cpu_tensor_calculations": 0,
+  "fallback_events": [],
+  "reviewed_initialization": true,
+  "reviewed_detection_decisions": 5,
+  "automatic_full_match_claim": false,
+  "pipeline_tests": 160
+}

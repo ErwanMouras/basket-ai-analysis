@@ -1,14 +1,19 @@
 """Follow the complete analysis: python -m pipeline.monitor --run runs/analysis/name."""
 
 import argparse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import time
-
+from datetime import UTC, datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 LABELS = {"loading": "Chargement des modèles", "perception": "Inférence vidéo",
+          "recovery": "Relecture GPU des numéros et des maillots",
+          "refinement": "Nettoyage des détections et intégration des preuves",
+          "identity_motion": "Continuité des identités entre trajectoires",
+          "color_features": "Mesures de couleur manquantes sur GPU",
+          "color_calibration": "Calibration des couleurs sur ce match",
           "identity_colors": "Consolidation des couleurs", "identity_ocr": "Consolidation OCR",
           "identity_resolution": "Résolution des identités", "identity_collisions": "Vérification des identités",
           "identity_handoffs": "Raccords des trajectoires",
@@ -28,6 +33,14 @@ def read_progress(run):
             os.kill(state['pid'], 0)
         except ProcessLookupError:
             state.update(status='interrupted', error='Le processus d’analyse s’est arrêté avant la finalisation.')
+    if state.get('status') == 'running' and state.get('last_progress_at'):
+        idle = max(0, (datetime.now(UTC) - datetime.fromisoformat(state['last_progress_at'])).total_seconds())
+        state['seconds_since_progress'] = idle
+        if idle > 90:
+            state.update(status='stalled', throughput_fps=None, perception_remaining_s=None,
+                         error=f'Aucune progression depuis {idle / 60:.1f} min. Le processus est vivant, mais son activité ne prouve pas que les calculs avancent.')
+    if state.get('status') != 'running':
+        state.update(throughput_fps=None, perception_remaining_s=None)
     return state
 
 

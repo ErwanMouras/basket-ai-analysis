@@ -110,7 +110,21 @@ def candidate(image, rows, index, points, valid, masks, config, variant):
     device = str(image.device)
     if bool(row[4] < config["min_detection_confidence"]):
         return None
-    if variant == "lower":
+    bbox_variants = {
+        "bbox_upper": ([0.15, 0.16], [0.85, 0.43]),
+        "bbox_center": ([0.15, 0.23], [0.85, 0.52]),
+        "bbox_lower": ([0.18, 0.30], [0.82, 0.60]),
+    }
+    if variant in bbox_variants:
+        lo, hi = bbox_variants[variant]
+        roi = torch.cat(
+            (
+                box[:2] + wh * tensor(lo, device=device, dtype=box.dtype),
+                box[:2] + wh * tensor(hi, device=device, dtype=box.dtype),
+            )
+        )
+        region = variant
+    elif variant == "lower":
         roi = torch.cat(
             (
                 box[:2] + wh * tensor([0.24, 0.30], device=device, dtype=box.dtype),
@@ -121,7 +135,7 @@ def candidate(image, rows, index, points, valid, masks, config, variant):
     else:
         roi = torso(box, torch.zeros_like(points), torch.zeros_like(valid))
         region = "bbox_number_upper"
-    if bool(valid[[5, 6, 11, 12]].all()):
+    if variant not in bbox_variants and bool(valid[[5, 6, 11, 12]].all()):
         corners = points[[5, 6, 11, 12]]
         lo = corners.amin(0)
         hi = corners.amax(0)
@@ -243,6 +257,14 @@ def majority(counter, minimum=3, share=0.75):
     ), ratio
 
 
+def ocr_due(state, index, now, config):
+    if (index - state["start"]) % 2:
+        return False
+    if not state["confirmed"] or state.get("last_read_s") is None:
+        return True
+    return bool(now - state["last_read_s"] >= config["confirmed_interval_seconds"])
+
+
 class Evidence:
     def __init__(self, config, roster, reader, device):
         self.config, self.roster, self.reader, self.device = (
@@ -321,7 +343,7 @@ class Evidence:
                 "number": None,
                 "confidence": None,
             }
-            if state["confirmed"] or (index - state["start"]) % 2:
+            if not ocr_due(state, index, now, self.config):
                 continue
             offsets = []
             for variant in ("center", "upper", "lower"):
@@ -344,6 +366,7 @@ class Evidence:
                 choice = int(confidence[choices].argmax())
                 offset, crop = offsets[choice]
                 token = tokens[offset]
+                state["last_read_s"] = now.clone()
                 probability = confidence[offset]
                 codes = token.tolist()
                 alphabet = {i: str(i - 1) for i in range(1, 11)}
@@ -366,7 +389,7 @@ class Evidence:
                     {
                         "schema_version": 1,
                         "decoder": "digits_only_v4",
-                        "sampling": "CUDA_every_2_frames_until_majority",
+                        "sampling": "CUDA_every_2_frames_with_confirmed_rechecks",
                         "segment_id": segment,
                         "track_id": key[1],
                         "frame_index": index,

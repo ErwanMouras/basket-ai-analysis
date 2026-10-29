@@ -2,7 +2,7 @@
   "name": "vyneros-viewer-checks",
   "private": true,
   "scripts": {
-    "test": "node --test test_app.js test_heatmap_renderer.cjs",
+    "test": "node --test test_app.js test_heatmap_renderer.cjs test_presentation.cjs",
     "test:browser": "node test_browser.cjs && node test_heatmaps.cjs && node test_scoreboard.cjs && node test_shots.cjs && node test_player_shots.cjs && node test_team_shots.cjs && node test_team_heatmaps.cjs"
   },
   "devDependencies": {

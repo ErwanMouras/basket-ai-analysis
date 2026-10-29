@@ -1,6 +1,14 @@
 // All product copy lives here so switching language never reloads the match.
 const messages = {
   fr: {
+    videoStability: "Stabilité des annotations vidéo",
+    presentationMode: "Présentation",
+    stableTracks: "Anonymes ≥ 5 images",
+    stableTracksHelp: "Masquer les apparitions sans identité de moins de cinq images consécutives. Les joueurs identifiés restent visibles.",
+    smoothBoxes: "Boîtes lissées",
+    smoothBoxesHelp: "Stabiliser les boîtes et la position des noms sur cinq images au maximum, sans traverser les coupes ni les absences.",
+    identityLabels: "Noms confirmés seuls",
+    identityLabelsHelp: "Afficher les noms validés, sans les libellés Track ni les numéros sans identité. Les boîtes anonymes restent visibles.",
     resetShort: "Réinitialiser",
     interceptions: "Interceptions",
     comingSoon: "Arrive bientôt",
@@ -218,6 +226,14 @@ const messages = {
     loadingPositions: "Chargement des positions…",
   },
   en: {
+    videoStability: "Video annotation stability",
+    presentationMode: "Presentation",
+    stableTracks: "Anonymous ≥ 5 frames",
+    stableTracksHelp: "Hide unidentified appearances shorter than five consecutive frames. Identified players remain visible.",
+    smoothBoxes: "Smooth boxes",
+    smoothBoxesHelp: "Stabilize boxes and label positions over up to five frames, without crossing cuts or missing observations.",
+    identityLabels: "Confirmed names only",
+    identityLabelsHelp: "Show confirmed names without Track labels or unidentified numbers. Anonymous boxes remain visible.",
     resetShort: "Reset",
     interceptions: "Steals",
     comingSoon: "Coming soon",

@@ -115,6 +115,23 @@ class NativeCudaTests(unittest.TestCase):
             ([], [], [0, 1]),
         )
 
+    def test_assignment_many_ties_and_gated_rows_across_warps(self):
+        for n, m in ((33, 7), (65, 33), (12, 65)):
+            cost = torch.zeros((n, m), device=self.device, dtype=torch.float64)
+            for _ in range(8):
+                matches, left, right = linear_assignment(cost, 0.5)
+                self.assertEqual(len(matches), min(n, m))
+                self.assertEqual(len(left), n - len(matches))
+                self.assertEqual(len(right), m - len(matches))
+                self.assertEqual(len({r for r, _ in matches}), len(matches))
+                self.assertEqual(len({c for _, c in matches}), len(matches))
+            cost.fill_(torch.inf)
+            self.assertEqual(linear_assignment(cost, 0.5), ([], list(range(n)), list(range(m))))
+
+    def test_assignment_invalid_infinite_path_raises_instead_of_spinning(self):
+        with self.assertRaisesRegex(RuntimeError, 'invalid or cyclic'):
+            linear_assignment(tensor([[-torch.inf]]), 0.5)
+
     def test_tracker_roles_cuts_and_missing_detection(self):
         config = load_config()["tracking"]
         config.update(tracker="bytetrack", gmc_method="none")

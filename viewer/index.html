@@ -8,6 +8,7 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/style.css" />
     <script src="/i18n.js" defer></script>
+    <script src="/presentation.js" defer></script>
     <script src="/app.js" defer></script>
     <script src="/heatmap-renderer.js" defer></script>
     <script src="/heatmaps.js" defer></script>
@@ -116,6 +117,12 @@
                   </div>
                   <div class="layer-reset-group">
                     <button id="resetLayers" class="layer-reset" type="button" data-i18n="resetShort" data-i18n-aria="resetLayers" data-i18n-title="resetLayers">Réinitialiser</button>
+                  </div>
+                  <div class="overlay-stability" role="group" data-i18n-aria="videoStability">
+                    <button id="presentationMode" class="presentation-button" type="button" aria-pressed="false" data-i18n="presentationMode">Présentation</button>
+                    <label class="layer-toggle" data-i18n-title="stableTracksHelp"><input type="checkbox" data-filter="stableTracks" checked /><span data-i18n="stableTracks">Anonymes ≥ 5 images</span></label>
+                    <label class="layer-toggle" data-i18n-title="smoothBoxesHelp"><input type="checkbox" data-filter="smoothBoxes" checked /><span data-i18n="smoothBoxes">Boîtes lissées</span></label>
+                    <label class="layer-toggle" data-i18n-title="identityLabelsHelp"><input type="checkbox" data-filter="identityLabels" /><span data-i18n="identityLabels">Noms confirmés seuls</span></label>
                   </div>
                 </div>
                 <div class="toolbar-actions">
