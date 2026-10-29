@@ -7,8 +7,8 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from viewer.server import Handler, ViewerServer
 from training.jersey.display import display_colors, person_display_color
+from viewer.server import Handler, ViewerServer
 
 
 class ViewerTests(unittest.TestCase):
@@ -157,6 +157,27 @@ class ViewerTests(unittest.TestCase):
         self.assertEqual([read.get('decoder') for read in json.loads(body)['reads']],
                          ['digits_only_v4'])
 
+    def test_video_can_skip_unused_progressive_metrics_without_changing_observations(self):
+        _, _, full = self.get('/api/frame?name=match&index=1')
+        _, _, lean = self.get('/api/frame?name=match&index=1&metrics=0')
+        self.assertEqual(json.loads(lean), {'observation': json.loads(full)['observation']})
+        _, _, frames = self.get('/api/frames?name=match&start=0&count=3&metrics=0')
+        self.assertTrue(all(set(item) == {'observation'} for item in json.loads(frames)['frames']))
+
+    def test_presentation_spans_split_at_gaps_cuts_roles_and_segments(self):
+        run = self.server.runs_root / 'match'
+        with (run / 'observations.jsonl').open('w') as stream:
+            for i in range(12):
+                persons = [] if i == 4 else [{'role': 'referee' if i >= 10 else 'player', 'track_id': 1}]
+                stream.write(json.dumps({'frame_index': i, 'timestamp_s': i / 10,
+                    'segment_id': 1 if i >= 9 else 0, 'scene_cut': i == 7,
+                    'persons': persons, 'width': 100, 'height': 50}) + '\n')
+        _, _, body = self.get('/api/run?name=match')
+        self.assertEqual(json.loads(body)['presentation_tracks'], {
+            '0:player:1': [[0, 3], [5, 6], [7, 8]],
+            '1:player:1': [[9, 9]], '1:referee:1': [[10, 11]],
+        })
+
     def test_final_votes_hide_legacy_text_reads_when_no_numeric_crop(self):
         run = self.server.runs_root / 'match'
         (run / 'team_votes.json').write_text(json.dumps({'tracks': {'0:1': {
@@ -258,7 +279,7 @@ class HeatmapEndpointTests(unittest.TestCase):
         self.assertAlmostEqual(json.loads(self.get(url)[2])['maps'][0]['total'], .25)
 
     def test_phase_query_combines_oriented_passages_across_camera_plans(self):
-        from viewer.test_phases import phase_frame, ROSTER, GEOMETRY
+        from viewer.test_phases import GEOMETRY, ROSTER, phase_frame
         manifest = json.loads((self.run / 'run.json').read_text())
         manifest['court_coordinate_system'] = GEOMETRY
         (self.run / 'run.json').write_text(json.dumps(manifest))
@@ -285,7 +306,7 @@ class ScoreboardServerTests(unittest.TestCase):
 
     def test_spatial_classification_reaches_the_player_timeline_and_heatmap_api(self):
         from viewer.test_phases import GEOMETRY, ROSTER
-        from viewer.test_settled import transition_rows, scoreboard
+        from viewer.test_settled import scoreboard, transition_rows
         run = self.server.runs_root / 'match'
         rows = transition_rows()
         manifest = json.loads((run / 'run.json').read_text())
@@ -339,7 +360,7 @@ class ShotServerTests(unittest.TestCase):
     get = ViewerTests.get
 
     def test_shots_are_available_in_run_metadata_and_dedicated_api(self):
-        from viewer.test_shots import rows, GEOMETRY, ROSTER
+        from viewer.test_shots import GEOMETRY, ROSTER, rows
         run = self.server.runs_root / 'match'
         manifest=json.loads((run/'run.json').read_text())
         manifest['court_coordinate_system']=GEOMETRY

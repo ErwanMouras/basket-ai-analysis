@@ -46,6 +46,7 @@ async function app() {
     setTimeout: () => 0, clearTimeout() {},
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'i18n.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'presentation.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, 'app.js'), 'utf8'), context);
   await new Promise(setImmediate);
   return { context, byId, events, drawCalls, inputs, run: source => vm.runInContext(source, context),
@@ -215,6 +216,40 @@ test('mask-only mode never falls back to boxes for an old run without masks', as
   ui.run('delete state.frame.persons[0].segmentation;drawOverlay(state.frame)');
   assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,0);
   assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,0);
+});
+
+test('short anonymous appearances are filtered consistently from boxes and masks', async () => {
+  const ui = await app(); layerFrame(ui);
+  ui.run(`state.frame.frame_index=0;state.meta.presentation_tracks={'0:player:1':[[0,3]],'0:referee:2':[[0,8]]}`);
+  ui.inputs.push({dataset:{filter:'stableTracks'},checked:true});
+  ui.byId('playerDisplay').value='both'; ui.byId('refereeDisplay').value='hidden';
+  ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage'||c[0]==='strokeRect').length,0);
+  ui.run(`state.frame.persons[0].resolved_identity={team_id:'a',number:'1',player_name:'Known'};drawOverlay(state.frame)`);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='drawImage').length,1);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,1);
+});
+
+test('confirmed-name labels keep anonymous boxes visible', async () => {
+  const ui = await app(); layerFrame(ui);
+  ui.run(`state.frame.persons[1].role='player';state.frame.persons[0].resolved_identity={team_id:'a',number:'1',player_name:'Known'}`);
+  ui.inputs.push({dataset:{filter:'identityLabels'},checked:true},{dataset:{filter:'playerLabels'},checked:true});
+  ui.byId('playerDisplay').value='bbox';ui.run('drawOverlay(state.frame)');
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='strokeRect').length,2);
+  assert.equal(ui.drawCalls.filter(c=>c[0]==='fillText').length,1);
+});
+
+test('presentation preset restores previous layer choices and survives its direct URL', async () => {
+  const ui = await app();
+  ui.inputs.push({dataset:{filter:'playerPose'},checked:true},{dataset:{filter:'stableTracks'},checked:false},{dataset:{filter:'identityLabels'},checked:false});
+  ui.byId('playerDisplay').value='both';ui.byId('refereeDisplay').value='segmentation';
+  ui.run('setPresentationMode(true)');
+  assert.equal(ui.byId('refereeDisplay').value,'hidden');
+  assert.match(ui.run("runURL('match')"), /presentation=1/);
+  assert.equal(ui.inputs[0].checked,false);assert.equal(ui.inputs[1].checked,true);
+  ui.run('setPresentationMode(false)');
+  assert.equal(ui.byId('playerDisplay').value,'both');assert.equal(ui.byId('refereeDisplay').value,'segmentation');
+  assert.equal(ui.inputs[0].checked,true);assert.equal(ui.inputs[1].checked,false);
 });
 
 

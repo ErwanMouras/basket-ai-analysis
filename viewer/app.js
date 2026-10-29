@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const SVG = 'http://www.w3.org/2000/svg';
 const C = { player: '#c9f579', referee: '#ffbd78', ball: '#ffe579', pose: '#b9a6ff', court: '#65d9f2' };
 const state = { runs: [], name: null, meta: null, frame: null, cache: new Map(), batches: new Map(),
-  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null, statsView: 'players', mode: 'visualization' };
+  target: -1, current: -1, presentedTime: null, generation: 0, loaded: false, selected: null, teamId: null, statsView: 'players', mode: 'visualization', displayFrame: null, presentationPrevious: null };
 const video = $('video');
 const canvas = $('overlay');
 const ctx = canvas.getContext('2d');
@@ -49,6 +49,7 @@ function frameAtTime(time) {
 }
 function clearPresentation() {
   state.presentedTime = null; state.target = -1; state.current = -1; state.frame = null;
+  state.displayFrame = null;
   ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
 }
 function duration() { const a = state.meta?.timestamps || []; return a.length ? a[a.length - 1] : 0; }
@@ -176,6 +177,7 @@ async function loadRun(name) {
   window.heatmapStudio?.reset();
   window.teamHeatmaps?.reset();
   video.pause(); state.loaded = false; state.name = name; state.meta = null; state.frame = null;
+  state.displayFrame = null;
   state.cache.clear(); state.batches.clear(); state.target = -1; state.current = -1; state.selected = null; state.teamId = null; state.statsView = 'players';
   state.presentedTime = null;
   renderScoreboard(0); renderMarkers();
@@ -191,7 +193,7 @@ async function loadRun(name) {
     if (generation !== state.generation) return;
     state.meta = data;
     state.loaded = true;
-    history.replaceState(null, '', `?${params({ run: name })}`);
+    history.replaceState(null, '', runURL(name));
     renderMatchHeading(); renderCourtLegend();
     renderStatsPanel();
     selectFirstPlayer();
@@ -203,6 +205,8 @@ async function loadRun(name) {
     else { video.removeAttribute('src'); video.load(); setEmptyState('videoUnavailable', 'videoUnavailableHelp'); }
     renderMarkers();
     await fetchBatch(0);
+    fetchBatch(30);
+    fetchBatch(60);
     if (generation !== state.generation) return;
     if (data.video_available) { state.empty = null; $('videoEmpty').classList.add('hidden'); }
     if (!data.video_available || !video.requestVideoFrameCallback) displayAt(0, true);
@@ -217,15 +221,18 @@ async function fetchBatch(index) {
   const start = Math.floor(index / 30) * 30;
   if (state.batches.has(start)) return state.batches.get(start);
   const generation = state.generation;
-  const promise = json(`/api/frames?${params({ name: state.name, start, count: 30 })}`).then(({frames}) => {
+  const contextStart = Math.max(0, start - 2);
+  const count = Math.min(34, state.meta.timestamps.length - contextStart);
+  const promise = json(`/api/frames?${params({ name: state.name, start: contextStart, count, metrics: 0 })}`).then(({frames}) => {
     if (generation !== state.generation) return;
     for (const data of frames) state.cache.set(data.observation.frame_index, data);
-    while (state.cache.size > 180) {
-      const oldest=state.cache.keys().next().value;
-      state.cache.delete(oldest);state.batches.delete(Math.floor(oldest/30)*30);
+    while (state.cache.size > 240) {
+      const target = state.target < 0 ? index : state.target;
+      const farthest = [...state.cache.keys()].sort((a,b)=>Math.abs(b-target)-Math.abs(a-target))[0];
+      state.cache.delete(farthest);state.batches.delete(Math.floor(farthest/30)*30);
     }
     if (state.cache.has(state.target) && state.current !== state.target) displayAt(state.meta.timestamps[state.target], true, true);
-    else if (state.current >= start && state.current < start + 35 && state.frame) drawOverlay(state.frame);
+    else if (state.current >= contextStart && state.current < contextStart + count && state.frame) drawOverlay(state.frame);
   }).catch(err => {
     if (generation !== state.generation) return;
     state.batches.delete(start); toast(err.message);
@@ -236,7 +243,7 @@ async function fetchBatch(index) {
 async function fetchOne(index) {
   const generation = state.generation;
   try {
-    const data = await json(`/api/frame?${params({ name: state.name, index })}`);
+    const data = await json(`/api/frame?${params({ name: state.name, index, metrics: 0 })}`);
     if (generation !== state.generation) return;
     state.cache.set(index, data);
     if (state.target === index) displayAt(state.meta.timestamps[index], true, true);
@@ -252,12 +259,15 @@ function displayAt(time, force = false, presented = false) {
       state.current = index; state.frame = data.observation; render(data);
     }
   } else {
-    state.current = -1; state.frame = null; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
+    state.current = -1; state.frame = null; state.displayFrame = null; ctx.clearRect(0, 0, canvas.width, canvas.height); $('courtPoints').replaceChildren();
     fetchBatch(index);
     if (force) fetchOne(index);
   }
   if (filters().ball && index > 0) fetchBatch(Math.max(0, index - 5));
-  if (!video.paused) fetchBatch(Math.min(index + 30, state.meta.timestamps.length - 1));
+  if (!video.paused) {
+    fetchBatch(Math.min(index + 30, state.meta.timestamps.length - 1));
+    fetchBatch(Math.min(index + 60, state.meta.timestamps.length - 1));
+  }
 }
 function updateClock(time = video.currentTime || 0) {
   const max = duration(); time = Math.min(time, max);
@@ -529,6 +539,9 @@ function drawOverlay(row) {
   resizeCanvasOnly(row);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const on = filters();
+  row = VideoPresentation.prepare(row, state.meta?.presentation_tracks,
+    index => state.cache.get(index)?.observation, on);
+  state.displayFrame = row;
   drawCourtOverlay(row, on);
   drawSegmentation(row,on);
   for (const person of row.persons || []) {
@@ -554,7 +567,7 @@ function drawOverlay(row) {
       // Draw short corners so the frame remains legible over game footage.
       ctx.beginPath(); ctx.moveTo(x1+size,y1);ctx.lineTo(x1,y1);ctx.lineTo(x1,y1+size);ctx.moveTo(x2-size,y1);ctx.lineTo(x2,y1);ctx.lineTo(x2,y1+size);ctx.moveTo(x1,y2-size);ctx.lineTo(x1,y2);ctx.lineTo(x1+size,y2);ctx.moveTo(x2-size,y2);ctx.lineTo(x2,y2);ctx.lineTo(x2,y2-size);ctx.stroke();
     }
-    if (options.labels) {
+    if (options.labels && (!on.identityLabels || VideoPresentation.identified(person))) {
       const number=personNumber(person,row.segment_id);
       const base = (!person.jersey_number_suppressed && person.resolved_identity?.player_name) || (!Object.hasOwn(person,'majority_jersey_number') && !person.jersey_number_suppressed && person.jersey?.player_name) || (number ? `#${number}` : role === 'referee' ? t('referee') : `Track ${person.track_id ?? '—'}`);
       const title = !person.resolved_identity && !Object.hasOwn(person,'majority_jersey_number')
@@ -563,8 +576,9 @@ function drawOverlay(row) {
       ctx.font = 'bold 15px Arial, sans-serif';
       const labelW = ctx.measureText(title).width + 18;
       const top = Math.max(0, y1 - 27);
-      ctx.fillStyle = '#0c1512eb'; ctx.fillRect(x1, top, labelW, 24);
-      ctx.fillStyle = color; ctx.fillText(title, x1+9, top+17);
+      const left = Math.max(0, Math.min(x1, row.width - labelW));
+      ctx.fillStyle = '#0c1512eb'; ctx.fillRect(left, top, labelW, 24);
+      ctx.fillStyle = color; ctx.fillText(title, left+9, top+17);
     }
     if (options.pose && person.pose?.keypoints) {
       const kp = person.pose.keypoints, valid = person.pose.valid || [];
@@ -903,14 +917,18 @@ $('focusVideo').addEventListener('click',()=>setFocusMode(!$('workspace').classL
 canvas.addEventListener('click',e=>{
   if(!state.frame)return;
   const bounds=canvas.getBoundingClientRect(), px=(e.clientX-bounds.left)*canvas.width/bounds.width, py=(e.clientY-bounds.top)*canvas.height/bounds.height;
-  const matches=(state.frame.persons||[]).filter(p=>identifiedSubject(p,state.frame.segment_id)&&p.bbox&&px>=p.bbox[0]&&px<=p.bbox[2]&&py>=p.bbox[1]&&py<=p.bbox[3]);
+  const matches=((state.displayFrame || state.frame).persons||[]).filter(p=>identifiedSubject(p,state.frame.segment_id)&&p.bbox&&px>=p.bbox[0]&&px<=p.bbox[2]&&py>=p.bbox[1]&&py<=p.bbox[3]);
   matches.sort((a,b)=>(a.bbox[2]-a.bbox[0])*(a.bbox[3]-a.bbox[1])-(b.bbox[2]-b.bbox[0])*(b.bbox[3]-b.bbox[1]));
   if(matches[0])selectSubject(personSubject(matches[0],state.frame.segment_id));
 });
 $('speed').addEventListener('change',e=>video.playbackRate=Number(e.target.value));
 window.addEventListener('resize',resizeOverlay);
 new ResizeObserver(resizeOverlay).observe($('videoStage'));
-document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}}));
+document.querySelectorAll('[data-filter], [data-display]').forEach(input=>input.addEventListener('change',()=>{
+  state.presentationPrevious = null; $('presentationMode').setAttribute('aria-pressed', 'false');
+  if (state.name) history.replaceState(null, '', runURL(state.name));
+  if(state.frame){drawOverlay(state.frame);renderCourt(state.frame);}
+}));
 document.addEventListener('keydown',e=>{
   if (window.playerShotReview?.isOpen()) return window.playerShotReview.keydown(e);
   if ($('heatmapDialog')?.open) return;
@@ -928,6 +946,32 @@ document.querySelectorAll('[data-language]').forEach(button => button.addEventLi
 $('resetLayers').addEventListener('click', () => {
   document.querySelectorAll('[data-filter]').forEach(input => { input.checked = input.defaultChecked; });
   $('playerDisplay').value = 'bbox'; $('refereeDisplay').value = 'bbox';
+  state.presentationPrevious = null; $('presentationMode').setAttribute('aria-pressed', 'false');
+  if (state.name) history.replaceState(null, '', runURL(state.name));
   if (state.frame) render({observation: state.frame});
 });
+function runURL(name) {
+  const query = {run: name};
+  if ($('presentationMode').getAttribute('aria-pressed') === 'true') query.presentation = '1';
+  return `?${params(query)}`;
+}
+function setPresentationMode(enabled, updateUrl = true) {
+  const inputs = [...document.querySelectorAll('[data-filter]')];
+  if (enabled) {
+    state.presentationPrevious = {values: inputs.map(input=>input.checked), player: $('playerDisplay').value, referee: $('refereeDisplay').value};
+    const active = new Set(['playerLabels', 'stableTracks', 'smoothBoxes', 'identityLabels']);
+    inputs.forEach(input=>{input.checked = active.has(input.dataset.filter);});
+    $('playerDisplay').value = 'bbox'; $('refereeDisplay').value = 'hidden';
+  } else if (state.presentationPrevious) {
+    inputs.forEach((input,index)=>{input.checked = state.presentationPrevious.values[index];});
+    $('playerDisplay').value = state.presentationPrevious.player;
+    $('refereeDisplay').value = state.presentationPrevious.referee;
+    state.presentationPrevious = null;
+  }
+  $('presentationMode').setAttribute('aria-pressed', String(enabled));
+  if (updateUrl && state.name) history.replaceState(null, '', runURL(state.name));
+  if (state.frame) render({observation: state.frame});
+}
+$('presentationMode').addEventListener('click',()=>setPresentationMode($('presentationMode').getAttribute('aria-pressed') !== 'true'));
+if (new URLSearchParams(location.search).get('presentation') === '1') setPresentationMode(true, false);
 drawCourtLines();init();

@@ -13,14 +13,14 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit, urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
+from training.common.provenance import file_hash
+from training.jersey.display import display_colors
 from viewer.heatmaps import HeatmapIndex
 from viewer.scoreboard import ScoreboardIndex
-from viewer.shots import ShotIndex
 from viewer.shot_analytics import assign_directions, validate_attributions
-from training.jersey.display import display_colors
-from training.common.provenance import file_hash
+from viewer.shots import ShotIndex
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_ROOT = Path(__file__).resolve().parent
@@ -40,6 +40,7 @@ class RunIndex:
     auxiliary_signature: tuple
     scoreboard: ScoreboardIndex
     shots: ShotIndex
+    presentation_tracks: dict
 
 
 class ViewerServer(ThreadingHTTPServer):
@@ -107,6 +108,7 @@ class ViewerServer(ThreadingHTTPServer):
         timestamps: list[float] = []
         markers: list[dict] = []
         jerseys: dict[str, dict] = {}
+        presentation_tracks: dict[str, list[list[int]]] = {}
         previous_court = None
         with source.open('rb') as file:
             while True:
@@ -126,6 +128,14 @@ class ViewerServer(ThreadingHTTPServer):
                     markers.append({'index': row['frame_index'], 'time': row['timestamp_s'], 'type': 'calibration', 'label': 'Calibration indisponible'})
                 previous_court = court
                 for person in row.get('persons', []):
+                    if person.get('track_id') is not None:
+                        track_key = f"{row.get('segment_id', 0)}:{person.get('role')}:{person['track_id']}"
+                        spans = presentation_tracks.setdefault(track_key, [])
+                        frame = row['frame_index']
+                        if spans and spans[-1][1] == frame - 1 and not row.get('scene_cut'):
+                            spans[-1][1] = frame
+                        else:
+                            spans.append([frame, frame])
                     if person.get('role') != 'player' or person.get('track_id') is None:
                         continue
                     jersey = person.get('jersey') or {}
@@ -190,7 +200,7 @@ class ViewerServer(ThreadingHTTPServer):
         assign_directions(shots.events, heatmaps.phases, heatmaps.plans, scoreboard)
         validate_attributions(shots.events, shots.geometry, heatmaps.phases.timeline(), heatmaps.plans)
         result = RunIndex(stat.st_size, stat.st_mtime_ns, offsets, timestamps, history, markers, reads, observed_jerseys,
-                          heatmaps, auxiliary_signature, scoreboard, shots)
+                          heatmaps, auxiliary_signature, scoreboard, shots, presentation_tracks)
         self.indices[path] = result
         while len(self.indices) > 3:
             self.indices.pop(next(iter(self.indices)), None)
@@ -288,6 +298,7 @@ class Handler(BaseHTTPRequestHandler):
                         'reference_roster': reference_roster,
                         'reference_display_colors': display_colors(reference_roster) if reference_roster else None,
                         'observed_jerseys': index.observed_jerseys,
+                        'presentation_tracks': index.presentation_tracks,
                         'track_votes': vote_summaries,
                         'spatial_handoffs': manifest.get('spatial_handoffs', []),
                         'scoreboard': index.scoreboard.metadata(),
@@ -329,7 +340,7 @@ class Handler(BaseHTTPRequestHandler):
                         return self.error(HTTPStatus.BAD_REQUEST, 'Plage de frames invalide')
                     if start < 0 or not 1 <= count <= 60 or start >= len(index.offsets):
                         return self.error(HTTPStatus.BAD_REQUEST, 'Plage de frames invalide')
-                    return self.json({'frames': [self.frame_payload(path, index, i)
+                    return self.json({'frames': [self.frame_payload(path, index, i, metrics=query.get('metrics', ['1'])[0] != '0')
                                                  for i in range(start, min(start + count, len(index.offsets)))]})
                 try:
                     frame = int(query.get('index', ['0'])[0])
@@ -337,7 +348,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.error(HTTPStatus.BAD_REQUEST, 'Indice de frame invalide')
                 if frame < 0 or frame >= len(index.offsets):
                     return self.error(HTTPStatus.NOT_FOUND, 'Frame introuvable')
-                return self.json(self.frame_payload(path, index, frame))
+                return self.json(self.frame_payload(path, index, frame, metrics=query.get('metrics', ['1'])[0] != '0'))
             if parsed.path == '/':
                 return self.static('index.html')
             if re.fullmatch(r'/[a-zA-Z0-9_.-]+', parsed.path):
@@ -348,10 +359,12 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, json.JSONDecodeError) as exc:
             return self.error(HTTPStatus.BAD_REQUEST, str(exc))
 
-    def frame_payload(self, path, index, frame):
+    def frame_payload(self, path, index, frame, *, metrics=True):
         with (path / 'observations.jsonl').open('rb') as file:
             file.seek(index.offsets[frame])
             observation = json.loads(file.readline())
+        if not metrics:
+            return {'observation': observation}
         metric_rows = []
         for subject, (frames, values) in index.history.items():
             pos = bisect.bisect_right(frames, frame) - 1

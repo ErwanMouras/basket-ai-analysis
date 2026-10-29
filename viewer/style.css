@@ -395,6 +395,8 @@ h1 {
   justify-content: center;
   align-self: center;
   gap: 7px;
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 .layer-reset {
   display: flex;
@@ -410,6 +412,33 @@ h1 {
 .layer-reset:hover {
   background: var(--surface-raised);
   color: var(--text);
+}
+.overlay-stability {
+  grid-column: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+}
+.presentation-button {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.presentation-button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+.overlay-stability .layer-toggle {
+  min-height: 24px;
+  font-size: 11px;
 }
 .panel-toolbar .panel-heading {
   white-space: nowrap;
@@ -2622,5 +2651,23 @@ kbd {
     grid-column: 1 / -1;
     grid-row: 2;
     padding-left: 0;
+  }
+}
+@container (max-width: 440px) {
+  .layer-category select {
+    width: 80px;
+    min-width: 80px;
+  }
+  .layer-category {
+    gap: 5px;
+  }
+  .layer-toolbar {
+    gap: 8px 12px;
+  }
+  .overlay-stability {
+    gap: 8px 10px;
+  }
+  .overlay-stability .layer-toggle {
+    font-size: 10px;
   }
 }
