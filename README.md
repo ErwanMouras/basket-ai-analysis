@@ -16,7 +16,7 @@ experiments, reproducible inference, release controls and an interactive review 
 
 **Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow  · Docker · GitHub Actions**
 
-[Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Documentation](#explore-the-implementation) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Roadmap](#where-i-would-take-it-next)
+[Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Roadmap](#where-i-would-take-it-next)
 
 
 ## See the system in action
@@ -128,16 +128,6 @@ The sample viewer must be running on port 8766 for browser checks. The
 
 The [evaluation guide](docs/EVALUATION.md) documents model packaging and
 container inference; the [Makefile](Makefile) contains the complete target list.
-
-## Explore the implementation
-
-| Area | Start here |
-| --- | --- |
-| Pipeline, native CUDA and output contracts | [Pipeline guide](pipeline/README.md) · [CUDA source](pipeline/cuda/) |
-| Training, annotation and model evaluation | [People](training/players/README.md) · [Training](training/players/TRAINING.md) · [Ball evaluation](training/ball/EVALUATION.md) |
-| Geometry, masks and identity | [Court](training/court/README.md) · [Segmentation](training/segmentation/README.md) · [Jersey OCR](training/jersey/README.md) |
-| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Evaluation guide](docs/EVALUATION.md) |
-| Product behavior and presentation | [Viewer](viewer/README.md) · [Media brief](docs/demo/spurs-kings-media-brief.md) |
 
 ## Measured results
 
