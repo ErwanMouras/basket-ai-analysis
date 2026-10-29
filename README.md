@@ -26,27 +26,22 @@ Vyneros makes those conditions inspectable: overlays follow the presented frame,
 court maps normalize attacking direction, and player measurements retain the
 intervals that actually support them.
 
+[![Spurs–Kings walkthrough: annotated play and projected court in the English viewer](imagesReadMe/spurs-kings-walkthrough.jpg)](imagesReadMe/spurs-kings-walkthrough.mp4)
+
+**[Watch the walkthrough · 46 s, MP4](imagesReadMe/spurs-kings-walkthrough.mp4)**
+
+Real Spurs–Kings analysis: annotated play → Victor Wembanyama's individual shot
+review → team maps → Kings–Spurs comparison in offense and defense.
+The video shows the English viewer playing completed analysis at 1×, with
+captions and no audio. Shot proposals retain their probable/candidate status;
+made/missed outcomes remain unknown.
+
 1. **Inspect the play.** Switch player/referee boxes, masks, pose and court layers
    independently, then step through the source video frame by frame.
 2. **Open a player's attempts.** Jump from the player profile into a bounded shot
    review, keep synchronized overlays, and optionally include candidates.
 3. **Compare the teams.** Read presence and shot-origin maps side by side, with
    attacking/defending filters and explicit reasons for missing positions.
-
-> **Spurs–Kings walkthrough — capture pending.** A 30–40 s, captioned MP4 will
-> show the completed real inference: annotated play → player shot review → team
-> maps → run provenance. A silent 6–8 s GIF will provide the inline GitHub preview.
-> Both will be captured after the run completes and its outputs pass review;
-> playback speed will be distinguished from inference speed.
-
-> **Two supporting visuals planned.** A wide PNG will pair an annotated source
-> frame with its projected court. A second PNG will show player coverage and team
-> maps with readable labels. Moments will be selected from the completed run;
-> missing identities or unavailable maps will remain visible when relevant.
-
-The [media brief](docs/demo/spurs-kings-media-brief.md) specifies formats,
-storyboard, captions and selection criteria. Existing
-[reviewed examples](docs/demo/evidence.md) document evidence available before this capture.
 
 ## Try the viewer
 
@@ -68,8 +63,8 @@ learned predictions or NBA footage. [Sample contents](examples/demo/README.md).
 
 ![Synthetic scripted sample showing playback and overlay controls](imagesReadMe/viewer-2026-10-27-playback.png)
 
-This existing image shows the portable sample. The planned Spurs–Kings media
-will show the completed real-inference run.
+This image shows the portable sample. The Spurs–Kings walkthrough above shows
+the completed real-inference run.
 
 </details>
 
@@ -192,13 +187,12 @@ OCR accuracy need their own reviewed labels.
 
 ## Engineering decisions
 
-| Problem | Decision and rationale | Evidence |
-| --- | --- | --- |
-| Different model families expose incompatible scores | Normalize the output task, freeze evaluation settings and report context coverage alongside quality. | [Ball evaluation](training/ball/EVALUATION.md) |
-| Camera motion makes pixel displacement misleading | Estimate court homographies, use observed foot positions and break measurement across cuts, gaps or invalid calibration. | [Court](training/court/README.md) · [Distance logic](pipeline/distance.py) |
-| A jersey number may belong to both teams | Combine repeated OCR with roster and uniform evidence; keep conflicting identities unresolved and reject simultaneous collisions. | [Identity resolution](pipeline/identity.py) |
-| GPU models leave substantial work on the host | Implement native CUDA decoding, preprocessing, geometry, tracking and aggregation, with graph capture and Triton kernels where applicable. | [CUDA source](pipeline/cuda/) · [Parity and resume tests](pipeline/tests/test_cuda_optimizations.py) |
-| A polished overlay can hide a data error | Synchronize with presented timestamps, verify artifact hashes and expose uncertain events, excluded intervals and coverage. | [Viewer](viewer/README.md) · [Contracts](pipeline/contracts.py) |
+| Problem | Decision and rationale |
+| --- | --- |
+| Different model families expose incompatible scores | Normalize the output task, freeze evaluation settings and report context coverage alongside quality. |
+| Camera motion makes pixel displacement misleading | Estimate court homographies, use observed foot positions and break measurement across cuts, gaps or invalid calibration. |
+| GPU models leave substantial work on the host | Implement native CUDA decoding, preprocessing, geometry, tracking and aggregation, with graph capture and Triton kernels where applicable. |
+| A polished overlay can hide a data error | Synchronize with presented timestamps, verify artifact hashes and expose uncertain events, excluded intervals and coverage. |
 
 **My engineering contribution:** annotation/export tools, experiment and evaluation
 workflows, model adapters, identity and spatial logic, CUDA execution, artifact

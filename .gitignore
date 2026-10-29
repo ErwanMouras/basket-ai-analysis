@@ -22,6 +22,7 @@ htmlcov/
 *.onnx
 *.engine
 !/examples/demo/videos/synthetic.mp4
+!/imagesReadMe/spurs-kings-walkthrough.mp4
 /datas
 /exports/
 
