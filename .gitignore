@@ -29,9 +29,27 @@ dvc.lock
 *.onnx
 *.engine
 !/examples/demo/videos/synthetic.mp4
-!/imagesReadMe/spurs-kings-walkthrough.mp4
 /datas
 /exports/
+
+# Local presentation, capture and retired development tools
+/scripts/build_demo_pack.cjs
+/scripts/build_linkedin_*.cjs
+/scripts/capture_*.cjs
+/scripts/add_project_presentation_transitions.py
+/scripts/export_demo_gpu.py
+/scripts/configure_r2.py
+/scripts/segmentation_pipeline_smoke.py
+/viewer/phase_experiment.py
+/viewer/shot_experiment.py
+/mlops/source_release.py
+/mlops/verify_source.py
+/.gitattributes
+
+# Publish only media currently displayed in the README
+/imagesReadMe/*
+!/imagesReadMe/spurs-kings-walkthrough.gif
+!/imagesReadMe/viewer-2026-10-27-playback.png
 
 # Training environments, pinned checkouts, checkpoints and local MLflow
 .venv-ball-*/

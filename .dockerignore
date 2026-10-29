@@ -19,3 +19,9 @@
 !mlops/*.py
 !configs/
 !configs/*.yaml
+
+# Keep local-only utilities out of the application images.
+mlops/source_release.py
+mlops/verify_source.py
+viewer/phase_experiment.py
+viewer/shot_experiment.py
