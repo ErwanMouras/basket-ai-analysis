@@ -1,0 +1,138 @@
+{
+  "windows": [
+    {
+      "start_frame": 2476,
+      "end_frame": 2675,
+      "start_s": 99.04,
+      "end_s": 107.0,
+      "segment": 12,
+      "named_fraction": 0.5944669080919082,
+      "good_frame_fraction": 0.91,
+      "min_named": 5,
+      "max_players": 15
+    },
+    {
+      "start_frame": 33616,
+      "end_frame": 33815,
+      "start_s": 1344.64,
+      "end_s": 1352.6,
+      "segment": 152,
+      "named_fraction": 0.5895131812631812,
+      "good_frame_fraction": 0.84,
+      "min_named": 4,
+      "max_players": 18
+    },
+    {
+      "start_frame": 1696,
+      "end_frame": 1895,
+      "start_s": 67.84,
+      "end_s": 75.8,
+      "segment": 10,
+      "named_fraction": 0.5890546512311217,
+      "good_frame_fraction": 0.79,
+      "min_named": 4,
+      "max_players": 17
+    },
+    {
+      "start_frame": 30756,
+      "end_frame": 30955,
+      "start_s": 1230.24,
+      "end_s": 1238.2,
+      "segment": 138,
+      "named_fraction": 0.5679238816738819,
+      "good_frame_fraction": 0.845,
+      "min_named": 4,
+      "max_players": 16
+    },
+    {
+      "start_frame": 8047,
+      "end_frame": 8246,
+      "start_s": 321.88,
+      "end_s": 329.84,
+      "segment": 35,
+      "named_fraction": 0.5371923146298144,
+      "good_frame_fraction": 0.895,
+      "min_named": 1,
+      "max_players": 18
+    },
+    {
+      "start_frame": 8733,
+      "end_frame": 8932,
+      "start_s": 349.32,
+      "end_s": 357.28,
+      "segment": 35,
+      "named_fraction": 0.5592666083916086,
+      "good_frame_fraction": 0.795,
+      "min_named": 3,
+      "max_players": 13
+    },
+    {
+      "start_frame": 51445,
+      "end_frame": 51644,
+      "start_s": 2057.8,
+      "end_s": 2065.76,
+      "segment": 221,
+      "named_fraction": 0.5243392995892995,
+      "good_frame_fraction": 0.875,
+      "min_named": 4,
+      "max_players": 15
+    },
+    {
+      "start_frame": 53100,
+      "end_frame": 53299,
+      "start_s": 2124.0,
+      "end_s": 2131.96,
+      "segment": 227,
+      "named_fraction": 0.5170018245643246,
+      "good_frame_fraction": 0.8150000000000001,
+      "min_named": 3,
+      "max_players": 16
+    },
+    {
+      "start_frame": 34184,
+      "end_frame": 34383,
+      "start_s": 1367.36,
+      "end_s": 1375.32,
+      "segment": 155,
+      "named_fraction": 0.49116572316572316,
+      "good_frame_fraction": 0.905,
+      "min_named": 4,
+      "max_players": 15
+    },
+    {
+      "start_frame": 51866,
+      "end_frame": 52065,
+      "start_s": 2074.64,
+      "end_s": 2082.6,
+      "segment": 221,
+      "named_fraction": 0.4718792873792874,
+      "good_frame_fraction": 0.87,
+      "min_named": 2,
+      "max_players": 16
+    },
+    {
+      "start_frame": 4818,
+      "end_frame": 5017,
+      "start_s": 192.72,
+      "end_s": 200.68,
+      "segment": 21,
+      "named_fraction": 0.4809833789576438,
+      "good_frame_fraction": 0.78,
+      "min_named": 3,
+      "max_players": 18
+    },
+    {
+      "start_frame": 3409,
+      "end_frame": 3608,
+      "start_s": 136.36,
+      "end_s": 144.32,
+      "segment": 14,
+      "named_fraction": 0.4575921439671437,
+      "good_frame_fraction": 0.8200000000000001,
+      "min_named": 3,
+      "max_players": 18
+    }
+  ],
+  "frames": 59827,
+  "numerical_device": "cuda:0"
+}

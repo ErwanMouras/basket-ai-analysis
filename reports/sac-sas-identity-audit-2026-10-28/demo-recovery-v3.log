@@ -1,0 +1,55 @@
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x540ebc80] UDTA parsing failed retrying raw
+[mov,mp4,m4a,3gp,3g2,mj2 @ 0x540ebc80] UDTA parsing failed retrying raw
+GPU recheck 0/832: 58 crops
+GPU recheck 30/832: 901 crops
+GPU recheck 60/832: 1691 crops
+GPU recheck 90/832: 2555 crops
+GPU recheck 120/832: 3382 crops
+GPU recheck 150/832: 3981 crops
+GPU recheck 180/832: 4604 crops
+GPU recheck 210/832: 5257 crops
+GPU recheck 240/832: 5921 crops
+GPU recheck 270/832: 6625 crops
+GPU recheck 300/832: 7399 crops
+GPU recheck 330/832: 8219 crops
+GPU recheck 360/832: 9006 crops
+GPU recheck 390/832: 9787 crops
+GPU recheck 420/832: 10451 crops
+GPU recheck 450/832: 11061 crops
+GPU recheck 480/832: 11724 crops
+GPU recheck 510/832: 12436 crops
+GPU recheck 540/832: 13176 crops
+GPU recheck 570/832: 13843 crops
+GPU recheck 600/832: 14435 crops
+GPU recheck 630/832: 15030 crops
+GPU recheck 660/832: 15690 crops
+GPU recheck 690/832: 16452 crops
+GPU recheck 720/832: 17253 crops
+GPU recheck 750/832: 18070 crops
+GPU recheck 780/832: 18765 crops
+GPU recheck 810/832: 19474 crops
+{
+  "source_run": "/home/erwan/Vyneros/runs/analysis/sac-sas-2026-10-27-native-cuda-final",
+  "source_manifest_sha256": "9981856f0541096b6b4e94dee59d4b966811a3ad208d43b19ed6232ca23a539b",
+  "start_frame": 2476,
+  "stop_frame": 3308,
+  "step": 2,
+  "crops": 19842,
+  "source_frame_votes": 4172,
+  "accepted_votes": 845,
+  "model": {
+    "checkpoint_sha256": "bb5792a68e367476abca029cbf8699abc805f3d3dc7e57aae45c8ec4f7b7cd00",
+    "device": "cuda:0",
+    "backend": "PARSeq_native_CUDA",
+    "decoder": "digits_only_v4_CUDA",
+    "cpu_fallback": null
+  },
+  "numerical_device": "cuda:0",
+  "cuda_guard": {
+    "tensor_dispatches": 3999680,
+    "io_transfers": 491078,
+    "cpu_tensor_calculations": 0,
+    "fallback_events": []
+  },
+  "elapsed_s": 52.0061231159998
+}

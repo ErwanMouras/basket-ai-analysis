@@ -1,0 +1,13 @@
+======================================================================
+ERROR: test_replay_clears_a_previous_collision_before_applying_new_identity (pipeline.tests.test_cuda_refinement.RefinementTests.test_replay_clears_a_previous_collision_before_applying_new_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/erwan/Vyneros/pipeline/tests/test_cuda_refinement.py", line 171, in test_replay_clears_a_previous_collision_before_applying_new_identity
+    r = row(0, [person()])
+                ^^^^^^
+NameError: name 'person' is not defined
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.925s
+
+FAILED (errors=1)
