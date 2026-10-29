@@ -26,11 +26,11 @@ Vyneros makes those conditions inspectable: overlays follow the presented frame,
 court maps normalize attacking direction, and player measurements retain the
 intervals that actually support them.
 
-[![Animated Spurs–Kings preview: annotated play, Wembanyama's shot review and team comparison](imagesReadMe/spurs-kings-preview.gif)](imagesReadMe/spurs-kings-walkthrough.mp4)
+[![Full animated Spurs–Kings walkthrough: annotated play, Wembanyama's shot review and team comparison](imagesReadMe/spurs-kings-walkthrough.gif)](imagesReadMe/spurs-kings-walkthrough.mp4)
 
 **[Watch the walkthrough · 46 s, MP4](imagesReadMe/spurs-kings-walkthrough.mp4)**
 
-The 8-second preview loops above; click it for the full walkthrough.
+The full 46-second walkthrough loops above; click it for the MP4 version.
 [Static preview](imagesReadMe/spurs-kings-walkthrough.jpg).
 
 Real Spurs–Kings analysis: annotated play → Victor Wembanyama's individual shot
