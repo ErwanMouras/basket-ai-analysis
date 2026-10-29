@@ -180,9 +180,7 @@ Les observations sur les vidéos locales sont consignées dans
 
 ## Revue des améliorations du 26 octobre 2026
 
-Le [rapport comparatif](../../reports/court-review-2026-10-26/README.md) décrit
-le lissage et le nouvel affichage dans le viewer, les mesures sur 5 100 images
-locales, les limites et la procédure pour reproduire les aperçus avant merge.
+Le lissage et l’affichage dans le viewer ont été examinés sur 5 100 images locales.
 Les diagnostics `smoothing_applied`, `smoothing_alpha`,
 `stabilized_reprojection_rmse_px`, `correction_median_px` et
 `output_correction_median_px` complètent le rapport des recalages concernés.

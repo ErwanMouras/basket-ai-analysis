@@ -134,7 +134,7 @@ Pour préparer les **851 images train du plan**, sans ouvrir l'interface :
 
 ```bash
 .venv-players/bin/python -m scripts.preannotate_players_plan \
-  --plan reports/data-inventory-2026-10-17/players_annotation_queue.csv \
+  --plan /chemin/vers/players_annotation_queue.csv \
   --source datas --phase 1 \
   --checkpoint models/players/ebard_yolov8n.pt \
   --player-class 2 --referee-class 3 --device cuda:0 \

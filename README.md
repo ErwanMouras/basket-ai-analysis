@@ -172,7 +172,7 @@ false alarms and occlusion robustness need separate evaluation.
 profile. Its single-frame context also avoids temporal startup gaps after camera
 cuts. The historical default recipe retains V5; the
 [studio recipe](configs/segmentation/studio-sam-yolo26l-ball.yaml) pins YOLO26L by
-SHA-256. [All 12 checkpoints, per-match results and protocol](reports/ball-comparison-2026-10-25/README.md).
+SHA-256.
 
 ### Detection and segmentation were selected for the task
 
@@ -181,14 +181,13 @@ AP@50:95**, versus **0.5154** for the evaluated COCO YOLO26 Nano configuration.
 Median adapter latency was **4.46 vs 8.15 ms** under the recorded protocol.
 E-BARD supplies explicit player/referee roles used throughout the pipeline.
 These are existing pretrained checkpoints; this comparison did not train either
-model. [Evaluation and release evidence](reports/POC_DELIVERY_2026-10-18.md).
+model.
 
 I also compared **detector boxes → SAM 2.1** with direct YOLO26 L/X segmentation.
 SAM preserves the detector's boxes and roles, at a higher processing cost. Direct
 segmentation offers another speed/quality tradeoff, but its generic person class
 also includes people near the court. Segmentation stays configurable; mask and
 OCR accuracy need their own reviewed labels.
-[Segmentation study](reports/segmentation-comparison-2026-10-25/README.md).
 
 ### Error analysis changed the system
 
@@ -201,7 +200,7 @@ attributions were removed while all 223 event proposals remained reviewable**.
 The same investigation led to foreground-only jersey color sampling and
 mask-aware crop overlap checks. This is the feedback loop behind the viewer:
 inspect a failure, identify its cause, update the rule, and protect the behavior
-with regression tests. [Cases, counts and limitations](reports/segmentation-shot-context-2026-10-28/README.md).
+with regression tests.
 
 ## Engineering decisions
 
@@ -216,8 +215,7 @@ with regression tests. [Cases, counts and limitations](reports/segmentation-shot
 **My engineering contribution:** annotation/export tools, experiment and evaluation
 workflows, model adapters, identity and spatial logic, CUDA execution, artifact
 contracts, release tooling, tests and the browser studio. Reused neural
-foundations are credited below; ball training campaigns are documented in the
-[comparison report](reports/ball-comparison-2026-10-25/README.md).
+foundations are credited below.
 
 ## Architecture
 
@@ -260,13 +258,11 @@ The people-model lifecycle has been exercised end to end:
 
 **Evaluate → register → promote → reject a regression → roll back → reload and predict.**
 
-The [accepted](reports/poc-2026-10-18/accepted.json) and
-[rejected](reports/poc-2026-10-18/rejected.json) decisions record the compared
-checkpoints and checks. Promotion requires compatible completed evaluations;
+Promotion requires compatible completed evaluations;
 the [policy](configs/quality_gates.yaml) checks reviewed-image support, AP/recall
 regression and P95 adapter latency. Alias changes record the expected previous
 version and a reason. The rollback exercise reloaded the restored model and ran
-inference. [Recorded lifecycle](reports/POC_DELIVERY_2026-10-18.md).
+inference.
 
 - **Data lineage:** DVC references for private inputs, match-aware split checks,
   verified YOLO/COCO exports and source hashes.
@@ -304,10 +300,8 @@ used to inspect an analysis.
   suites, builds the viewer Docker image and verifies its imports, assets and
   public sample. CUDA-specific tests and real-video checks also run locally.
 
-See the [CI runs](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml),
-[release validation report](reports/POC_DELIVERY_2026-10-18.md) and
-[CUDA refinement audit](reports/sac-sas-identity-audit-2026-10-28/COLORS.md)
-for detailed evidence. These checks establish technical reliability on the tested
+See the [CI runs](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml)
+for automated checks. These checks establish technical reliability on the tested
 cases; model accuracy requires separate evaluation against reviewed annotations.
 
 ## Current scope and evaluation priorities

@@ -89,8 +89,6 @@ son journal v4 sérialise également `mask_audit` pour les nouvelles lectures.
 
 ## Protocole et reproduction
 
-Le rapport exécuté se trouve dans
-[reports/segmentation-comparison-2026-10-25](../../reports/segmentation-comparison-2026-10-25/README.md).
 Toutes les frames **vérifiées**, train et val, sont admissibles puisque les
 segmentateurs ne sont pas fine-tunés sur ces vidéos. Les frames simplement
 proposées ne deviennent jamais de la vérité terrain. Les images voisines restent

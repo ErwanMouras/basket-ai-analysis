@@ -152,8 +152,7 @@ calques. L’événement `seeking` peut arriver après la présentation de la no
 image, notamment après redimensionnement : cette image déjà présentée est
 conservée si elle correspond à la destination. Sans cette API, le studio attend
 `seeked` et utilise le dernier timestamp inférieur ou égal au temps vidéo.
-Les masques stockés restent découpés aux bbox du pipeline ; voir l’[audit de
-segmentation](../reports/segmentation-display-audit-2026-10-25/README.md).
+Les masques stockés restent découpés aux bbox du pipeline.
 
 ## Statistiques : Joueurs / Équipe
 
@@ -415,16 +414,12 @@ Le comparateur lit les artefacts terminés et n’exécute aucune inférence :
 
 ```bash
 python -m viewer.phase_experiment --run runs/analysis/hou-lal-sam-yolo26l-ball \
-  --review-checkpoints reports/attack-defense-2026-10-26/review-checkpoints.json \
   --output release/phase-experiment.json
 ```
 
-Les points de contrôle sont liés au hash de la vidéo HOU–LAL locale. Ils constituent
-une petite vérification de développement, sans évaluation indépendante de
-précision. Omettre `--review-checkpoints` pour obtenir les durées classées sur un
-autre run, par exemple `examples/demo/runs/synthetic`. Le [rapport de
-l’expérience](../reports/attack-defense-2026-10-26/README.md) décrit les variantes,
-les résultats et leurs limites.
+La commande fonctionne aussi sur un autre run, par exemple
+`examples/demo/runs/synthetic`. Des points de contrôle locaux peuvent être fournis
+avec `--review-checkpoints` pour une vérification de développement.
 
 ## Bandeau NBA : score, quart-temps et côtés stables
 
@@ -488,20 +483,14 @@ les boutons **Attaque / Défense** choisissent la situation. Les intervalles son
 interrompus aux limites de QT ; la plage d’un QT ne déborde pas sur le suivant.
 Les trois vues et la normalisation du panier à droite restent disponibles.
 
-L’[expérience sur HOU–LAL](../reports/quarter-score-2026-10-26/README.md) détaille
-la couverture des lectures, les points contrôlés et leurs limites. La démo
-publique contient un bandeau et une coupe QT1 → QT3 explicitement scénarisés.
+La démo publique contient un bandeau et une coupe QT1 → QT3 explicitement scénarisés.
 
 ### Modèle de phases courant
 
-Le [rapport des phases installées](../reports/settled-play-2026-10-26/README.md)
-remplace le précédent complément par zone. Le contrôle du ballon sert à confirmer
+Le contrôle du ballon sert à confirmer
 les changements ; l’arrivée dans le camp attaqué détermine quand une nouvelle
 attaque/défense peut entrer dans les heatmaps. Les transitions restent internes
 et ne sont jamais proposées dans le sélecteur ni affichées sous la vidéo.
-
-La [revue des demi-terrains](../reports/half-court-2026-10-26/README.md) décrit
-le cadrage final, la comparaison automatique et les vérifications associées.
 
 ## Événements de tir
 
@@ -576,7 +565,6 @@ support heuristique, pas des probabilités calibrées.
 ```bash
 python -m viewer.shot_experiment \
   --run runs/analysis/hou-lal-sam-yolo26l-ball \
-  --review reports/shots-2026-10-26/review-checkpoints.json \
   --output /tmp/shots.json
 ```
 
@@ -586,8 +574,6 @@ des observations, du manifeste, du roster et des deux fichiers du détecteur,
 ainsi que sa version, ses seuils et les indices de chaque événement. Il ne modifie
 aucun artefact d’entrée. Les checkpoints de revue doivent correspondre exactement
 aux hashes vidéo et observations.
-
-Voir le [rapport de développement et ses limites](../reports/shots-2026-10-26/README.md).
 
 ### Cartes de tirs et compteurs joueurs
 
@@ -651,5 +637,3 @@ Les métadonnées `shots` exposent `player_counts`, `unassigned_probable_count`,
 `candidate_count`, `detected_count`, `located_count`, `unlocated_count`, sa grille
 de comptage et ses points avec timestamp et statut. Les événements exposent leur `origin` et leur
 `court_direction`. Les statistiques historiques de déplacement restent inchangées.
-
-Voir la [revue des cartes de tirs](../reports/shot-maps-2026-10-26/README.md).

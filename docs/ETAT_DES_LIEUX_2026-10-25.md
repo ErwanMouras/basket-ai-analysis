@@ -253,7 +253,6 @@ du découpage des données, d'un échec observé et du mécanisme de retour arri
 - `runs/audit-2026-10-25/summary.json` : vérification locale actuelle.
 - `runs/audit-data-2026-10-25/inventory.json` : inventaire actuel.
 - `mlflow.db` et `runs/ball/full-*/training/` : entraînements récents.
-- `reports/POC_DELIVERY_2026-10-18.md` : preuves opérationnelles historiques.
 - `configs/analysis.yaml`, `pipeline/adapters.py` et
   `training/ball/evaluation/inference.py` : intégration et limites des adaptateurs.
 - `docs/EVALUATION_PROTOCOL.md` et `mlops/gold.py` : contrat de validation.

@@ -61,9 +61,7 @@ remplace pas l’explication du traitement batch.
 | 13,30–14,60 s | Plans rapprochés et changements de plan | Exemple complémentaire de calibration indisponible | « Une projection absente ne doit pas produire une distance inventée. » |
 | 37,50 s · frame 1125 | `shot-6`, probable sans identité nominative | Démo complémentaire de non-attribution | « L’événement peut être proposé sans nommer un joueur. » |
 
-Les contrôles visuels de développement sont dans
-[la revue des tirs](../../reports/shots-2026-10-26/README.md).
-Ils ne sont pas une annotation exhaustive et indépendante.
+Les contrôles visuels de développement ne sont pas une annotation exhaustive et indépendante.
 Revoir la séquence en mouvement avant de conserver un plan : les captures seules
 ne suffisent pas à qualifier la qualité d’une trajectoire ou d’un masque.
 

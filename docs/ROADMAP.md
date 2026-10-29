@@ -34,7 +34,6 @@ Leurs scores restent fermés jusqu'au gel de la recette à la fin de l'étape 2.
   des commits cohérents sans perdre ce travail.
 - [x] Inventorier les checkpoints : fichier, SHA-256, run MLflow, époque et
   critère de sauvegarde. Distinguer `best.pt`, `best_f1.pt` et `last.pt`.
-  [Inventaire des 19 fichiers](../reports/ball-comparison-2026-10-25/checkpoint-inventory.json).
 - [x] Conserver les identifiants d'exports propres aux expériences existantes.
   Ne pas remplacer leurs données sous le même identifiant.
 - [ ] Réserver deux nouveaux clips issus de matchs absents du développement pour
@@ -72,8 +71,7 @@ l'évaluation sur validation de l'étape suivante.
   cette intégration ; la recette actuelle garde son V5 historique.
 
 **Livrables :** protocole, inventaire, métriques par checkpoint, sélection,
-compromis qualité/coût et limites dans
-[`reports/ball-comparison-2026-10-25/`](../reports/ball-comparison-2026-10-25/README.md).
+compromis qualité/coût et limites.
 La configuration de démo doit ensuite charger le candidat compatible retenu.
 
 **Terminé quand :** le même protocole permet de comparer les sept campagnes et

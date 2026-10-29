@@ -105,5 +105,4 @@ Angle proposé : **« Un masque correct sur la mauvaise frame reste un résultat
 Montrer le problème de synchronisation vidéo, la logique de frame présentée et
 le test qui évite la régression. C’est un sujet distinct de la vidéo principale,
 pertinent pour une équipe vision qui doit intégrer ses sorties dans un produit.
-Base documentaire : [audit de segmentation](../../reports/segmentation-display-audit-2026-10-25/README.md)
-et [guide du viewer](../../viewer/README.md).
+Base documentaire : [guide du viewer](../../viewer/README.md).

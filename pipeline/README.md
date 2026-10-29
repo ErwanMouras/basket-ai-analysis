@@ -202,8 +202,7 @@ observations et peuvent neutraliser le fond des crops OCR. Les modèles COCO
 utilisent un proxy de rôle joueur explicitement expérimental.
 
 Installation, contrats des masques, politiques OCR et reproduction :
-[guide segmentation](../training/segmentation/README.md). Mesures et limites :
-[rapport comparatif](../reports/segmentation-comparison-2026-10-25/README.md).
+[guide segmentation](../training/segmentation/README.md).
 
 Le profil [`studio-sam-yolo26l-ball.yaml`](../configs/segmentation/studio-sam-yolo26l-ball.yaml)
 active toutes les capacités avec E-BARD + SAM et le YOLO26L fine-tuné balle
@@ -302,8 +301,7 @@ Cette commande exige CUDA et désactive le repli CPU. Elle exclut les tracks dé
 nommées, échantillonne douze images par track et les voisines des lectures
 numériques fiables, garde au plus un vote par frame et écrit les preuves fusionnées
 dans un nouveau dossier. `audit.json` contient le GPU effectif et les compteurs.
-Ces preuves doivent être examinées avant le rejeu des identités ; voir
-[l'audit GSW–DEN](../reports/gsw-den-identity-colors-2026-10-28/README.md).
+Ces preuves doivent être examinées avant le rejeu des identités.
 
 Pour corriger les couleurs d'un run natif déjà passé par
 `pipeline.cuda.refine`, avec des maillots sombre/blanc :
@@ -331,7 +329,6 @@ L'accord avec ces ancres OCR est distinct d'une précision annotée manuellement
 par empreinte que toutes les détections et leur géométrie sont conservées.
 Les mesures déjà extraites peuvent être fournies avec
 `--color-features chemin/vers/features` ; leur provenance est vérifiée.
-Voir le [rapport SAC–SAS](../reports/sac-sas-identity-audit-2026-10-28/COLORS.md).
 
 Après les votes de numéro et de couleur, une continuité spatiale peut attribuer
 une nouvelle portion de track à un joueur déjà identifié, ou retrouver vers

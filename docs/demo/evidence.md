@@ -8,13 +8,13 @@ et hashes effectivement utilisés dans les médias.
 | Affirmation utilisable | Preuve | Périmètre à conserver |
 | --- | --- | --- |
 | « J’ai construit un pipeline et un viewer pour explorer des vidéos de basket. » | [Pipeline](../../pipeline/README.md), [viewer](../../viewer/README.md), code et artefacts du run | Prototype d’analyse, sans promesse de performance sur tout match |
-| « Le tir à 16,80 s, frame 504, ouvre une relecture avant le départ. » | `/api/shots` du run local et [revue de développement](../../reports/shots-2026-10-26/README.md) | Proposition probable ; destination de relecture : 16,20 s |
+| « Le tir à 16,80 s, frame 504, ouvre une relecture avant le départ. » | `/api/shots` du run local | Proposition probable ; destination de relecture : 16,20 s |
 | « Les candidats sont distingués des probables. » | `viewer/shots.js`, `viewer/team-shots.js`, `viewer/shot_analytics.py` et tests | Deux statuts heuristiques, pas des probabilités calibrées |
 | « Les cartes sont issues des observations de l’extrait. » | [Guide du viewer](../../viewer/README.md), `/api/heatmaps`, `shot_maps.scope` | Présence filtrée par situation / quart-temps ; tirs sur l’extrait entier |
 | « Les compteurs de tirs joueurs conservent seulement les probables. » | `summarize_shots`, tests de `viewer.test_shot_analytics` | Les candidats sont inclus dans la carte d’équipe, pas dans ces compteurs |
 | « Ce profil a traité 1 842 frames en 318,49 s. » | `runs/analysis/hou-lal-sam-yolo26l-ball/run.json`, `timings.processing_s` | 320,94 s total, dont 2,40 s chargement ; environ 5,78 images/s de traitement. Run de développement sur RTX 5080 |
-| « Le candidat ballon atteint un F1 de localisation de 0,9451 dans cette validation. » | [Comparaison ballon](../../reports/ball-comparison-2026-10-25/README.md) | 2 627 frames communes de deux matchs de validation, tolérance 15 px source. Sélection de checkpoint sur validation |
-| « Données versionnées, expériences suivies, promotion contrôlée et rollback. » | [Cycle de modèle](../../reports/POC_DELIVERY_2026-10-18.md), [guide de release](../EVALUATION_AND_RELEASE.md) | Exercice de release exécuté pour les modèles de personnes ; ne pas généraliser un registre complet à tous les adaptateurs |
+| « Le candidat ballon atteint un F1 de localisation de 0,9451 dans cette validation. » | [Évaluation ballon](../../training/ball/EVALUATION.md) | 2 627 frames communes de deux matchs de validation, tolérance 15 px source. Sélection de checkpoint sur validation |
+| « Données versionnées, expériences suivies, promotion contrôlée et rollback. » | [guide de release](../EVALUATION_AND_RELEASE.md) | Exercice de release exécuté pour les modèles de personnes ; ne pas généraliser un registre complet à tous les adaptateurs |
 | « La version de la PR #8 passe les suites de régression et le navigateur. » | [PR #8](https://github.com/ErwanMouras/basket-ai-analysis/pull/8), workflow POC validation | En local : 500 tests Python recensés, 28 ignorés, 472 réussis ; 30 tests JavaScript, six scénarios Chromium. Pas une certification tous navigateurs |
 
 ## Valeurs attendues dans les captures réelles
