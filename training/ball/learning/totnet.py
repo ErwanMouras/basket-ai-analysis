@@ -4,7 +4,7 @@ These are standalone (numpy/cv2/torch only) so they unit-test without the SDK.
 Adapted from NBA/tracknet/totnet_ext.py at commit
 b3a151edba8a10b6975a318f7861137f584e881b (source SHA-256:
 b0f256d1d21bfbe2499f87922bfc06f542339be3dbf10be9d55a03d907c442c1).
-See TRAINING.md for intentional geometry and RNG corrections.
+Geometry and RNG handling are implemented locally in the components below.
 """
 
 from __future__ import annotations

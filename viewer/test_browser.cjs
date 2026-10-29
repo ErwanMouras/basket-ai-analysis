@@ -1,4 +1,4 @@
-// Run against the public scripted sample; see README.md for the isolated Playwright setup.
+// Run against the public scripted sample; see ../docs/EVALUATION.md for Playwright setup.
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");

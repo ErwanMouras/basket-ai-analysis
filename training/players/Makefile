@@ -6,7 +6,7 @@ help:
 	@echo 'Players: annotation, exports, training and common evaluation'
 	@echo 'make test-players  # CPU contracts; no model or GPU required'
 	@echo 'make test-players-mlflow PYTHON=/path/to/python  # Local MLflow integration'
-	@echo 'See README.md, TRAINING.md and EVALUATION.md.'
+	@echo 'See ../../pipeline/README.md for setup and ../../docs/EVALUATION.md for evaluation.'
 	@echo 'make annotate-players MEDIA=... [CHECKPOINT=... PLAYER_CLASS=2 REFEREE_CLASS=3]  # Preannotate then review'
 	@echo 'make preannotate-players MEDIA=... CHECKPOINT=... | CACHE=...'
 	@echo 'make export-players | verify-players-export'
@@ -16,12 +16,12 @@ help:
 	@echo 'make check-players-models | evaluate-all-players [DEVICE=cuda:0]  # Série de 10 modèles'
 	@echo 'make test-players-evaluation  # Analytical COCO fixtures'
 	@echo 'make pipeline-players | predict-players | register-players CONFIG=...'
-	@echo 'See PIPELINE.md for resume, video and explicit registry aliases.'
+	@echo 'See ../../pipeline/README.md for video/resume and ../../docs/EVALUATION.md for registry aliases.'
 	@echo 'make track-players VIDEO=... CHECKPOINT=... OUTPUT=... [TRACKER=botsort|bytetrack]'
 	@echo 'make test-players-tracking  # Real tracker fixtures; no model weights'
 	@echo 'make setup-players-pose  # Install the pinned RTMPose-M model'
 	@echo 'make pose-players VIDEO=... CHECKPOINT=... OUTPUT=... [POSE_DEVICE=cpu|cuda:0]'
-	@echo 'make test-players-pose  # See POSE.md for skeletons and JSONL outputs'
+	@echo 'make test-players-pose  # Skeleton and JSONL output checks'
 	@echo 'make setup-court | calibrate-court VIDEO=... CHECKPOINT=... OUTPUT=...'
 
 test-players test-players-mlflow:

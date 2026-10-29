@@ -1,96 +1,169 @@
-# Évaluation et exécution du POC
+# Check, evaluate and package the system
 
-Les commandes de ce document n'entraînent aucun modèle et ne créent pas de vérité
-terrain. Elles utilisent des poids existants ou des annotations déjà revues.
+Use this guide after [setting up the pipeline](../pipeline/README.md). Run commands
+from the repository root, using a new output directory for each experiment.
 
-## Données et protocole
+Three questions need different evidence:
 
-Séparer train, validation et test par match et vérifier les doublons. La
-validation sert aux réglages ; réserver le test à une recette gelée avant la
-lecture des scores. Publier les supports par match et leur couverture temporelle,
-car des images voisines ne constituent pas des exemples indépendants.
+| Question | How to answer it |
+| --- | --- |
+| Does the implementation work? | Run regression tests and integrity checks. |
+| Are its predictions accurate? | Compare against independently reviewed annotations. |
+| Can the same model be run elsewhere? | Verify its configuration, dependencies and packaged weights. |
 
-Comparer les modèles sur les mêmes données, coordonnées source, matériel et
-précision numérique. Séparer les temps d'adaptateur, de décodage et de pipeline.
-Les protocoles spécialisés décrivent les seuils, le contexte et le gel des recettes :
-[joueurs](../training/players/EVALUATION.md) et
-[ballon](../training/ball/EVALUATION.md).
+Passing tests does not establish model accuracy. Likewise, a valid analysis
+manifest proves which files were produced, not that every prediction is correct.
 
-## Contrôles techniques
+## 1. Run the technical checks
 
 ```bash
-make check-poc CHECK_OUTPUT=runs/checks/nouveau-dossier
+make check-poc CHECK_OUTPUT=runs/checks/new-check
 ```
 
-Le runner enlève les variables d'activation des intégrations d'entraînement.
-Les suites, logs, nombres de tests et skips sont dans `summary.json`. Le workflow
-GitHub reprend ce parcours ; son exécution distante exige une publication des
-changements. Les tests offline ne valident pas la précision des modèles réels.
+Read `summary.json` in that output directory for suites, logs, passed tests and
+skips. Optional training integrations are disabled by this runner. The
+[CI workflow](../.github/workflows/players.yml) runs the corresponding offline
+checks on GitHub.
 
-## Politique de sélection
-
-`configs/quality_gates.yaml` impose des données, sélection et protocole identiques,
-des évaluations terminées non-smoke, un support minimum, des tolérances de baisse
-AP/rappel et un ratio maximum de latence P95. Les seuils sont provisoires et
-documentés ; ils doivent être arrêtés sur val pour une version donnée.
+To check the browser interface, install its dependencies and Chromium:
 
 ```bash
-.venv-players/bin/python -m mlops.quality \
-  --baseline /evaluation/baseline --candidate /evaluation/candidat \
-  --policy configs/quality_gates.yaml --output /nouveau/decision.json
+npm --prefix viewer ci
+node viewer/node_modules/playwright/cli.js install chromium
 ```
 
-Le code de sortie vaut 0 pour une acceptation, 2 pour un refus. Une valeur
-manquante, NaN ou un protocole incompatible ne donne pas une réussite implicite.
-Le rapport conserve les deux runs, checkpoints, politique et détails des contrôles.
-
-La promotion `champion` du registre exige `quality_policy` et
-`baseline_evaluation`. Le contrôle est recalculé sur le résultat candidat conservé
-dans MLflow avant de modifier l'alias. Il est joint à l'audit d'une promotion
-appliquée. Une raison et la version `expected_previous` restent obligatoires.
-Les alias expérimentaux autres que `champion` peuvent être gérés manuellement.
-
-La baseline de référence est un choix explicite. Pour un retour arrière
-opérationnel, reprendre la baseline précédemment acceptée et sa référence
-d'acceptation d'origine, avec une nouvelle raison ; ne pas présenter ce retour
-comme une amélioration de qualité face à la dernière version.
-
-## Preuve du cycle, sans entraînement
+Start `make demo-native PYTHON=.venv-players/bin/python` in another terminal, then run:
 
 ```bash
-.venv-players/bin/python -m mlops.acceptance --output runs/acceptance/nouveau
+npm --prefix viewer test
+npm --prefix viewer run test:browser
 ```
 
-Le programme utilise les poids locaux YOLO26 Nano et E-BARD, un export joueurs
-vérifié et une nouvelle base MLflow dans le dossier de sortie. Il évalue les deux
-modèles, enregistre les versions, applique/refuse les promotions, restaure la
-version précédente et vérifie une prédiction du modèle restauré. Il n'altère pas
-la base MLflow existante ni les annotations. Les scores restent ceux de val.
+Browser checks use the scripted sample at <http://127.0.0.1:8766>. They verify
+interface behavior, not the accuracy of models on real footage.
 
-L'analyse intégrée accepte aussi `people.adapter: registry`, `registry_uri` et
-`mlflow_uri` dans l'environnement joueurs complet. Une version explicite est
-résolue et ses empreintes sont conservées dans le run. Un checkpoint COCO
-`person` ne peut pas être présenté comme un détecteur de joueurs. Les détecteurs
-joueur seuls et leurs détecteurs arbitres séparés conservent leurs rôles dans le
-tracking. Le conteneur d'inférence minimal utilise des poids locaux.
+## 2. Inspect a completed analysis
 
-## Contrat gold pour tracking, identité et positions
+New analyses include `health.json`. To check an older run:
 
-Un fichier JSON gold utilise :
+```bash
+.venv-players/bin/python -m mlops.health \
+  --run runs/analysis/my-run --output runs/checks/my-run-health.json
+```
+
+The report checks artifact integrity and reports availability: how many frames
+have ball positions or court calibration, how many player observations can be
+projected, and how many have a resolved identity. Each ratio identifies its
+denominator. These counts do not measure accuracy or drift without ground truth.
+
+## 3. Measure model accuracy fairly
+
+Keep training, validation and test **matches** separate and check for duplicate
+content. Use validation for tuning and model selection. Freeze the final recipe
+before reading test results. Report support per match and temporal coverage:
+neighboring video frames are correlated, not independent samples.
+
+Use identical data, source coordinates, hardware and numerical precision when
+comparing models. Keep these measurements separate:
+
+| Measurement | Meaning |
+| --- | --- |
+| Precision | How many accepted detections match a real annotated target |
+| Recall | How many annotated targets the model finds |
+| F1 | A balance between precision and recall |
+| AP | Detection quality summarized across confidence thresholds |
+| Coverage | How much of the requested data has a usable prediction or measurement |
+| Median / P95 latency | Typical call time and the time below which 95% of calls fall |
+
+### Player and referee detection
+
+Copy an [evaluation recipe](../training/players/configs/evaluate_yolov8.yaml) and
+set local weights, their actual source, the verified dataset export and device:
+
+```bash
+make evaluate-players CONFIG=/path/to/evaluation.yaml
+```
+
+Use `source_class: 2` and `referee_source_class: 3` for E-BARD. A generic COCO
+`person` model does not distinguish players, referees and spectators; its source
+class must be configured explicitly. YOLO and RF-DETR recipes are also supplied
+under [training/players/configs](../training/players/configs/).
+
+Evaluation uses verified frames, including explicit negatives. Predictions and
+annotations are compared in source-image coordinates. It reports box AP@50 and
+AP@50:95 per role, plus precision/recall/F1 at score 0.25 and intersection-over-union
+(IoU) 0.50 by default. IoU measures how much two boxes overlap relative to their
+combined area. Duplicate detections count as false positives; missing ground
+truth yields unavailable metrics rather than invented scores.
+
+The timing protocol uses FP32, batch 1, five warmups and three repetitions by
+default. It separates adapter calls, calls including image decoding and model
+forward time. GPU timing synchronizes CUDA; PyTorch memory peaks do not represent
+all VRAM usage. These image-based timings are not full video throughput.
+
+Compare completed evaluations with:
+
+```bash
+make compare-players \
+  RUNS="runs/players/evaluation/run-a runs/players/evaluation/run-b" \
+  REPORT_OUTPUT=runs/players/comparison
+```
+
+Only matching data, selection and protocols share a ranking. Smoke runs and
+incomplete evaluations are excluded by default. Training budgets, pretraining
+and seeds remain experimental differences even when evaluation protocols match.
+
+### Ball localization
+
+The ball comparison evaluates **one predicted position per source frame**.
+YOLO uses the most confident ball-box center. TrackNet uses the center of the
+largest thresholded heatmap contour. An error above 15 source pixels counts as
+both a false positive and a false negative. Median/P95 localization errors retain
+incorrect predictions, rather than measuring only successful detections.
+
+The comparison fixes confidence thresholds before execution: 0.25 for YOLO and
+0.5 for heatmaps. Context is causal: one frame for YOLO, three for V5 and eight
+for V3, using the last temporal head. Missing context and camera cuts reduce
+coverage. The primary comparison uses the common covered frames; separate results
+expose each model's own coverage.
+
+With local exports, checkpoints and pinned source checkouts installed:
+
+```bash
+.venv-players/bin/python -m training.ball.comparison freeze \
+  --output runs/ball/new-comparison/protocol.json
+
+# Review the frozen protocol before running predictions.
+.venv-players/bin/python -m training.ball.comparison run \
+  --protocol runs/ball/new-comparison/protocol.json \
+  --output runs/ball/new-comparison/evaluations
+```
+
+This workflow selects models on validation data and rejects the test split.
+Validation selection is not an independent accuracy estimate. Unknown ball
+positions are not automatically negative examples; absent-ball accuracy needs
+reviewed negatives. Adapter latency excludes weight loading and other pipeline
+stages.
+
+### Tracking, identity, geometry and distance
+
+Create independent human annotations linked to the source video's SHA-256. A gold
+file uses this structure; replace the placeholder values and complete every
+selected frame before changing `status` to `reviewed`:
 
 ```json
 {
   "schema_version": 1,
   "status": "draft",
-  "reviewer": "à renseigner après revue",
+  "reviewer": "reviewer name after human review",
   "split": "val",
-  "source_sha256": "empreinte exacte de la vidéo",
+  "source_sha256": "exact source-video SHA-256",
   "frames": [{
     "frame_index": 450,
     "timestamp_s": 15.0,
     "segment_id": 0,
     "persons": [{
-      "person_id": "identifiant humain persistant",
+      "person_id": "persistent human identity",
       "bbox": [100, 200, 150, 350],
       "team_id": null,
       "number": null,
@@ -101,87 +174,89 @@ Un fichier JSON gold utilise :
 }
 ```
 
-Cet exemple décrit le format, pas une annotation exploitable. Le statut `reviewed`
-ne doit être posé qu'après revue humaine. Toutes les personnes cibles visibles
-de chaque frame sélectionnée doivent être annotées. Les boîtes sont en pixels
-source, les positions au sol en mètres dans la même orientation que le segment.
-Les numéros sont des chaînes : `0` et `00` restent différents. Les identifiants
-humains ne sont pas ceux du tracker. Une position ou identité incertaine reste
-`null`. Les timestamps et segments sont liés aux sorties du run inspecté.
+Annotate all visible target people. Boxes use source pixels; floor positions use
+meters in the camera segment's orientation. Human identity labels differ from
+tracker IDs. Keep uncertain values `null`, and jersey numbers as strings so `0`
+and `00` remain distinct.
 
 ```bash
 .venv-players/bin/python -m mlops.gold \
-  --gold /gold/revu.json --run /analyse/terminee --output /nouveau/rapport.json
+  --gold /path/to/reviewed-gold.json --run runs/analysis/my-run \
+  --output runs/checks/gold-result.json
 ```
 
-Le rapport mesure IDF1 via affectation globale des identités compatibles en IoU,
-changements d'ID et fragmentation sur frames gold consécutives, précision des
-identités acceptées, couverture, erreurs médiane/P95 de projection, et erreur de
-distance sur les mêmes intervalles consécutifs valides. Une identité attribuée à
-une fausse détection est pénalisée. L'identité d'une personne dont la vérité est
-inconnue est signalée comme invérifiable, avec un compteur des violations
-d'abstention explicite. Aucun HOTA n'est calculé.
+The report covers identity continuity (IDF1, switches and fragmentation), accepted
+identity precision, coverage, projection error and distance error on matching
+valid intervals. It penalizes identities assigned to false detections and reports
+unverifiable identities separately. It does not calculate HOTA. A manual
+reference also has measurement uncertainty.
 
-La formulation IDF1 s'appuie sur la logique d'affectation globale de
-[TrackEval Identity](https://github.com/JonathonLuiten/TrackEval/blob/master/trackeval/metrics/identity.py).
-Les contrôles analytiques incluent une rupture d'ID connue, absence de prédiction,
-confusion `0`/`00`, faux sujet nominatif et couverture des intervalles de distance.
-Une référence manuelle n'établit pas une précision physique parfaite.
-
-Pour `split: test`, geler avant la lecture des scores :
+For a final test, freeze first, then evaluate the same recipe:
 
 ```bash
-.venv-players/bin/python -m mlops.gold --gold /gold/test.json \
-  --run /analyse/terminee --freeze-recipe /nouveau/gold.frozen.json
-.venv-players/bin/python -m mlops.gold --gold /gold/test.json \
-  --run /analyse/terminee --frozen-recipe /nouveau/gold.frozen.json \
-  --output /nouveau/test-result.json
+.venv-players/bin/python -m mlops.gold \
+  --gold /path/to/test-gold.json --run runs/analysis/my-run \
+  --freeze-recipe runs/checks/gold-test.frozen.json
+.venv-players/bin/python -m mlops.gold \
+  --gold /path/to/test-gold.json --run runs/analysis/my-run \
+  --frozen-recipe runs/checks/gold-test.frozen.json \
+  --output runs/checks/gold-test-result.json
 ```
 
-Le gel lie la vérité terrain, les artefacts analysés, le code et le seuil IoU.
-Il n'atteste pas que personne n'a déjà consulté le test.
+Freezing binds annotations, artifacts, code and thresholds. It does not prove
+that nobody previously inspected the test data. Model-specific evaluation CLIs
+also expose `--freeze-recipe`; see their `--help` and checked-in configurations.
 
-## Bilan automatique de chaque analyse
+## 4. Control model promotion and rollback
 
-Les nouvelles analyses finalisées produisent `health.json`, référencé par son
-empreinte dans `run.json`. Pour contrôler un ancien run :
+[quality_gates.yaml](../configs/quality_gates.yaml) defines the provisional rules:
+compatible evaluations, minimum support, allowed AP/recall regression and a
+maximum P95 latency ratio. Fix the policy and baseline using validation data.
 
 ```bash
-.venv-players/bin/python -m mlops.health \
-  --run /analyse/terminee --output /nouveau/health.json
+.venv-players/bin/python -m mlops.quality \
+  --baseline /path/to/baseline-evaluation \
+  --candidate /path/to/candidate-evaluation \
+  --policy configs/quality_gates.yaml --output runs/checks/decision.json
 ```
 
-Les champs indiquent les dénominateurs : frames calibrées/frames, localisations
-ballon/frames, positions projetées/observations joueur, identités nominatives/
-observations joueur. Les fragments sont comptés par segment et track. Ce sont
-des disponibilités, sans mesure de précision ou de drift faute de vérité terrain.
+Exit code 0 means acceptance; 2 means rejection. Missing metrics, NaN and
+incompatible protocols cannot pass implicitly.
 
-## Démo et conteneurs
+Use the [registration recipe](../training/players/configs/register.yaml) and
+[promotion recipe](../training/players/configs/promote.yaml) with
+`make register-players CONFIG=/path/to/recipe.yaml`. Registration stores the exact
+evaluated weights and provenance. Changing the `champion` alias also requires
+the quality policy, a baseline evaluation, a reason and `expected_previous`.
+Smoke candidates cannot be promoted. Rollback explicitly restores a previous
+version and records the reason; it does not establish an accuracy improvement.
 
-Le viewer contient seulement Python standard et les fichiers d'interface.
-`examples/demo/` fournit une vidéo H.264 et des résultats scriptés sans données
-NBA. Les chemins vidéo relatifs se résolvent sous `--video-root` et restent soumis
-au contrôle de racine autorisée.
+To exercise evaluation, registration, acceptance/rejection, rollback and a
+prediction from the restored model without training:
 
 ```bash
-docker compose up --build -d viewer
-# http://127.0.0.1:8766
-docker compose down
+.venv-players/bin/python -m mlops.acceptance --output runs/acceptance/new-check
 ```
 
-L'image CPU d'inférence utilise `deploy/runtime-cpu.lock`, une image Python
-épinglée par digest, un utilisateur nommé non-root et des caches sous `/tmp`.
-Le bundle `make bundle-models` contient les poids locaux, leurs empreintes,
-une configuration CPU et le dépôt TrackNet épinglé. La création refuse d'écraser
-un bundle. Elle n'accorde pas de droit de redistribution sur les poids.
+This needs local YOLO26 Nano and E-BARD weights and a verified player export.
+It uses its own MLflow database and leaves existing runs intact. Shared-server
+alias changes are not a distributed atomic transaction; review incomplete audit
+records after an interruption or concurrent external change.
+
+## 5. Package and run CPU inference
 
 ```bash
 make bundle-models
 make verify-model-bundle
 make runtime-image
-make infer-container VIDEO=/videos/clip.mp4 OUTPUT=runs/mon-run MAX_FRAMES=150
+make infer-container VIDEO=/videos/clip.mp4 OUTPUT=runs/container-check MAX_FRAMES=150
 ```
 
-L'inférence utilise les volumes locaux et `--network none`. Le profil Docker
-minimal ne contient ni serveur MLflow, ni TensorFlow, ni entraîneur RF-DETR.
-La pose CPU est exécutée par ONNX Runtime CPU ; aucun GPU n'est requis.
+The bundle contains local weights, hashes, a CPU configuration and the pinned
+TrackNet checkout. Creation refuses to overwrite an existing bundle. The image
+uses [runtime-cpu.lock](../deploy/runtime-cpu.lock), a Python base image pinned by
+digest and a non-root user. Inference uses local volumes with `--network none`;
+CPU pose uses ONNX Runtime CPU.
+
+Packaging does not grant redistribution rights to third-party weights or footage.
+Keep the source, model terms and hashes with any artifacts you share.

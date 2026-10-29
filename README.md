@@ -303,7 +303,8 @@ comparison, native CUDA path and release lifecycle are three useful starting poi
 
 Builds on Ultralytics YOLO, the E-BARD player/referee checkpoint,
 TrackNet/TOTNet, SAM 2.1, RTMPose and PARSeq. Model sources, pinned weights and
-provenance are documented in their module guides. The vendored PARSeq subset
+provenance are recorded in the pipeline configuration, model installers and notices.
+The vendored PARSeq subset
 includes its [license](training/jersey/vendor/parseq/LICENSE) and
 [notices](training/jersey/vendor/parseq/NOTICE). Third-party code, weights and
 footage retain their respective terms.
