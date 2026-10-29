@@ -28,8 +28,6 @@ intervals that actually support them.
 
 [![Full animated Spurs–Kings walkthrough: annotated play, Wembanyama's shot review and team comparison](imagesReadMe/spurs-kings-walkthrough.gif)](imagesReadMe/spurs-kings-walkthrough.mp4)
 
-**[Watch the walkthrough · 46 s, MP4](imagesReadMe/spurs-kings-walkthrough.mp4)**
-
 The full 46-second walkthrough loops above; click it for the MP4 version.
 [Static preview](imagesReadMe/spurs-kings-walkthrough.jpg).
 
