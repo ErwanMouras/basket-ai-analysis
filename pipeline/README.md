@@ -403,4 +403,3 @@ make test-ball PYTHON=.venv-players/bin/python
 Les tests analytiques couvrent distance, bruit, virages, ruptures, conflits,
 exclusions, rôle arbitre et couverture. Les tests d'intégration utilisent une
 vraie vidéo synthétique et des adaptateurs injectés, sans poids ni GPU.
-Le [rapport de validation](VALIDATION.md) décrit séparément les essais réels.

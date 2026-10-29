@@ -8,8 +8,8 @@ compare désormais les deux familles, y compris leurs poids préentraînés sans
 entraînement personnalisé. Les métriques natives ne sont pas un benchmark commun.
 Le [parcours de phase 6](PIPELINE.md) relie export, entraînement et évaluation,
 publie la progression des epochs/batches et réutilise cette reprise stricte.
-La [validation finale](VALIDATION.md) ajoute un lock CPU, une CI offline et une
-démo avec initialisation aléatoire, sans poids préentraînés externes.
+Les locks CPU/CUDA et les commandes de validation ci-dessous permettent de
+vérifier l'installation avec une initialisation aléatoire, sans poids externes.
 
 ## Environnement séparé
 
@@ -30,15 +30,43 @@ uv pip check --python .venv-players/bin/python
 ```
 
 Cet environnement peut aussi exécuter les modèles sur CPU. Pour une installation
-sans runtime CUDA, utiliser `requirements-cpu.lock` avec `--torch-backend cpu`
-dans `.venv-players-cpu`, selon [VALIDATION.md](VALIDATION.md). Pour une autre
-plateforme/build PyTorch, créer un autre environnement à partir des contraintes
+sans runtime CUDA, créer un environnement CPU dédié :
+
+```bash
+uv venv --python 3.12 .venv-players-cpu
+uv pip sync --python .venv-players-cpu/bin/python --torch-backend cpu \
+  training/players/requirements-cpu.lock
+uv pip check --python .venv-players-cpu/bin/python
+```
+
+Les locks visent Python 3.12 sur Linux x86-64. OpenCV requiert `libgl1` et
+`libglib2.0-0` ou `libglib2.0-0t64` sur Ubuntu. Tk et un affichage sont nécessaires
+uniquement pour les éditeurs graphiques. Les locks épinglent les versions sans
+garantir une reproduction bit à bit ni une installation multiplateforme.
+
+Pour une autre plateforme/build PyTorch, créer un autre environnement à partir des contraintes
 directes et valider les intégrations avant usage ; le lock fourni décrit la
 machine de validation. Les dépendances transitives Ultralytics et supervision
 demandent respectivement OpenCV standard et headless : les deux distributions
 sont épinglées à 4.11.0.86. Utiliser cet environnement pour les modèles ; conserver
 `.venv` pour l'éditeur graphique. Ne pas installer ces fichiers dans les
 environnements balle.
+
+## Vérifier l'installation
+
+Depuis la racine, avec un dossier de sortie nouveau :
+
+```bash
+make validate-players PLAYERS_PYTHON=.venv-players-cpu/bin/python \
+  VALIDATION_OUTPUT=runs/players/validation-cpu
+```
+
+Ce parcours utilise des images synthétiques et des poids aléatoires locaux.
+Il entraîne brièvement les modèles, vérifie les checkpoints, la reprise,
+l'évaluation, le registre et l'inférence vidéo. Il contrôle le fonctionnement
+technique ; ses scores ne mesurent pas la précision sur un match.
+Les [contrôles communs du POC](../../docs/EVALUATION.md) décrivent les suites
+offline, les règles de promotion et les annotations d'évaluation indépendantes.
 
 ## Charger des poids sans entraîner
 

@@ -1,7 +1,20 @@
-# Évaluation et livraison du POC
+# Évaluation et exécution du POC
 
 Les commandes de ce document n'entraînent aucun modèle et ne créent pas de vérité
 terrain. Elles utilisent des poids existants ou des annotations déjà revues.
+
+## Données et protocole
+
+Séparer train, validation et test par match et vérifier les doublons. La
+validation sert aux réglages ; réserver le test à une recette gelée avant la
+lecture des scores. Publier les supports par match et leur couverture temporelle,
+car des images voisines ne constituent pas des exemples indépendants.
+
+Comparer les modèles sur les mêmes données, coordonnées source, matériel et
+précision numérique. Séparer les temps d'adaptateur, de décodage et de pipeline.
+Les protocoles spécialisés décrivent les seuils, le contexte et le gel des recettes :
+[joueurs](../training/players/EVALUATION.md) et
+[ballon](../training/ball/EVALUATION.md).
 
 ## Contrôles techniques
 
@@ -19,7 +32,7 @@ changements. Les tests offline ne valident pas la précision des modèles réels
 `configs/quality_gates.yaml` impose des données, sélection et protocole identiques,
 des évaluations terminées non-smoke, un support minimum, des tolérances de baisse
 AP/rappel et un ratio maximum de latence P95. Les seuils sont provisoires et
-documentés ; ils doivent être arrêtés sur val pour une release donnée.
+documentés ; ils doivent être arrêtés sur val pour une version donnée.
 
 ```bash
 .venv-players/bin/python -m mlops.quality \
@@ -166,30 +179,9 @@ un bundle. Elle n'accorde pas de droit de redistribution sur les poids.
 make bundle-models
 make verify-model-bundle
 make runtime-image
-make infer-container VIDEO=/videos/clip.mp4 OUTPUT=release/mon-run MAX_FRAMES=150
+make infer-container VIDEO=/videos/clip.mp4 OUTPUT=runs/mon-run MAX_FRAMES=150
 ```
 
 L'inférence utilise les volumes locaux et `--network none`. Le profil Docker
 minimal ne contient ni serveur MLflow, ni TensorFlow, ni entraîneur RF-DETR.
 La pose CPU est exécutée par ONNX Runtime CPU ; aucun GPU n'est requis.
-
-## Archive source
-
-```bash
-.venv-players/bin/python -m mlops.source_release --output release/vyneros-source.tar.gz
-.venv-players/bin/python -m mlops.verify_source \
-  --archive release/vyneros-source.tar.gz --output /nouveau/source-validation.json
-```
-
-L'archive comprend le code, les guides, exemples synthétiques et manifestes. Elle
-exclut les environnements, `.git`, poids appris, données privées et configuration
-DVC locale. Un manifeste SHA-256 identifie les fichiers exacts du workspace ;
-le commit seul ne représente pas les changements non commités.
-
-Le vérificateur extrait l'archive dans un dossier temporaire, vérifie les
-empreintes, reconstruit le viewer à partir de cette extraction et teste les
-endpoints de run et de lecture vidéo. Son conteneur de contrôle est ensuite arrêté.
-
-Une licence source doit être choisie par le mainteneur avant une distribution
-dont les permissions en dépendent. La publication GitHub et le déploiement public
-ne sont pas effectués par les commandes de préparation locale.

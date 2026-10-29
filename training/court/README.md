@@ -175,8 +175,6 @@ make test-jersey PYTHON=.venv-players/bin/python
 Les tests utilisent des projections analytiques et des vidéos synthétiques :
 dimensions NBA, mètres/pixels, points aberrants, dégénérescence, labels inversés,
 pan/zoom, expiration, coupe, flash, masques, intégration vidéo et interruption.
-Les observations sur les vidéos locales sont consignées dans
-[VALIDATION.md](VALIDATION.md).
 
 ## Revue des améliorations du 26 octobre 2026
 

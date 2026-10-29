@@ -9,7 +9,7 @@ Le contrat de boîtes est commun aux détecteurs YOLO et RF-DETR.
 
 ## Installation et lancement
 
-Utiliser les environnements joueurs de [VALIDATION.md](VALIDATION.md).
+Utiliser les environnements joueurs de [TRAINING.md](TRAINING.md).
 Les locks actualisés ajoutent ONNX Runtime 1.27.0 et FlatBuffers 25.12.19.
 Installer **un seul** runtime dans chaque environnement : `onnxruntime` pour CPU,
 `onnxruntime-gpu` pour CUDA 13. Les entrées correspondantes sont

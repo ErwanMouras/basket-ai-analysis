@@ -7,9 +7,9 @@ séparées. Aucun service web, maillot, déploiement ou transfert DVC n'est ajou
 Depuis le 26 septembre, l'inférence vidéo propose aussi un
 [suivi optionnel BoT-SORT/ByteTrack](TRACKING.md), avec `track_id` par observation
 confirmée. Ces IDs ne constituent pas une identité joueur sur tout le match.
-La [démo de phase 7](VALIDATION.md) exécute ce parcours sur fixtures synthétiques
-avec poids aléatoires locaux, tests de corruption et reprise, puis registre et
-vidéo. Les [résultats](VALIDATION_RESULTS.md) indiquent les tests réellement exécutés.
+La [validation de l'installation](TRAINING.md#vérifier-linstallation) exécute ce
+parcours sur données synthétiques avec des poids aléatoires locaux, des tests de
+corruption et reprise, puis le registre et la vidéo.
 
 ## Pipeline YAML
 
@@ -197,7 +197,7 @@ packaging terminé avant une interruption est réutilisé lors de la création d
 version. Les runs échoués restent disponibles pour inspection.
 
 Un candidat smoke peut être enregistré et rechargé pour vérification technique,
-mais **ne peut pas être promu par alias**. La promotion `champion` exige désormais une politique de qualité et une baseline explicites ; voir [les contrats](../../docs/EVALUATION_AND_RELEASE.md). Les alias expérimentaux ne dépendent d'aucun seuil AP
+mais **ne peut pas être promu par alias**. La promotion `champion` exige désormais une politique de qualité et une baseline explicites ; voir [les contrats](../../docs/EVALUATION.md). Les alias expérimentaux ne dépendent d'aucun seuil AP
 automatique : c'est une décision humaine explicite.
 
 ```yaml

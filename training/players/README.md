@@ -4,10 +4,10 @@ Les phases 1 à 7 sont implémentées : contrats de données, infrastructure com
 annotation de boîtes, préannotation, exports reproductibles YOLO/COCO et
 entraînement YOLO26/RF-DETR avec MLflow, évaluation COCO commune et comparaison,
 orchestration locale, inférence vidéo et registre MLflow, validation finale et CI.
-Le [guide de validation](VALIDATION.md) fournit l'installation CPU/CUDA, une démo
-sans poids externes, les commandes de CI, MLflow et la restauration DVC.
-Le [bilan mesuré](VALIDATION_RESULTS.md) distingue les tests techniques de la
-qualité sur les matchs et donne le volume réellement annoté.
+Le [guide d'entraînement](TRAINING.md) fournit l'installation CPU/CUDA et la
+validation de l'environnement sur données synthétiques.
+Les [contrôles du POC](../../docs/EVALUATION.md) décrivent les vérifications
+communes, les règles de promotion et le format des annotations d'évaluation.
 Le [guide du parcours local](PIPELINE.md) décrit `pipeline-players`,
 `predict-players`, `register-players`, la progression et la reprise.
 Le [guide de tracking](TRACKING.md) décrit `track-players` : BoT-SORT ou ByteTrack,
@@ -23,8 +23,7 @@ Le [guide d'évaluation](EVALUATION.md) décrit les métriques, le protocole de 
 les rapports, les poids préentraînés et le gel du test final.
 Le [guide d'entraînement](TRAINING.md)
 décrit l'environnement séparé, les recettes, le chargement de poids sans
-entraînement, les checkpoints et la reprise stricte. Le
-[plan](../../docs/PLAN_PLAYERS.md) décrit les sept phases et leurs limites.
+entraînement, les checkpoints et la reprise stricte.
 
 ## Annoter une vidéo
 
@@ -287,18 +286,10 @@ les labels, les statistiques et l'accord entre formats. Il fonctionne sans les
 médias sources. Les empreintes servent à détecter les altérations ; elles ne sont
 pas une signature attestant une revue humaine.
 
-Les sidecars restent sous `datas/`, déjà suivi par `datas.dvc`. Après une session
-d'annotation et fermeture de l'éditeur, leur versionnement local est explicite :
-
-```bash
-.venv/bin/dvc status
-.venv/bin/dvc add datas
-# Examiner puis committer datas.dvc avec le code et la configuration correspondants.
-```
-
-Cette commande actualise la référence et le cache DVC local. L'export ne lance
-ni `dvc add`, ni `dvc push`, ni transfert réseau. Les exports restent régénérables,
-ignorés par Git et hors de `datas.dvc`. Voir [les données](../../docs/DATA.md).
+Les sidecars restent sous `datas/`, ignoré par Git. Conserver une sauvegarde
+séparée des vidéos et des annotations. La configuration et les références DVC
+restent locales tant que leur fonctionnement n'est pas rétabli. L'export ne
+lance aucun transfert réseau ; ses sorties sont régénérables et ignorées par Git.
 
 ## Tests
 

@@ -6,8 +6,8 @@ DVC. Les métriques natives ne participent jamais au classement. Les sorties de
 modèles préentraînés restent des prédictions, même sur une image sans annotation.
 Le [parcours de phase 6](PIPELINE.md) ajoute l'orchestration et partage cette
 fonction de prédiction avec la vidéo et les candidats du registre MLflow.
-La [validation finale](VALIDATION.md) automatise ces contrats et le parcours
-complet offline en CI ; ses résultats figurent dans [VALIDATION_RESULTS.md](VALIDATION_RESULTS.md).
+Les [contrôles communs du POC](../../docs/EVALUATION.md) documentent les suites
+offline et les règles de promotion utilisées en CI et dans le registre.
 
 ## Commandes
 

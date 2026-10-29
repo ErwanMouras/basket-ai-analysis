@@ -145,7 +145,7 @@ reconnaissance d'équipe.
 ## Utilisation
 
 Les environnements joueurs restent séparés de la balle. Synchroniser le lock
-CPU ou CUDA décrit dans [le guide joueurs](../players/VALIDATION.md) ; l'ajout
+CPU ou CUDA décrit dans [le guide joueurs](../players/TRAINING.md) ; l'ajout
 est `timm==0.9.16`, compatible avec le modèle PARSeq de référence.
 
 ```bash
