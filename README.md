@@ -11,12 +11,18 @@ to their source frames, so an analyst can move from a team map to a player's
 attempts and inspect the evidence behind the numbers.
 
 Built by [Erwan Mouras](https://github.com/ErwanMouras) as a **Machine Learning /
-Computer Vision engineering portfolio**, the project covers annotation, model
-experiments, reproducible inference, release controls and an interactive review tool.
+Computer Vision engineering portfolio**, with three main engineering contributions:
+
+- **Computer Vision:** a basketball broadcast analysis pipeline combining
+  detection, tracking, player identification and projection onto the court.
+- **GPU Engineering:** GPU decoding and preprocessing, with CUDA computation
+  and Triton kernels for tracking, geometry and statistical aggregation.
+- **MLOps:** reproducible experiments, model comparisons, quality gates and a
+  model registry with controlled promotion and rollback.
 
 **Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow  · Docker · GitHub Actions**
 
-[Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Roadmap](#where-i-would-take-it-next)
+[Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [License](#license) · [Roadmap](#where-i-would-take-it-next)
 
 
 ## See the system in action
@@ -308,6 +314,20 @@ The vendored PARSeq subset
 includes its [license](training/jersey/vendor/parseq/LICENSE) and
 [notices](training/jersey/vendor/parseq/NOTICE). Third-party code, weights and
 footage retain their respective terms.
+
+## License
+
+Original Vyneros source code is copyright © 2026 Erwan Mouras and licensed under
+the **GNU Affero General Public License v3.0 only (AGPL-3.0-only)**. See
+[LICENSE](LICENSE) for the full terms. Ultralytics is an AGPL-3.0 dependency;
+its [licensing guidance](https://www.ultralytics.com/license) describes the
+open-source and Enterprise options.
+
+Third-party components retain their own licenses and notices, including
+[PARSeq (Apache-2.0)](training/jersey/vendor/parseq/LICENSE) and the
+[Barlow Condensed font (SIL OFL 1.1)](viewer/BarlowCondensed-OFL.txt).
+The source-code license does not grant rights to broadcast footage, datasets,
+model checkpoints or third-party media. Check their respective terms separately.
 
 ## Where I would take it next
 
