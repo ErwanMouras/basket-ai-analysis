@@ -14,7 +14,7 @@ Built by [Erwan Mouras](https://github.com/ErwanMouras) as a **Machine Learning 
 Computer Vision engineering portfolio**, the project covers annotation, model
 experiments, reproducible inference, release controls and an interactive review tool.
 
-**Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow · DVC · Docker · GitHub Actions**
+**Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow  · Docker · GitHub Actions**
 
 [Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Documentation](#explore-the-implementation) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Roadmap](#where-i-would-take-it-next)
 
@@ -130,10 +130,10 @@ The sample viewer must be running on port 8766 for browser checks. The
 | `make demo` | Build and start the Docker sample viewer on port 8766 |
 | `make demo-native` | Serve the included sample with local Python on port 8766 |
 | `make test-analysis` | Run the pipeline regression suite in the players environment |
-| `make bundle-models MODEL_BUNDLE=release/models` | Package the configured local inference assets |
-| `make verify-model-bundle MODEL_BUNDLE=release/models` | Verify the packaged assets and their hashes |
+| `make bundle-models MODEL_BUNDLE=runs/models` | Package the configured local inference assets |
+| `make verify-model-bundle MODEL_BUNDLE=runs/models` | Verify the packaged assets and their hashes |
 
-The [release guide](docs/EVALUATION_AND_RELEASE.md) documents model packaging and
+The [evaluation guide](docs/EVALUATION.md) documents model packaging and
 container inference; the [Makefile](Makefile) contains the complete target list.
 
 ## Explore the implementation
@@ -143,7 +143,7 @@ container inference; the [Makefile](Makefile) contains the complete target list.
 | Pipeline, native CUDA and output contracts | [Pipeline guide](pipeline/README.md) · [CUDA source](pipeline/cuda/) |
 | Training, annotation and model evaluation | [People](training/players/README.md) · [Training](training/players/TRAINING.md) · [Ball evaluation](training/ball/EVALUATION.md) |
 | Geometry, masks and identity | [Court](training/court/README.md) · [Segmentation](training/segmentation/README.md) · [Jersey OCR](training/jersey/README.md) |
-| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Release guide](docs/EVALUATION_AND_RELEASE.md) |
+| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Evaluation guide](docs/EVALUATION.md) |
 | Product behavior and presentation | [Viewer](viewer/README.md) · [Media brief](docs/demo/spurs-kings-media-brief.md) |
 
 ## Measured results
@@ -176,7 +176,7 @@ SHA-256.
 
 ### Detection and segmentation were selected for the task
 
-On **401 verified validation images**, E-BARD YOLOv8n reached **0.7318 player
+On **validation images**, E-BARD YOLOv8n reached **0.7318 player
 AP@50:95**, versus **0.5154** for the evaluated COCO YOLO26 Nano configuration.
 Median adapter latency was **4.46 vs 8.15 ms** under the recorded protocol.
 E-BARD supplies explicit player/referee roles used throughout the pipeline.
@@ -189,18 +189,6 @@ segmentation offers another speed/quality tradeoff, but its generic person class
 also includes people near the court. Segmentation stays configurable; mask and
 OCR accuracy need their own reviewed labels.
 
-### Error analysis changed the system
-
-A plausible ball flight can be assigned to the wrong nearby hand. Reviewing a
-GSW–DEN event exposed a shot attributed to a defender. I added a context check
-that removes a shooter when court direction or a confirmed opposing settled
-attack contradicts the assignment. Across that development run, **14 unsupported
-attributions were removed while all 223 event proposals remained reviewable**.
-
-The same investigation led to foreground-only jersey color sampling and
-mask-aware crop overlap checks. This is the feedback loop behind the viewer:
-inspect a failure, identify its cause, update the rule, and protect the behavior
-with regression tests.
 
 ## Engineering decisions
 
@@ -220,7 +208,7 @@ foundations are credited below.
 ## Architecture
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph Development[Data and model development]
         A[Video and reviewed annotations] --> B[DVC references and verified exports]
         B --> C[Training and experiments / MLflow]
@@ -282,7 +270,7 @@ inference.
 | `statistics.json` | Observed distance, measured duration and coverage per subject |
 | `health.json` | Integrity checks, capability availability and diagnostics |
 
-The [release guide](docs/EVALUATION_AND_RELEASE.md) covers reproduction,
+The [evaluation guide](docs/EVALUATION.md) covers reproduction,
 quality gates, registry operations and rollback.
 
 ## Testing and reliability
@@ -302,7 +290,9 @@ used to inspect an analysis.
 
 See the [CI runs](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml)
 for automated checks. These checks establish technical reliability on the tested
-cases; model accuracy requires separate evaluation against reviewed annotations.
+cases; model accuracy requires separate evaluation against reviewed annotations,
+using tools such as the [gold evaluator](mlops/gold.py) for tracking, identity
+and geometry.
 
 ## Current scope and evaluation priorities
 
@@ -310,8 +300,8 @@ Vyneros is a batch-analysis POC: the viewer plays completed analyses, with runti
 reported separately from playback. Model latency, full-pipeline throughput and
 output accuracy are distinct measurements.
 
-The recorded people-data inventory contains **six training clips / 225 verified
-images** and **two validation clips / 401 verified images**. Those validation
+The recorded people-data inventory contains **ten training clips / 3000 verified
+images** and **three validation clips / 900 verified images**. Those validation
 images are temporally correlated. The ball comparison uses its separately
 documented cohort. Private footage and annotations are managed outside Git;
 the public sample is synthetic.
@@ -320,8 +310,8 @@ Identity coverage, tracking continuity and geometry accuracy remain the key
 evaluation priorities. Distances describe valid observed intervals; off-screen
 movement is unmeasured. Ball positions remain in image coordinates. Shot events
 are probable/candidate proposals, with made/missed outcomes left unassigned.
-The [gold evaluator](mlops/gold.py) supports tracking, identity and geometric
-checks; independent reviewed annotations are still needed to publish those scores.
+Independent reviewed annotations are still needed to publish tracking, identity
+and geometry scores.
 
 ## Author and foundations
 
@@ -329,56 +319,25 @@ checks; independent reviewed annotations are still needed to publish those score
 integration and MLOps engineering. For a technical discussion, the model
 comparison, native CUDA path and release lifecycle are three useful starting points.
 
-Vyneros builds on Ultralytics YOLO, the E-BARD player/referee checkpoint,
+Builds on Ultralytics YOLO, the E-BARD player/referee checkpoint,
 TrackNet/TOTNet, SAM 2.1, RTMPose and PARSeq. Model sources, pinned weights and
 provenance are documented in their module guides. The vendored PARSeq subset
 includes its [license](training/jersey/vendor/parseq/LICENSE) and
 [notices](training/jersey/vendor/parseq/NOTICE). Third-party code, weights and
-footage retain their respective terms. A project-wide source license has not
-yet been designated.
+footage retain their respective terms.
 
 ## Where I would take it next
 
-### Near-term improvements — small scope, immediate value
-
-- **Publish the real-run visual story.** Complete the Spurs–Kings review, select
-  representative moments and attach the captioned walkthrough, stills and exact
-  configuration. Success: the main result is understandable without installation.
-- **Make the preferred inference recipe portable.** Add a checked-in native CUDA
-  configuration template and model-asset checklist, then verify them from a clean
-  checkout. Success: configuration and missing-asset errors are actionable.
-- **Consolidate the performance report.** Separate loading, perception, identity
-  processing, statistics and health checks for the completed native run. Success:
-  speed claims identify their workload, hardware and measurement boundary.
-- **Package a coherent portfolio release.** Refresh older scope/roadmap documents,
-  designate the source license and publish a tagged source release with its
-  validation evidence and asset terms.
-
-### Core reliability — high impact, substantial engineering
-
-- **Build an independent evaluation set.** Review unseen matches, camera cuts,
-  absent-ball negatives and persistent player identities. Publish per-match
-  detection/localization, IDF1, identity precision/coverage and geometric error.
-- **Improve identity continuity through occlusion and cuts.** Combine tracklet
-  association, appearance and jersey evidence, measuring false associations as
-  carefully as coverage. Preserve the current collision and abstention safeguards.
-- **Validate geometry and movement estimates.** Use independent landmarks and
-  reference trajectories, quantify uncertainty and measure distance error only
-  where the reference supports it.
-- **Evaluate shot and phase inference separately.** Annotate releases, shooters
-  and settled-play intervals, then measure event timing, false alarms and
-  attribution before expanding the statistics.
-- **Optimize complete CUDA workloads.** Benchmark repeated runs across resolutions
-  and clip lengths, profile synchronization/memory costs and verify numerical
-  behavior when changing kernels or model execution.
-
-### Longer-term exploration — broader product and research scope
-
-- **Cross-broadcast generalization:** additional scoreboards, arenas and camera
-  styles, followed by other court geometries and competitions.
-- **Richer game understanding:** evaluated possessions, passes, shot outcomes and
-  tactical sequences once tracking and event evidence support them.
-- **A hosted analysis workflow:** queued GPU jobs, access-controlled artifacts,
-  cost tracking and drift monitoring when there is a concrete deployment need.
-- **Streaming analysis:** bounded-latency processing and incremental review,
-  after offline quality and resource budgets are established.
+- **Publish datasets and model weights through DVC.** Provide versioned assets
+  and access instructions to make experiments and inference easier to reproduce.
+- **Expand game statistics.** Detect and evaluate events such as blocks and steals
+  to add them to player and team analyses.
+- **Improve court detection during transitions.** Make court localization more
+  robust as the camera follows play between ends of the court.
+- **Detect the basket and assess shot outcomes.** Use basket and ball observations
+  to determine whether a shot is made or missed, with results evaluated against
+  reviewed footage.
+- **Work toward real-time inference.** Improve throughput with batching and other
+  optimizations, while measuring end-to-end latency and accuracy.
+- **Generate automatic highlights.** Assemble clips around detected game events
+  into compilations that can be reviewed and shared.

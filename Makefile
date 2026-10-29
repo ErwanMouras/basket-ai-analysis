@@ -239,13 +239,13 @@ view-analysis:
 	cd "$(ROOT_DIR)" && "$(PYTHON)" -m viewer.server --port "$(VIEWER_PORT)"
 
 CHECK_OUTPUT ?= runs/poc-checks
-MODEL_BUNDLE ?= release/models
+MODEL_BUNDLE ?= runs/models
 .PHONY: check-poc demo-data demo demo-native bundle-models verify-model-bundle runtime-image infer-container
 check-poc:
 	cd "$(ROOT_DIR)" && "$(PLAYERS_PYTHON)" -m mlops.checks --output "$(CHECK_OUTPUT)"
 
 demo-data:
-	cd "$(ROOT_DIR)" && "$(PYTHON)" -m mlops.demo --output release/demo --ensure
+	cd "$(ROOT_DIR)" && "$(PYTHON)" -m mlops.demo --output runs/demo --ensure
 
 demo:
 	cd "$(ROOT_DIR)" && docker compose up -d --build viewer
