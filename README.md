@@ -16,22 +16,8 @@ experiments, reproducible inference, release controls and an interactive review 
 
 **Python · PyTorch · Ultralytics · CUDA / Triton · OpenCV · MLflow · DVC · Docker · GitHub Actions**
 
-[Demo](#see-the-system-in-action) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Try it](#try-the-viewer) · [Roadmap](#where-i-would-take-it-next)
+[Demo](#see-the-system-in-action) · [Try the viewer](#try-the-viewer) · [Commands](#run-analyses-and-checks) · [Documentation](#explore-the-implementation) · [Results](#measured-results) · [Engineering decisions](#engineering-decisions) · [MLOps](#from-experiment-to-controlled-release) · [Roadmap](#where-i-would-take-it-next)
 
-## The project at a glance
-
-- **Measured model selection:** 12 ball checkpoints compared on a common causal
-  protocol; **0.9451 localization F1** and **71% lower median adapter latency**
-  for selected YOLO26L versus selected V5+TOTNet on the same validation targets.
-- **Native CUDA analysis:** NVDEC decoding through geometry, tracking, identity
-  votes and statistics, with graph capture, fused kernels and a runtime guard
-  against CPU tensor arithmetic.
-- **An exercised release lifecycle:** versioned data, MLflow provenance,
-  quality-gated promotion, rejected regression and audited rollback, with
-  inspectable decisions and regression checks.
-
-The reported scores measure development-validation performance; independent-match
-accuracy remains a separate milestone.
 
 ## See the system in action
 
@@ -61,6 +47,104 @@ intervals that actually support them.
 The [media brief](docs/demo/spurs-kings-media-brief.md) specifies formats,
 storyboard, captions and selection criteria. Existing
 [reviewed examples](docs/demo/evidence.md) document evidence available before this capture.
+
+## Try the viewer
+
+Docker is enough to explore the included **synthetic, scripted sample**.
+It requires no GPU, private dataset or model download.
+
+```bash
+git clone https://github.com/ErwanMouras/basket-ai-analysis.git
+cd basket-ai-analysis
+docker compose up --build -d viewer
+```
+
+Open **http://127.0.0.1:8766**. Stop with `docker compose down`.
+The sample demonstrates the interface and missing-data states; it contains no
+learned predictions or NBA footage. [Sample contents](examples/demo/README.md).
+
+<details>
+<summary>Existing synthetic interface preview</summary>
+
+![Synthetic scripted sample showing playback and overlay controls](imagesReadMe/viewer-2026-10-27-playback.png)
+
+This existing image shows the portable sample. The planned Spurs–Kings media
+will show the completed real-inference run.
+
+</details>
+
+## Run analyses and checks
+
+Inference requires compatible local checkpoints and input footage. The
+[pipeline guide](pipeline/README.md) documents model installation, CPU/CUDA
+environments and configuration. Missing weights are installed explicitly before
+analysis. For the SAM + YOLO26L studio recipe, the selected ball checkpoint must
+match the configured SHA-256.
+
+The Makefile provides the main entry points. `make help` lists the available
+commands. By default, viewer commands use `.venv/bin/python` and analysis/checks
+use `.venv-players/bin/python`; override `PYTHON` or `PLAYERS_PYTHON` to use another
+environment.
+
+### Analyze footage
+
+With those assets installed:
+
+```bash
+make analyze-video VIDEO=/path/to/clip.mp4 OUTPUT=runs/analysis/example \
+  ANALYSIS_CONFIG=configs/segmentation/studio-sam-yolo26l-ball.yaml \
+  ROSTER=/path/to/roster.json
+make view-analysis
+```
+
+Open **http://127.0.0.1:8765**. Use a new output directory for each analysis.
+The hybrid backend accepts analysis without `ROSTER`; native CUDA requires one.
+The [pipeline guide](pipeline/README.md) also describes the native backend's
+additional dependencies and execution-policy configuration.
+
+### Run checks
+
+In the configured players environment, run the offline suites with:
+
+```bash
+make check-poc CHECK_OUTPUT=runs/checks/my-change
+```
+
+Run JavaScript unit tests and browser checks after installing their dependencies:
+
+```bash
+npm --prefix viewer ci
+npm --prefix viewer test
+node viewer/node_modules/playwright/cli.js install chromium
+npm --prefix viewer run test:browser
+```
+
+The sample viewer must be running on port 8766 for browser checks. The
+[CI workflow](.github/workflows/players.yml) provides the complete validation setup.
+
+### More Makefile commands
+
+| Command | Purpose |
+| --- | --- |
+| `make help` | List analysis, annotation, training, evaluation and release commands |
+| `make demo` | Build and start the Docker sample viewer on port 8766 |
+| `make demo-native` | Serve the included sample with local Python on port 8766 |
+| `make test-analysis` | Run the pipeline regression suite in the players environment |
+| `make bundle-models MODEL_BUNDLE=release/models` | Package the configured local inference assets |
+| `make verify-model-bundle MODEL_BUNDLE=release/models` | Verify the packaged assets and their hashes |
+
+The [release guide](docs/EVALUATION_AND_RELEASE.md) documents model packaging and
+container inference; the [Makefile](Makefile) contains the complete target list.
+
+## Explore the implementation
+
+| Area | Start here |
+| --- | --- |
+| Pipeline, native CUDA and output contracts | [Pipeline guide](pipeline/README.md) · [CUDA source](pipeline/cuda/) |
+| Training, annotation and model evaluation | [People](training/players/README.md) · [Training](training/players/TRAINING.md) · [Ball evaluation](training/ball/EVALUATION.md) |
+| Geometry, masks and identity | [Court](training/court/README.md) · [Segmentation](training/segmentation/README.md) · [Jersey OCR](training/jersey/README.md) |
+| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Release guide](docs/EVALUATION_AND_RELEASE.md) |
+| Product behavior and presentation | [Viewer](viewer/README.md) · [Media brief](docs/demo/spurs-kings-media-brief.md) |
 
 ## Measured results
 
@@ -163,7 +247,9 @@ arithmetic rejected at runtime. It currently requires the supported YOLO,
 SAM box-prompt and explicit-roster configuration on one CUDA device.
 
 The native path includes a CUDA execution implementation of the pinned RTMPose
-ONNX graph, CUDA streams, captured model calls and fused numerical kernels.
+ONNX graph, CUDA streams and captured model calls. Custom GPU kernels written
+with **Triton**, a Python-like GPU programming language and compiler, keep tracking
+and geometry computations on the GPU.
 Progress covers postprocessing and integrity checks as well as video inference.
 Resume retains complete camera segments and replays the final segment to
 reconstruct state. [Execution policies, setup and resume](pipeline/README.md).
@@ -203,94 +289,26 @@ inference. [Recorded lifecycle](reports/POC_DELIVERY_2026-10-18.md).
 The [release guide](docs/EVALUATION_AND_RELEASE.md) covers reproduction,
 quality gates, registry operations and rollback.
 
-## Validation that reaches the interface
+## Testing and reliability
 
-Validation snapshot: [PR #9](https://github.com/ErwanMouras/basket-ai-analysis/pull/9),
-**28 October 2026**.
+Checks cover numerical behavior, generated artifacts and the browser workflows
+used to inspect an analysis.
 
-| Check | Recorded outcome |
-| --- | --- |
-| Python regression suites in CUDA environment | **565 passed, 28 optional tests skipped**; all 141 pipeline tests passed |
-| Same suites in CPU environment | **514 passed, 79 skipped**, including CUDA-only tests |
-| JavaScript | **31 unit tests passed**, plus syntax checks |
-| Chromium | **Seven suites passed**: navigation, maps, scoreboard, shots, player review, team shots and team heatmaps |
-| Native CUDA integration | 30 real-video frames completed with all six capabilities; source timestamp/ID/hash checks passed, zero CPU tensor calculations or fallback events; recomputed statistics matched |
-| Model implementation parity | Native RTMPose matched the pinned ONNX reference; maximum observed absolute output error below **3 × 10⁻⁶** on the checked input |
-| Packaging and CI | Viewer Docker build, imports, assets, sample API/video playback and GitHub CPU/browser checks passed |
+- **Pipeline correctness:** CPU/CUDA regression tests, numerical comparisons
+  with reference implementations, and timestamp, identity and artifact-integrity
+  checks on real-video runs.
+- **Viewer behavior:** playback, frame stepping, synchronized overlays, shot
+  review and maps, with browser checks for responsive layouts, keyboard use,
+  accessibility, localization and delayed responses.
+- **Reproducible checks:** GitHub Actions runs offline regression and Chromium
+  suites, builds the viewer Docker image and verifies its imports, assets and
+  public sample. CUDA-specific tests and real-video checks also run locally.
 
-Browser suites include responsive layouts, keyboard use, accessibility,
-localization and delayed-response handling. The offline runner disables real
-training integrations. CUDA integration and parity checks establish execution
-correctness on the checked cases; full-match accuracy needs reviewed labels.
-
-## Try the viewer
-
-Docker is enough to explore the included **synthetic, scripted sample**.
-It requires no GPU, private dataset or model download.
-
-```bash
-git clone https://github.com/ErwanMouras/basket-ai-analysis.git
-cd basket-ai-analysis
-docker compose up --build -d viewer
-```
-
-Open **http://127.0.0.1:8766**. Stop with `docker compose down`.
-The sample demonstrates the interface and missing-data states; it contains no
-learned predictions or NBA footage. [Sample contents](examples/demo/README.md).
-
-<details>
-<summary>Existing synthetic interface preview</summary>
-
-![Synthetic scripted sample showing playback and overlay controls](imagesReadMe/viewer-2026-10-27-playback.png)
-
-This existing image shows the portable sample. The planned Spurs–Kings media
-will show the completed real-inference run.
-
-</details>
-
-<details>
-<summary>Analyze your own footage and run the checks</summary>
-
-Inference requires compatible local checkpoints and input footage. The
-[pipeline guide](pipeline/README.md) documents model installation, CPU/CUDA
-environments and configuration. Missing weights are installed explicitly before
-analysis. For the SAM + YOLO26L studio recipe, the selected ball checkpoint must
-match the configured SHA-256.
-
-With those assets installed:
-
-```bash
-make analyze-video VIDEO=/path/to/clip.mp4 OUTPUT=runs/analysis/example \
-  ANALYSIS_CONFIG=configs/segmentation/studio-sam-yolo26l-ball.yaml \
-  ROSTER=/path/to/roster.json
-make view-analysis
-```
-
-Open **http://127.0.0.1:8765**. Use a new output directory for each analysis.
-The hybrid backend accepts analysis without `ROSTER`; native CUDA requires one.
-The [pipeline guide](pipeline/README.md) also describes the native backend's
-additional dependencies and execution-policy configuration.
-
-In the configured players environment, run the offline suites with:
-
-```bash
-make check-poc CHECK_OUTPUT=runs/checks/my-change
-```
-
-Run browser checks against the synthetic viewer after installing their dependencies:
-
-```bash
-npm --prefix viewer ci
-node viewer/node_modules/playwright/cli.js install chromium
-npm --prefix viewer run test:browser
-```
-
-The sample viewer must be running on port 8766. The
-[CI workflow](.github/workflows/players.yml) provides the complete validation setup.
-Container inference and model-bundle commands are in the
-[release guide](docs/EVALUATION_AND_RELEASE.md).
-
-</details>
+See the [CI runs](https://github.com/ErwanMouras/basket-ai-analysis/actions/workflows/players.yml),
+[release validation report](reports/POC_DELIVERY_2026-10-18.md) and
+[CUDA refinement audit](reports/sac-sas-identity-audit-2026-10-28/COLORS.md)
+for detailed evidence. These checks establish technical reliability on the tested
+cases; model accuracy requires separate evaluation against reviewed annotations.
 
 ## Current scope and evaluation priorities
 
@@ -310,16 +328,6 @@ movement is unmeasured. Ball positions remain in image coordinates. Shot events
 are probable/candidate proposals, with made/missed outcomes left unassigned.
 The [gold evaluator](mlops/gold.py) supports tracking, identity and geometric
 checks; independent reviewed annotations are still needed to publish those scores.
-
-## Explore the implementation
-
-| Area | Start here |
-| --- | --- |
-| Pipeline, native CUDA and output contracts | [Pipeline guide](pipeline/README.md) · [CUDA source](pipeline/cuda/) |
-| Training, annotation and model evaluation | [People](training/players/README.md) · [Training](training/players/TRAINING.md) · [Ball evaluation](training/ball/EVALUATION.md) |
-| Geometry, masks and identity | [Court](training/court/README.md) · [Segmentation](training/segmentation/README.md) · [Jersey OCR](training/jersey/README.md) |
-| Data and release operations | [Data](docs/DATA.md) · [Registry](training/players/PIPELINE.md) · [Release guide](docs/EVALUATION_AND_RELEASE.md) |
-| Product behavior and presentation | [Viewer](viewer/README.md) · [Media brief](docs/demo/spurs-kings-media-brief.md) |
 
 ## Author and foundations
 
