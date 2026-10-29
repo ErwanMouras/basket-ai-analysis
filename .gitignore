@@ -13,6 +13,13 @@ htmlcov/
 .env.*
 !.env.example
 
+# DVC is kept local while its setup is unavailable
+.dvc/
+.dvcignore
+*.dvc
+dvc.yaml
+dvc.lock
+
 *.mp4
 *.avi
 *.mov
